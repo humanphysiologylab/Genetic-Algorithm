@@ -23,7 +23,7 @@ The folder also contains an example of MPI job script file (`snode.sh`) that can
     Smirnov DN, Belyakova GA, Syunyaev RA, Gusev OA, Deviatiiarov RM, Efimov I “Personalized ionic models of cardiomyocytes on the basis of molecular data and genetic algorithms” in Biomembranes 2018, Dolgoprudny, Russia, Oct 2018.
 
 ```
-@misc{cardio_2017_1156085,
+@misc{genetic_algorithm_2018,
   author       = {Smirnov DN, Belyakova GA, Syunyaev RA, Gusev OA, Deviatiiarov RM, Efimov I},
   title        = {Personalized ionic models of cardiomyocytes on the basis of molecular data and genetic algorithms},
   journal      = {J Bioenerg Biomembr}
