@@ -32,7 +32,7 @@ extern void fitness_function(double * , double *, float *, float *, int *, doubl
 extern void tournament_selection(int *, double *, struct State *, struct State *, int, int);
 extern void sbx_crossover(double *, double *, int *, double *, double *, int, int);
 extern void cauchy_mutation(double *, double *, double *, double *, int, int);
-extern void writing_to_output_files(FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, double *, int *,  double , double *, int, int, double *, int, int, int, struct State *, int*, double *, double *, double, double, int *, int);
+extern void writing_to_output_files(FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, double *, int *,  double , double *, int, int, double *, int, int, int, struct State *, int*, double *, double *, float *, float *, int, int *, int);
 
 
 void scanf_baseline(int j0, int j1, FILE *ff, double *AP_control){
@@ -367,10 +367,10 @@ while (cntr < gs.generations) {
        printf("\n\n");
        fflush(stdout);
 
-       scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
-       scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
+       //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
+       //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
 
-       writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average, &next_generation[elite_index_array[0]*gs.number_genes+gs.number_genes], gs.number_genes, gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.recording_frequency, elite_state, CL, AP_current, AP_control, scaling_factor, scaling_shift, TIME, elite_index_array[0]*(time_sum));
+       writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average, &next_generation[elite_index_array[0]*gs.number_genes+gs.number_genes], gs.number_genes, gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor, best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0]*(time_sum));
 
        /*Genetic Operators*/
        int mpool[gs.number_organisms];
@@ -460,6 +460,7 @@ else
 			  }
         t_current = 0;
 		}
+    
     MPI_Send(AP_current, (time_sum)*gs.number_organisms/size, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
     MPI_Send(state_struct, gs.number_baselines*gs.number_organisms/size, my_MPI_struct, 0, 3, MPI_COMM_WORLD);
     MPI_Send(after_mut, gs.number_genes*gs.number_organisms/size, MPI_DOUBLE, 0, 8, MPI_COMM_WORLD);

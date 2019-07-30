@@ -53,13 +53,6 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
     else{
         beta = (XY * X1 - Y1 * XX)/(X1 * X1 - ones * XX);
         alpha = (Y1 - beta * ones)/X1;
-        
-        if (alpha < minimal_amplitude)
-        {
-            alpha = 100.0;
-            beta = (Y1 - alpha * X1)/ones;
-        }
-        
     }
     
     points_after = 0;

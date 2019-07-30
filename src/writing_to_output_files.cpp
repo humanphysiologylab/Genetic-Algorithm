@@ -3,7 +3,7 @@
 
 #include "ord_model/consts.h"
 
-void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point, FILE *text, FILE *sd, FILE *ap_best, double *SD, int *SD_index, double average, double *best_parameters, int NUMBER_GENES, int NUMBER_ORGANISMS, double *next_generation, int cntr, int recording_frequency, int NUMBER_BASELINES, struct State *elite_state, int *CL, double *AP_current, double *AP_control,double scaling_factor, double scaling_shift, int *TIME, int time_index){
+void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point, FILE *text, FILE *sd, FILE *ap_best, double *SD, int *SD_index, double average, double *best_parameters, int NUMBER_GENES, int NUMBER_ORGANISMS, double *next_generation, int cntr, int recording_frequency, int NUMBER_BASELINES, struct State *elite_state, int *CL, double *AP_current, double *AP_control, float *best_scaling_factor, float *best_scaling_shift, int elite_index, int *TIME, int time_index){
     
     int i,j,t, baseline_counter;
     double best_organism_ap;
@@ -48,11 +48,14 @@ void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point
     }
     
     // 7. AP of the best organism
-    // Best organism in first column, rescaled baseline in the second.
+    // Best organism is in first column, rescaled baseline is in the second.
     t = 0;
+    double scaling_factor, scaling_shift;
     for(baseline_counter=0; baseline_counter<NUMBER_BASELINES; baseline_counter++)
     {
         for (i=0; i<TIME[baseline_counter]; i++){
+            scaling_factor = best_scaling_factor[baseline_counter+NUMBER_BASELINES*elite_index];
+            scaling_shift = best_scaling_shift[baseline_counter+NUMBER_BASELINES*elite_index];
             best_organism_ap = AP_current[time_index+t+i];
             fprintf(ap_best,"%f\t%f\n", best_organism_ap, AP_control[i+t]*scaling_factor+scaling_shift);
         }
