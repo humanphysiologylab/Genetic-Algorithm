@@ -22,4 +22,4 @@ src/ord_model/consts.cpp
 )
 add_executable(ga ${SOURCE_FILES})
 
-target_link_libraries(ga ${MPI_C_LIBRARIES})
+target_link_libraries(ga ${MPI_CXX_LIBRARIES})
