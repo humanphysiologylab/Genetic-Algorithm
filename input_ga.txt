@@ -9,7 +9,7 @@
 27
 
 # Number of generations
-15
+10
 
 # Parameters variation range
 # Example: double, lower bound, upper bound

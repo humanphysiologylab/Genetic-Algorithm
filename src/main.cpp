@@ -367,10 +367,7 @@ while (cntr < gs.generations) {
        printf("\n\n");
        fflush(stdout);
 
-       //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
-       //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
-
-       writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average, &next_generation[elite_index_array[0]*gs.number_genes+gs.number_genes], gs.number_genes, gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor, best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0]*(time_sum));
+       writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average, &next_generation[elite_index_array[0]*gs.number_genes], gs.number_genes, gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor, best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0]*(time_sum));
 
        /*Genetic Operators*/
        int mpool[gs.number_organisms];
@@ -384,7 +381,7 @@ while (cntr < gs.generations) {
        for(i=1;i<size;i++)
        {
             MPI_Isend(&after_mut[gs.number_organisms*gs.number_genes/size*(i)], gs.number_organisms*gs.number_genes/size, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &reqs[0]);
-	          MPI_Isend(&state_struct[gs.number_baselines*gs.number_organisms/size*(i)], gs.number_organisms*gs.number_baselines/size, my_MPI_struct, i, 2, MPI_COMM_WORLD, &reqs[1]);
+            MPI_Isend(&state_struct[gs.number_baselines*gs.number_organisms/size*(i)], gs.number_organisms*gs.number_baselines/size, my_MPI_struct, i, 2, MPI_COMM_WORLD, &reqs[1]);
        }
        for (i = 0; i < gs.number_organisms/size; i++)
        {
@@ -438,7 +435,7 @@ while (cntr < gs.generations) {
        {
             if (SD[i]>elite_array[num]){
                 for (j=0;j<gs.number_genes;j++) after_mut[SD_index[i] * gs.number_genes + j] = elite_organisms[num * gs.number_genes + j];
-                for (j=0;j<gs.number_baselines;j++) state_struct[SD_index[i] * gs.number_genes + j] = elite_state[num * gs.number_baselines + j];
+                for (j=0;j<gs.number_baselines;j++) state_struct[SD_index[i] * gs.number_baselines + j] = elite_state[num * gs.number_baselines + j];
             }
             num+=1;
        }

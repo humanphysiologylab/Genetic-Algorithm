@@ -40,19 +40,30 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
     int ones;
     double beta, alpha;
     
-    int voltage_border = -200; // start point (in mV) for SD calculation
-    int minimal_amplitude = 80;
+    int voltage_border = -200;          // start point (in mV) for SD calculation
+    int minimal_amplitude = 80;         // mV
+    int minimal_rest_potential = -80;   // mV
     sd = 0;
     ss = 0;
-        
+    
     scalar_multiplication(AP_control, AP_current, length, &XY, &X1, &Y1, &XX, &ones, voltage_border);
     if ((X1 * X1 - ones * XX) == 0){
-        alpha = 100.0;
+        alpha = minimal_amplitude;
         beta = (Y1 - alpha * X1)/ones;
     }
     else{
         beta = (XY * X1 - Y1 * XX)/(X1 * X1 - ones * XX);
         alpha = (Y1 - beta * ones)/X1;
+        
+        if (alpha < minimal_amplitude){
+            alpha = minimal_amplitude;
+            beta = (Y1 - alpha * X1)/ones;
+        }
+        
+    }
+    if ((AP_control[0] * alpha + beta) > minimal_rest_potential){
+        alpha = minimal_amplitude;
+        beta = minimal_rest_potential - AP_control[0]*alpha;
     }
     
     points_after = 0;
@@ -69,7 +80,7 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
     
     Variance = sqrt(sd/(ss));
     
-        
+    
     *best_scaling_factor = alpha;
     *best_scaling_shift = beta;
     
