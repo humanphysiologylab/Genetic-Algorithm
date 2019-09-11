@@ -40,35 +40,60 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
     int ones;
     double beta, alpha;
     
-    int voltage_border = -200; // start point (in mV) for SD calculation
-    int minimal_amplitude = 80;
+    int voltage_border = -20;          // start point (in mV) for SD calculation
+    int minimal_amplitude = 80;         // mV
+    int minimal_rest_potential = -60;   // mV
+
+    int maximal_rest_potential = -90;   // mV
     sd = 0;
     ss = 0;
         
     scalar_multiplication(AP_control, AP_current, length, &XY, &X1, &Y1, &XX, &ones, voltage_border);
-    if ((X1 * X1 - ones * XX) == 0){
-        alpha = 100.0;
-        beta = (Y1 - alpha * X1)/ones;
-    }
-    else{
-        beta = (XY * X1 - Y1 * XX)/(X1 * X1 - ones * XX);
-        alpha = (Y1 - beta * ones)/X1;
-    }
-    
-    points_after = 0;
-    for (s = 0; s<length; s++)
+   
+    if(XX!=0)
     {
-        if ((AP_current[s] > voltage_border)||(points_after == 1)){
-            points_after = 1;
-            AP_control_scaled = AP_control[s] * alpha + beta;
-            diff_between_potentials = AP_control_scaled-AP_current[s];
-            sd += diff_between_potentials * diff_between_potentials;
-            ss+=1;
-        }
+    	beta = (XY * X1 - Y1 * XX)/(X1 * X1 - ones * XX);
+   	alpha = (XY - beta * X1)/XX;
+/*	if (alpha < minimal_amplitude){
+            alpha = minimal_amplitude;
+            beta = (Y1 - alpha * X1)/ones;
+    	}*/
+        
+    
+    	if ((AP_control[0] * alpha + beta) > minimal_rest_potential){
+ 		beta = minimal_rest_potential;
+        	alpha = (XY - beta * X1)/XX;
+    	}
+	if((AP_control[0] * alpha + beta) < maximal_rest_potential)
+    	{
+        	beta = maximal_rest_potential;
+        	alpha = (XY - beta * X1)/XX;
+    	}
+	if (alpha < minimal_amplitude) alpha = minimal_amplitude;
+
+        points_after = 0;
+   	for (s = 0; s<length; s++)
+   	{
+       		if ((AP_current[s] > voltage_border)||(points_after == 1)){
+        		points_after = 1;
+          		AP_control_scaled = AP_control[s] * alpha + beta;
+          		diff_between_potentials = AP_control_scaled-AP_current[s];
+          		sd += diff_between_potentials * diff_between_potentials;
+          		ss+=1;
+        	}
+    	}
+    
+    	Variance = sqrt(sd/(ss));
+    }
+    else
+    {
+	alpha=0;
+	beta=0;
+	Variance=9e37;
+
     }
     
-    Variance = sqrt(sd/(ss));
-    
+
         
     *best_scaling_factor = alpha;
     *best_scaling_shift = beta;

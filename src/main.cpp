@@ -21,11 +21,12 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string>
+#include <fenv.h>
 
 #include "ga.h"
 #include "ord_model/consts.h"
 
-extern int action_potential(struct State *initial_state, double *, double*, float, float, const char *, int, int, int, int, int);
+extern int action_potential(struct State *initial_state, double *, double*, float, float, int, int, int, int, int);
 
 extern void initial_population(double *, double *, double *, struct State *, int, int, int, int);
 extern void fitness_function(double * , double *, float *, float *, int *, double *, int *, int, int, int);
@@ -101,7 +102,9 @@ static char* read_line(char *pcBuf, int iMaxSize, FILE *fStream){
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2){printf("Error! GA input file required! \n"); exit(-1);}
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+	
+	if (argc != 2){printf("Error! GA input file required! \n"); exit(-1);}
 
     start1 = time(NULL);
     MPI_Init(&argc,&argv);
@@ -279,7 +282,7 @@ int main(int argc, char *argv[])
 	      {
 		        for(baseline_counter=0; baseline_counter<gs.number_baselines; baseline_counter++)
 		        {
-		 	          action_potential(&state_struct[baseline_counter+i*gs.number_baselines], &next_generation[i*gs.number_genes], &AP_current[t_current+i*(time_sum)], CL[baseline_counter], IA[baseline_counter], statedat_file_name[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
+		 	          action_potential(&state_struct[baseline_counter+i*gs.number_baselines], &next_generation[i*gs.number_genes], &AP_current[t_current+i*(time_sum)], CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
                 t_current += TIME[baseline_counter];
 		        }
             t_current = 0;
@@ -300,7 +303,7 @@ int main(int argc, char *argv[])
         {
             for(baseline_counter=0; baseline_counter<gs.number_baselines; baseline_counter++)
             {
-		 	          action_potential(&state_struct[baseline_counter+i*gs.number_baselines], &next_generation[i*gs.number_genes],&AP_current[t_current+i*(time_sum)], CL[baseline_counter], IA[baseline_counter], statedat_file_name[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
+		 	          action_potential(&state_struct[baseline_counter+i*gs.number_baselines], &next_generation[i*gs.number_genes],&AP_current[t_current+i*(time_sum)], CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
                 t_current += TIME[baseline_counter];
             }
             t_current = 0;
@@ -370,7 +373,7 @@ while (cntr < gs.generations) {
        //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
        //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
 
-       writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average, &next_generation[elite_index_array[0]*gs.number_genes+gs.number_genes], gs.number_genes, gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor, best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0]*(time_sum));
+       writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average, &next_generation[elite_index_array[0]*gs.number_genes], gs.number_genes, gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor, best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0]*(time_sum));
 
        /*Genetic Operators*/
        int mpool[gs.number_organisms];
@@ -384,13 +387,13 @@ while (cntr < gs.generations) {
        for(i=1;i<size;i++)
        {
             MPI_Isend(&after_mut[gs.number_organisms*gs.number_genes/size*(i)], gs.number_organisms*gs.number_genes/size, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &reqs[0]);
-	          MPI_Isend(&state_struct[gs.number_baselines*gs.number_organisms/size*(i)], gs.number_organisms*gs.number_baselines/size, my_MPI_struct, i, 2, MPI_COMM_WORLD, &reqs[1]);
+	    MPI_Isend(&state_struct[gs.number_baselines*gs.number_organisms/size*(i)], gs.number_organisms*gs.number_baselines/size, my_MPI_struct, i, 2, MPI_COMM_WORLD, &reqs[1]);
        }
        for (i = 0; i < gs.number_organisms/size; i++)
        {
             for(baseline_counter=0; baseline_counter<gs.number_baselines;baseline_counter++)
             {
-                  action_potential(&state_struct[baseline_counter+i*gs.number_baselines],&after_mut[i*gs.number_genes],  &AP_current[t_current+i*(time_sum)], CL[baseline_counter], IA[baseline_counter], statedat_file_name[baseline_counter], TIME[baseline_counter],  ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
+                  action_potential(&state_struct[baseline_counter+i*gs.number_baselines],&after_mut[i*gs.number_genes],  &AP_current[t_current+i*(time_sum)], CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],  ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
                   t_current += TIME[baseline_counter];
 
             }
@@ -410,7 +413,6 @@ while (cntr < gs.generations) {
 
 	     /*Elite AP recalculations to get closer to steady state. Note that we suppose number of cores to be more then the number of Elite organisms in this implementation.
 	      * 1 Elite per core.*/
-        t = 0;
         h = 0;
        for (h=1; h<gs.elites; h++)
        {
@@ -421,7 +423,7 @@ while (cntr < gs.generations) {
        t_current = 0;
 	     for(baseline_counter=0; baseline_counter<gs.number_baselines;baseline_counter++)
 	     {
-            action_potential(&elite_state[baseline_counter],&elite_organisms[0], &AP_current[SD_index[gs.number_organisms-gs.elites]*(time_sum)+t_current], CL[baseline_counter], IA[baseline_counter], statedat_file_name[baseline_counter], TIME[baseline_counter],  ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
+            action_potential(&elite_state[baseline_counter],&elite_organisms[0], &AP_current[SD_index[gs.number_organisms-gs.elites]*(time_sum)+t_current], CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],  ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
             t_current += TIME[baseline_counter];
 	     }
 
@@ -438,9 +440,9 @@ while (cntr < gs.generations) {
        {
             if (SD[i]>elite_array[num]){
                 for (j=0;j<gs.number_genes;j++) after_mut[SD_index[i] * gs.number_genes + j] = elite_organisms[num * gs.number_genes + j];
-                for (j=0;j<gs.number_baselines;j++) state_struct[SD_index[i] * gs.number_genes + j] = elite_state[num * gs.number_baselines + j];
-            }
-            num+=1;
+                for (j=0;j<gs.number_baselines;j++) state_struct[SD_index[i] * gs.number_baselines + j] = elite_state[num * gs.number_baselines + j];
+            	num+=1;
+	    }
        }
 
        for (i=0;i<gs.number_organisms;i++)
@@ -455,7 +457,7 @@ else
 		{
 		    for(baseline_counter=0; baseline_counter<gs.number_baselines;baseline_counter++)
 			  {
-		 		     action_potential(&state_struct[baseline_counter+i*gs.number_baselines],&after_mut[i*gs.number_genes], &AP_current[t_current+i*(time_sum)], CL[baseline_counter],IA[baseline_counter], statedat_file_name[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
+		 		     action_potential(&state_struct[baseline_counter+i*gs.number_baselines],&after_mut[i*gs.number_genes], &AP_current[t_current+i*(time_sum)], CL[baseline_counter],IA[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
              t_current += TIME[baseline_counter];
 			  }
         t_current = 0;
@@ -472,7 +474,7 @@ else
 		    t_current = 0;
 		    for(baseline_counter=0; baseline_counter<gs.number_baselines;baseline_counter++)
 		    {
-			       action_potential(&elite_state[baseline_counter],&after_mut[0], &AP_current[t_current], CL[baseline_counter],IA[baseline_counter], statedat_file_name[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
+			       action_potential(&elite_state[baseline_counter],&after_mut[0], &AP_current[t_current], CL[baseline_counter],IA[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
 			       t_current += TIME[baseline_counter];
 		    }
 

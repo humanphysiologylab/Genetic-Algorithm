@@ -40,8 +40,8 @@ void initial_population(double *next_generation, double *left_border, double *ri
             /* Random generation of [Na+]i and [Ca++]nsr concentrations */
             for (j = 0; j < NUMBER_BASELINES; j++)
             {
-                next_generation[(organism+1)*NUMBER_GENES-2*NUMBER_BASELINES+j] = initial_state[j].nai;
-                next_generation[(organism+1)*NUMBER_GENES-NUMBER_BASELINES+j] = initial_state[j].cansr;
+                next_generation[(organism+1)*NUMBER_GENES-2*NUMBER_BASELINES+j] = initial_state[j].Nai;
+                next_generation[(organism+1)*NUMBER_GENES-NUMBER_BASELINES+j] = initial_state[j].CaSR;
             }
         }
     }

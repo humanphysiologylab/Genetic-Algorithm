@@ -17,9 +17,8 @@ src/sbx_crossover.cpp
 src/cauchy_mutation.cpp 
 src/writing_to_output_files.cpp
 src/random_number_generator.cpp
-src/ord_model/main3.cpp
-src/ord_model/consts.cpp
+src/ord_model/atrium.cpp
 )
 add_executable(ga ${SOURCE_FILES})
 
-target_link_libraries(ga ${MPI_C_LIBRARIES})
+target_link_libraries(ga ${MPI_LIBRARIES})
