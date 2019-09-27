@@ -91,13 +91,13 @@ void set_at_consts(struct Const_at *Cat, double* scaling_coefficients)
   Cat->Mgi        = 1.0;                   // (mM)
   Cat->Ki         = 120.0;                 // (mM)
   Cat->Clo        = 150.0;                 // (mM)
-  Cat->Ko         = 5.4;                 // (mM)
+  Cat->Ko         = 4.0;                 // (mM)
   Cat->Nao        = 140.0;                 // (mM)
-  Cat->Cao        = 1.8;                 // (mM)
+  Cat->Cao        = 2.0;                 // (mM)
 
 // Na Transport
   Cat->gNa        = 23.0*scaling_coefficients[3];                  // Conductivity (mS/uF)
-  Cat->gNaB       = 0.597e-3;            // Conductivity (mS/uF)
+  Cat->gNaB       = 0.597e-3*scaling_coefficients[14];            // Conductivity (mS/uF)
   Cat->iNaK       = 1.26*scaling_coefficients[7];//1.8;                 // Current (A/F)
   Cat->KmNaip     = 11.0;                  // Michaelis  ant (mM)
   Cat->KmKo       = 1.5;                 // Michaelis  ant (mM)
@@ -116,24 +116,24 @@ void set_at_consts(struct Const_at *Cat, double* scaling_coefficients)
   Cat->ksat       = 0.27;//0.32;
   Cat->nu         =0.32;// 0.27;
   Cat->KdAct      = 0.384e-3;//1.5*0.15e-3;             // Dissociation  ant (mM)
-  Cat->gCaB       = 6.0643e-4;//5.513e-4;            // (A/F)
+  Cat->gCaB       = 6.0643e-4*scaling_coefficients[15];//5.513e-4;            // (A/F)
 
 
 
 // Cl Currents
   Cat->gClCa      = (0.5*0.109625);   // Conductivity (mS/uF)
-  Cat->gClB       = 9e-3*scaling_coefficients[12];                 // Conductivity (mS/uF)
+  Cat->gClB       = 9e-3*scaling_coefficients[13];                 // Conductivity (mS/uF) 
   Cat->KdClCa     = 0.1;                 // Dissociation  ant(mM)
 
 // K Currents
   Cat->pNaK       = 0.01833;
   Cat->gkp        = 0.002;               // Conductivity (mS/uF)
-  Cat->gksJunc    =0.0035*scaling_coefficients[2];              // Conductivity (mS/uF)
-  Cat->gksSl      =0.0035*scaling_coefficients[2];              // Conductivity (mS/uF)
+  Cat->gksJunc    =10*0.0035*scaling_coefficients[2];//UPSCALED!              // Conductivity (mS/uF)
+  Cat->gksSl      =10*0.0035*scaling_coefficients[2];//UPSCALED!              // Conductivity (mS/uF)
 
   Cat->gto= 0.165*scaling_coefficients[4];              // Conductivity (mS/uF)
-  Cat->gkur=0.045;			// nS/pF
-  Cat->gkr=0.035*scaling_coefficients[1];			// nS/pF
+  Cat->gkur=0.045*scaling_coefficients[12];			// nS/pF
+  Cat->gkr=10*0.035*scaling_coefficients[1];//UPSCALED!			// nS/pF
   Cat->gki=0.0525*scaling_coefficients[0];			//nS/pF
 
 // SR Ca Fluxes
@@ -187,31 +187,48 @@ void set_at_consts(struct Const_at *Cat, double* scaling_coefficients)
   Cat->KonCsqn    = 100.0;
 }
 
-int cabuf(struct State *S, struct State *D,struct Intracellat *Sc, struct Isat *I, struct Jsat *J, struct Const_at *C)
+int cabuf(struct State *S, struct State *D,struct Intracellat *Sc, struct Isat *I, struct Jsat *J, struct Const_at *C, float timeStep)
 {
-   // Cytosolic Ca Buffers Time Derivative
-   D->TnCl  = C->KonTnCl   * S->Cai * (C->BmaxTnClow  - S->TnCl) - C->KoffTnCl * S->TnCl;
-   D->TnChc = C->KonTnChCa * S->Cai * (C->BmaxTnChigh - S->TnChc - S->TnChm) - C->KoffTnChCa * S->TnChc;
+    // Cytosolic Ca Buffers Time Derivative !!!Terrible implicit method realisation here.
+//   D->TnCl  = C->KonTnCl   * S->Cai * (C->BmaxTnClow  - S->TnCl) - C->KoffTnCl * S->TnCl;
+	D->TnCl  = ((S->TnCl  + timeStep*(C->KonTnCl*S->Cai*C->BmaxTnClow))/(1+timeStep*(S->Cai*C->KonTnCl+C->KoffTnCl))-S->TnCl)/timeStep;
+ 
+     
+	D->TnChc = C->KonTnChCa * S->Cai * (C->BmaxTnChigh - S->TnChc - S->TnChm) - C->KoffTnChCa * S->TnChc;
    D->TnChm = C->KonTnChMg * C->Mgi    * (C->BmaxTnChigh - S->TnChc - S->TnChm) - C->KoffTnChMg * S->TnChm;
-   D->CaM   = C->KonCaM    * S->Cai * (C->BmaxCaM     - S->CaM)  - C->KoffCaM * S->CaM;
+//   D->CaM   = C->KonCaM    * S->Cai * (C->BmaxCaM     - S->CaM)  - C->KoffCaM * S->CaM;
+   D->CaM   = ((S->CaM + timeStep*(C->KonCaM*S->Cai*C->BmaxCaM))/(1+timeStep*(S->Cai*C->KonCaM+C->KoffCaM))-S->CaM)/timeStep;
+
    D->Myoc  = C->KonMyoCa  * S->Cai * (C->BmaxMyosin  - S->Myoc  - S->Myom)  - C->KoffMyoCa * S->Myoc;
    D->Myom  = C->KonMyoMg  * C->Mgi    * (C->BmaxMyosin  - S->Myoc  - S->Myom)  - C->KoffMyoMg * S->Myom;
-   D->SRB   = C->KonSR     * S->Cai * (C->BmaxSR      - S->SRB)  - C->KoffSR * S->SRB;
-    
+ //  D->SRB   = C->KonSR     * S->Cai * (C->BmaxSR      - S->SRB)  - C->KoffSR * S->SRB;
+   D->SRB   = ((S->SRB+timeStep*(C->KonSR*S->Cai*C->BmaxSR))/(1+timeStep*(S->Cai*C->KonSR+C->KoffSR))-S->SRB)/timeStep;
+
+
    // Cytosolic Ca Buffers
    J->JCaBCytosol = D->TnCl + D->TnChc + D->TnChm + D->CaM + D->Myoc + D->Myom + D->SRB;
     
    // Junctional and SL Ca Buffers Time Derivative
-   D->SLLj  = C->KonSll * S->CaJ  * (C->BmaxSLlowJ  - S->SLLj)  - C->KoffSll * S->SLLj;
-   D->SLLsl = C->KonSll * S->CaSl * (C->BmaxSLlowS  - S->SLLsl) - C->KoffSll * S->SLLsl;
-   D->SLHj  = C->KonSlh * S->CaJ  * (C->BmaxSLhighJ - S->SLHj)  - C->KoffSlh * S->SLHj;
-   D->SLHsl = C->KonSlh * S->CaSl * (C->BmaxSLhighS - S->SLHsl) - C->KoffSlh * S->SLHsl;
-   // Junctional and SL Ca Buffers
+//   D->SLLj  = C->KonSll * S->CaJ  * (C->BmaxSLlowJ  - S->SLLj)  - C->KoffSll * S->SLLj;
+//   D->SLLsl = C->KonSll * S->CaSl * (C->BmaxSLlowS  - S->SLLsl) - C->KoffSll * S->SLLsl;
+//   D->SLHj  = C->KonSlh * S->CaJ  * (C->BmaxSLhighJ - S->SLHj)  - C->KoffSlh * S->SLHj;
+//   D->SLHsl = C->KonSlh * S->CaSl * (C->BmaxSLhighS - S->SLHsl) - C->KoffSlh * S->SLHsl;
+
+	D->SLLj  = ((S->SLLj  + timeStep*(C->KonSll* S->CaJ*C->BmaxSLlowJ))/(1+timeStep*(S->CaJ*C->KonSll+C->KoffSll))-S->SLLj)/timeStep;
+
+	D->SLLsl = ((S->SLLsl + timeStep*(C->KonSll* S->CaSl*C->BmaxSLlowS))/(1+timeStep*(S->CaSl*C->KonSll+C->KoffSll))-S->SLLsl)/timeStep;
+
+	D->SLHj  =((S->SLHj  + timeStep*(C->KonSlh* S->CaJ*C->BmaxSLhighJ))/(1+timeStep*(S->CaJ*C->KonSlh+C->KoffSlh))-S->SLHj)/timeStep;
+
+	D->SLHsl = ((S->SLHsl + timeStep*(C->KonSlh* S->CaSl*C->BmaxSLhighS))/(1+timeStep*(S->CaSl*C->KonSlh+C->KoffSlh))-S->SLHsl)/timeStep;
+
+
+// Junctional and SL Ca Buffers
     
    J->JCaBJunc = D->SLLj  + D->SLHj;
    J->JCaBSl   = D->SLLsl + D->SLHsl;
     
-    return 0;
+   return 0;
 } 
 double caconcat(struct State *S, struct State *D,struct Intracellat *Sc, struct Isat *I, struct Jsat *J, struct Const_at *C)
 {
@@ -234,23 +251,28 @@ double caconcat(struct State *S, struct State *D,struct Intracellat *Sc, struct 
 }
 
 
-double naconcat(struct State *S, struct State *D,struct Intracellat *Sc, struct Isat *I, struct Jsat *J, struct Const_at *C)
+double naconcat(struct State *S, struct State *D,struct Intracellat *Sc, struct Isat *I, struct Jsat *J, struct Const_at *C, float timeStep)
 {
-    // Total Na Current Calculation in the junctional cleft and the subsarcolemmal space
+     // Total Na Current Calculation in the junctional cleft and the subsarcolemmal space
 
     I->INaTotJunc = I->INaJunc + I->INaBkJunc + 3.0 * I->IncxJunc + 3.0 * I->INaKJunc + I->ICaNaJunc;
 
     I->INaTotSl    = I->INaSl + I->INaBkSl + 3.0 * I->IncxSl + 3.0 * I->INaKSl + I->ICaNaSl;
     
-    // Sodium Buffer Calculation
-    D->NaBj  = C->KonNa * S->NaJ  * (C->BmaxNaJ  - S->NaBj)  - C->KoffNa * S->NaBj;
-    D->NaBSl = C->KonNa * S->NaSl * (C->BmaxNaSl - S->NaBSl) - C->KoffNa * S->NaBSl;
-    
+    // Sodium Buffer Calculation !!!!imlicit method realisation has to be fixed
+//    D->NaBj  = C->KonNa * S->NaJ  * (C->BmaxNaJ  - S->NaBj)  - C->KoffNa * S->NaBj;
+//    D->NaBSl = C->KonNa * S->NaSl * (C->BmaxNaSl - S->NaBSl) - C->KoffNa * S->NaBSl;
+   
+
+    D->NaBj  = ((S->NaBj  + timeStep*(C->KonNa*S->NaJ*C->BmaxNaJ))/(1+timeStep*(S->NaJ*C->KonNa+C->KoffNa))-S->NaBj)/timeStep;
+    D->NaBSl  = ((S->NaBSl  + timeStep*(C->KonNa*S->NaSl*C->BmaxNaSl))/(1+timeStep*(S->NaSl*C->KonNa+C->KoffNa))-S->NaBSl)/timeStep;
+
+
    // Sodium Concentrations Calculation
    D->NaJ  = -I->INaTotJunc * C->Cmem/(C->Vjunc * FRD) + C->JNaJuncSl/C->Vjunc * (S->NaSl - S->NaJ) - D->NaBj;
    D->NaSl = -I->INaTotSl   * C->Cmem/(C->Vsl * FRD)   + C->JNaJuncSl/C->Vsl * (S->NaJ - S->NaSl) + C->JNaSlMyo/C->Vsl * (S->Nai - S->NaSl) - D->NaBSl;
    D-> Nai  = C->JNaSlMyo/C->Vmyo * (S->NaSl - S->Nai);
-   return I->INaTotJunc + I->INaTotSl;
+  return I->INaTotJunc + I->INaTotSl;
 } /** naconcat **/
 
 
@@ -702,7 +724,7 @@ void Y_to_state(struct State *State, double *y)
 
 
 
-double fitotalat(double* y, double *dy, struct Const_at *C){
+double fitotalat(double* y, double *dy, struct Const_at *C, float ht){
   
   
   static struct Jsat Js;
@@ -735,9 +757,9 @@ double fitotalat(double* y, double *dy, struct Const_at *C){
   double Ina=ina(&Stat, &dState, &Scat, &Is, C);
     
   srflux(&Stat, &dState, &Scat, &Is, &Js, C);
-  cabuf(&Stat, &dState, &Scat, &Is, &Js,  C);
+  cabuf(&Stat, &dState, &Scat, &Is, &Js,  C, ht);
   double ICatot=caconcat(&Stat, &dState, &Scat, &Is, &Js, C);
-  double INatot=naconcat(&Stat, &dState, &Scat, &Is, &Js, C);
+  double INatot=naconcat(&Stat, &dState, &Scat, &Is, &Js, C, ht);
 
   Itot = INatot+ICatot+(Is.ItoSlow + Is.ItoFast) + Is.Ikr + Is.Iki - 2.0 * (Is.INaKJunc + Is.INaKSl) + Is.Ikp +
             Is.ICaK+Is.Iks_tot+Is.IClCa+Is.IBgCl+Is.I_kur;
@@ -813,17 +835,17 @@ void Euler(double* Var, double* dVar, double timeStep, int structsize)
 
 
 
-int atrium(double* y,double* dy,struct Const_at *Cat){
+int atrium(double* y,double* dy,struct Const_at *Cat, float ht){
  
     static int first=1;	//for the first call of function
-    fitotalat(y, dy, Cat);
+    fitotalat(y, dy, Cat, ht);
 
     return 0;
 }
 
 int action_potential(struct State *initial_state, double *scaling_coefficients, double *AP, float CL, float amp, int current_time, int iso, int baseline_index, int amount_of_baselines, int amount_of_genes)
 {
-    const double ft = 9 * CL;
+    const double ft = 3 * CL;
 	double t=0;
     double timeStep=1e-3;
 	int cnt=0, Count=0;
@@ -849,23 +871,23 @@ int action_potential(struct State *initial_state, double *scaling_coefficients, 
     for(z=0;z<chain_length;z++)
     {
 		
-    	
 	Initialize_state_at(&Var[STRUCT_SIZE*z], initial_state);
-	
         initial_state->Nai = scaling_coefficients[genes_without_concentrations + baseline_index];
         initial_state->NaSl = scaling_coefficients[genes_without_concentrations + baseline_index];
 	initial_state->NaJ = scaling_coefficients[genes_without_concentrations + baseline_index];
         initial_state->CaSR = scaling_coefficients[genes_without_concentrations + amount_of_baselines + baseline_index];
+    	
+	
     }
 
 
     while (t<=ft)
     {
-	if (t>=ft-CL && t<ft-CL+current_time)
+	if (t>=ft-CL && t<ft-CL+current_time)	//buggy. current time is actually number of lines in the file
             {
                 if (Count%skip==0)
                 {
-                    if (cnt<current_time) AP[cnt] = Var[STRUCT_SIZE*target_cell];
+                    if (cnt<current_time) AP[cnt] =  Var[STRUCT_SIZE*target_cell];
                     cnt+=1;
                 }
                 Count++;
@@ -873,11 +895,11 @@ int action_potential(struct State *initial_state, double *scaling_coefficients, 
 
     	for(z=0;z<chain_length;z++)
     	{
-		atrium(&Var[STRUCT_SIZE*z], &dVar[STRUCT_SIZE*z], &Cat);
+		atrium(&Var[STRUCT_SIZE*z], &dVar[STRUCT_SIZE*z], &Cat,timeStep);
 		Euler(&Var[STRUCT_SIZE*z],&dVar[STRUCT_SIZE*z],timeStep,STRUCT_SIZE);
 	}
 	//STIMULUS
-        if(fmod(t,CL)<DURSTIM) Var[0] -=amp*timeStep;
+       if(fmod(t,CL)<DURSTIM) Var[0] -=amp*timeStep;
 	t=t+timeStep;
     }
 

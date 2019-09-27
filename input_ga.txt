@@ -6,26 +6,30 @@
 40
 
 # Number of optimized parameters 
-27
+30
+#15
 
 # Number of generations
-15
+700
 
 # Parameters variation range
 # Example: double, lower bound, upper bound
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3 
-0.1 3
-0.1 3 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10 
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
 5 12  
 5 12  
 5 12  
@@ -33,34 +37,35 @@
 5 12  
 5 12  
 5 12  
-0.1 7 
-0.1 7 
-0.1 7 
-0.1 7 
-0.1 7 
-0.1 7 
-0.1 7 
+0.05 1.0 
+0.05 1.0 
+0.05 1.0 
+0.05 1.0 
+0.05 1.0
+0.05 1.0
+0.05 1.0 
 
 # Number of baselines
 7
+#1
 
 # Cycle lengths (n = number of baselines)
-217
-225
-250
-300
-500
-1000
-2000
+172
+206
+258
+344
+516
+1032
+2064
 
 # Baselines names (n = number of baselines)
-./baselines/AP_217.txt
-./baselines/AP_225.txt
-./baselines/AP_250.txt
-./baselines/AP_300.txt
-./baselines/AP_500.txt
-./baselines/AP_1000.txt
-./baselines/AP_2000.txt
+./baselines/172.txt
+./baselines/206.txt
+./baselines/258.txt
+./baselines/344.txt
+./baselines/516.txt
+./baselines/1032.txt
+./baselines/2064.txt
 
 # Files with initial states (n = number of baselines)
 ./states/state_217_3000np.dat
@@ -72,13 +77,13 @@
 ./states/state_2000_3000np.dat
 
 # Stimulation current, A/F (n = number of baselines)
--80
--80
--80
--80
--80
--80
--80 
+-40
+-40
+-40
+-40
+-40
+-40
+-40
 
 # ISO (n = number of baselines)
 #	1 - include ISO model
@@ -94,7 +99,7 @@
 # Elitism strategy
 # Number of Elite organisms
 # Note: Number of Elite organisms should be <= than number of CPUs
-3
+4
 
 # Start from control point (0 or 1):
 #	0 - initial parameters random generation	

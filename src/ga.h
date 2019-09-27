@@ -22,6 +22,6 @@ struct GlobalSetup{
 };
 
 
-int i, j, h, baseline_counter, time_sum, c, time_counter, t_current;
+long i, j, h, baseline_counter, time_sum, c, time_counter, t_current;
 
 #endif

@@ -57,12 +57,12 @@ void normalize_baseline(int j0, int j1, double *AP_control)
     for(i=j0;i<j1;i++) AP_control[i]=(AP_control[i]-min)/(max-min);
 }
 
-int time_array(int &time_sum, FILE *f){
+int time_array(long &time_sum, FILE *f){
     int counter = 0;
     char c;
     
     while (!feof(f) && !ferror(f)){
-        if ((c=fgetc(f))=='\n' || c==EOF)
+        if ((c=fgetc(f))=='\n')
             counter++;
     }
     
@@ -235,6 +235,9 @@ int main(int argc, char *argv[])
         fclose(filename);
     }
 
+    double* AP_control;
+    double* AP_current;
+
     if ((AP_control = (double*)malloc(sizeof(double)*(time_sum)))==NULL){puts("The 'AP_control' array isn't created!"); exit(-1);}
     if ((AP_current = (double*)malloc(sizeof(double)*gs.number_organisms*(time_sum)))==NULL){puts("The 'AP_current' array isn't created!"); exit(-1);}
 
@@ -262,7 +265,7 @@ int main(int argc, char *argv[])
         baseline_file[baseline_counter]  = fopen(baseline_file_name[baseline_counter], "r");
         if(!baseline_file[baseline_counter]) {printf("No Baseline file!\n"); exit(-1);}
         scanf_baseline(0, TIME[baseline_counter], baseline_file[baseline_counter], &AP_control[t_current]);
-        normalize_baseline(0, TIME[baseline_counter], &AP_control[t_current]); //rescale baseline from 0 to 1. Max is the time of maximum for baseline.
+//        normalize_baseline(0, TIME[baseline_counter], &AP_control[t_current]); //rescale baseline from 0 to 1. Max is the time of maximum for baseline.
         fclose(baseline_file[baseline_counter]);
         t_current += TIME[baseline_counter];
     }
@@ -283,7 +286,7 @@ int main(int argc, char *argv[])
 		        for(baseline_counter=0; baseline_counter<gs.number_baselines; baseline_counter++)
 		        {
 		 	          action_potential(&state_struct[baseline_counter+i*gs.number_baselines], &next_generation[i*gs.number_genes], &AP_current[t_current+i*(time_sum)], CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter], ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
-                t_current += TIME[baseline_counter];
+		                t_current += TIME[baseline_counter];
 		        }
             t_current = 0;
 	      }

@@ -48,16 +48,16 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
     sd = 0;
     ss = 0;
         
-    scalar_multiplication(AP_control, AP_current, length, &XY, &X1, &Y1, &XX, &ones, voltage_border);
+//    scalar_multiplication(AP_control, AP_current, length, &XY, &X1, &Y1, &XX, &ones, voltage_border);
    
-    if(XX!=0)
+/*    if(XX!=0)
     {
     	beta = (XY * X1 - Y1 * XX)/(X1 * X1 - ones * XX);
    	alpha = (XY - beta * X1)/XX;
-/*	if (alpha < minimal_amplitude){
-            alpha = minimal_amplitude;
-            beta = (Y1 - alpha * X1)/ones;
-    	}*/
+//	if (alpha < minimal_amplitude){
+//            alpha = minimal_amplitude;
+//            beta = (Y1 - alpha * X1)/ones;
+//    	}
         
     
     	if ((AP_control[0] * alpha + beta) > minimal_rest_potential){
@@ -69,34 +69,39 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
         	beta = maximal_rest_potential;
         	alpha = (XY - beta * X1)/XX;
     	}
-	if (alpha < minimal_amplitude) alpha = minimal_amplitude;
+	if (alpha < minimal_amplitude) alpha = minimal_amplitude;*/
 
         points_after = 0;
    	for (s = 0; s<length; s++)
    	{
-       		if ((AP_current[s] > voltage_border)||(points_after == 1)){
-        		points_after = 1;
-          		AP_control_scaled = AP_control[s] * alpha + beta;
-          		diff_between_potentials = AP_control_scaled-AP_current[s];
+//       		if ((AP_current[s] > voltage_border)||(points_after == 1)){
+//        		points_after = 1;
+//          		AP_control_scaled = AP_control[s] * alpha + beta;
+         		diff_between_potentials = AP_control[s]-AP_current[s];
+			if ((AP_current[s])==0.0)
+			{
+				printf("AP_current[%d] is off\n",s);
+				getc(stdin);
+			}
           		sd += diff_between_potentials * diff_between_potentials;
           		ss+=1;
-        	}
+ //       	}
     	}
     
     	Variance = sqrt(sd/(ss));
-    }
+/*    }
     else
     {
 	alpha=0;
 	beta=0;
 	Variance=9e37;
 
-    }
+    }*/
     
 
         
-    *best_scaling_factor = alpha;
-    *best_scaling_shift = beta;
+    *best_scaling_factor = 1;//alpha;
+    *best_scaling_shift = 0; //beta;
     
     return Variance;
 }
