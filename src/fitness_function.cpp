@@ -30,8 +30,50 @@ void scalar_multiplication(double* AP_control, double* AP_current, int length, d
     }
 }
 
-float SD_calculation(double* AP_control, double* AP_current, float* best_scaling_factor, float* best_scaling_shift, int length)
-{
+
+float calculate_half_height(double *array, int length) {
+
+    float min = 1e10, max = -1e10;
+
+    for (int i = 0; i < length; ++i) {
+        if (array[i] < min) {
+            min = array[i];
+        }
+        if (array[i] > max) {
+            max = array[i];
+        }
+    }
+
+    return (min + max) / 2;
+}
+
+
+int calculate_time_shift(double *array_reference, double *array_moving, int length) {
+
+    float half_height_ref = calculate_half_height(array_reference, length);
+    float half_height_mov = calculate_half_height(array_moving, length);
+
+    int half_height_ref_index = -1;
+    int half_height_mov_index = -1;
+
+    for (int i = 0; i < length; ++i) {
+        if ((half_height_ref_index == -1) && (array_reference[i] > half_height_ref)) {
+            half_height_ref_index = i;
+        }
+        if ((half_height_mov_index == -1) && (array_moving[i] > half_height_mov)) {
+            half_height_mov_index = i;
+        }
+        if ((half_height_mov_index != -1) && (half_height_ref_index != -1)) {
+            break;
+        }
+    }
+
+    return half_height_mov_index - half_height_ref_index;
+}
+
+float SD_calculation(double *AP_control, double *AP_current, float *best_scaling_factor, float *best_scaling_shift,
+                     int *best_time_shift, int length) {
+
     double Variance;
     double AP_control_scaled, sd;
     double diff_between_potentials;
@@ -39,73 +81,83 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
     double XY, X1, Y1, XX;
     int ones;
     double beta, alpha;
-    
+
     int voltage_border = -20;          // start point (in mV) for SD calculation
     int minimal_amplitude = 80;         // mV
-    int minimal_rest_potential = -60;   // mV
+    int minimal_rest_potential = -70;   // mV
 
     int maximal_rest_potential = -90;   // mV
     sd = 0;
     ss = 0;
-        
-    scalar_multiplication(AP_control, AP_current, length, &XY, &X1, &Y1, &XX, &ones, voltage_border);
-   
-    if(XX!=0)
-    {
-    	beta = (XY * X1 - Y1 * XX)/(X1 * X1 - ones * XX);
-   	alpha = (XY - beta * X1)/XX;
-/*	if (alpha < minimal_amplitude){
+
+    int time_shift = calculate_time_shift(AP_current, AP_control, length);
+
+    int length_truncated = length;
+    double *AP_control_shifted = AP_control;
+    double *AP_current_shifted = AP_current;
+
+    if (time_shift < 0) {
+        AP_current_shifted = AP_current - time_shift;
+        length_truncated = length + time_shift;
+    } else {
+        AP_control_shifted = AP_control + time_shift;
+        length_truncated = length - time_shift;
+    }
+
+    scalar_multiplication(AP_control_shifted, AP_current_shifted, length_truncated,
+                          &XY, &X1, &Y1, &XX, &ones, voltage_border);
+
+    if (XX != 0) {
+        beta = (XY * X1 - Y1 * XX) / (X1 * X1 - ones * XX);
+        alpha = (XY - beta * X1) / XX;
+
+        if ((AP_control_shifted[length_truncated - 1] * alpha + beta) > minimal_rest_potential) {
+            beta = minimal_rest_potential;
+            alpha = (XY - beta * X1) / XX;
+        }
+
+        if ((AP_control_shifted[length_truncated - 1] * alpha + beta) < maximal_rest_potential) {
+            beta = maximal_rest_potential;
+            alpha = (XY - beta * X1) / XX;
+        }
+
+        if (alpha < minimal_amplitude){
             alpha = minimal_amplitude;
-            beta = (Y1 - alpha * X1)/ones;
-    	}*/
-        
-    
-    	if ((AP_control[0] * alpha + beta) > minimal_rest_potential){
- 		beta = minimal_rest_potential;
-        	alpha = (XY - beta * X1)/XX;
-    	}
-	if((AP_control[0] * alpha + beta) < maximal_rest_potential)
-    	{
-        	beta = maximal_rest_potential;
-        	alpha = (XY - beta * X1)/XX;
-    	}
-	if (alpha < minimal_amplitude) alpha = minimal_amplitude;
+        }
 
         points_after = 0;
-   	for (s = 0; s<length; s++)
-   	{
-       		if ((AP_current[s] > voltage_border)||(points_after == 1)){
-        		points_after = 1;
-          		AP_control_scaled = AP_control[s] * alpha + beta;
-          		diff_between_potentials = AP_control_scaled-AP_current[s];
-          		sd += diff_between_potentials * diff_between_potentials;
-          		ss+=1;
-        	}
-    	}
-    
-    	Variance = sqrt(sd/(ss));
-    }
-    else
-    {
-	alpha=0;
-	beta=0;
-	Variance=9e37;
+        for (s = 0; s < length_truncated; s++) {
+            if ((AP_current_shifted[s] > voltage_border) || (points_after == 1)) {
+                points_after = 1;
+                AP_control_scaled = AP_control_shifted[s] * alpha + beta;
+                diff_between_potentials = AP_control_scaled - AP_current_shifted[s];
+                sd += diff_between_potentials * diff_between_potentials;
+                ss += 1;
+            }
+        }
 
-    }
-    
+        Variance = sqrt(sd / (ss));
 
-        
+    } else {
+        alpha = 0;
+        beta = 0;
+        Variance = 9e37;
+    }
+
     *best_scaling_factor = alpha;
     *best_scaling_shift = beta;
-    
+    *best_time_shift = time_shift;
+
     return Variance;
 }
+
 
 void create_SD_index(int NUMBER_ORGANISMS, int *SD_index){
     int ll;
     for(ll=0;ll<NUMBER_ORGANISMS;ll++)
         SD_index[ll]=ll;
 }
+
 
 void insert_sort (int NUMBER_ORGANISMS, double *SD, int *SD_index){
     double v, v1;
@@ -127,7 +179,9 @@ void insert_sort (int NUMBER_ORGANISMS, double *SD, int *SD_index){
 }
 
 
-void fitness_function(double* AP_control, double* AP_current, float *best_scaling_factor, float* best_scaling_shift, int *TIME, double *SD, int *SD_index, int NUMBER_ORGANISMS, int NUMBER_BASELINES, int time_sum){
+void fitness_function(double *AP_control, double *AP_current, float *best_scaling_factor, float *best_scaling_shift,
+                      int *best_time_shift, int *TIME, double *SD, int *SD_index, int NUMBER_ORGANISMS,
+                      int NUMBER_BASELINES, int time_sum) {
     int t_current = 0;
     int c, baseline_counter;
     for(c = 0;c < NUMBER_ORGANISMS; c++)
@@ -135,7 +189,11 @@ void fitness_function(double* AP_control, double* AP_current, float *best_scalin
         SD[c]=0;
         for(baseline_counter=0; baseline_counter<NUMBER_BASELINES;baseline_counter++)
         {
-            SD[c]+=SD_calculation(&AP_control[t_current], &AP_current[t_current+c*(time_sum)], &best_scaling_factor[baseline_counter+NUMBER_BASELINES*c], &best_scaling_shift[baseline_counter+NUMBER_BASELINES*c], TIME[baseline_counter]); //Authomatic baseline scaling is implemented.
+            SD[c] += SD_calculation(&AP_control[t_current], &AP_current[t_current + c * (time_sum)],
+                                    &best_scaling_factor[baseline_counter + NUMBER_BASELINES * c],
+                                    &best_scaling_shift[baseline_counter + NUMBER_BASELINES * c],
+                                    &best_time_shift[baseline_counter + NUMBER_BASELINES * c],
+                                    TIME[baseline_counter]); //Authomatic baseline scaling is implemented.
             
             t_current += TIME[baseline_counter];
         }

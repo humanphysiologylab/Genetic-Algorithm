@@ -28,11 +28,13 @@
 extern int action_potential(struct State *initial_state, double *, double*, float, float, const char *, int, int, int, int, int);
 
 extern void initial_population(double *, double *, double *, struct State *, int, int, int, int);
-extern void fitness_function(double * , double *, float *, float *, int *, double *, int *, int, int, int);
+extern void fitness_function(double * , double *, float *, float *, int *, int *, double *, int *, int, int, int);
 extern void tournament_selection(int *, double *, struct State *, struct State *, int, int);
 extern void sbx_crossover(double *, double *, int *, double *, double *, int, int);
 extern void cauchy_mutation(double *, double *, double *, double *, int, int);
-extern void writing_to_output_files(FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, double *, int *,  double , double *, int, int, double *, int, int, int, struct State *, int*, double *, double *, float *, float *, int, int *, int);
+extern void writing_to_output_files(FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, FILE *, double *, int *,  double ,
+                                    double *, int, int, double *, int, int, int, struct State *, int*, double *,
+                                    double *, float *, float *, int *, int, int *, int);
 
 
 void scanf_baseline(int j0, int j1, FILE *ff, double *AP_control){
@@ -61,7 +63,7 @@ int time_array(int &time_sum, FILE *f){
     char c;
     
     while (!feof(f) && !ferror(f)){
-        if ((c=fgetc(f))=='\n' || c==EOF)
+        if ((c=fgetc(f))=='\n')
             counter++;
     }
     
@@ -220,6 +222,7 @@ int main(int argc, char *argv[])
     if ((SD = (double*)malloc(sizeof(double)*gs.number_organisms))==NULL){puts("The 'SD' array isn't created!"); exit(-1);}
     if ((best_scaling_factor = (float*)malloc(sizeof(float)*gs.number_organisms*gs.number_baselines))==NULL){puts("The 'best_scaling_factor' array isn't created!"); exit(-1);}
     if ((best_scaling_shift = (float*)malloc(sizeof(float)*gs.number_organisms*gs.number_baselines))==NULL){puts("The 'best_scaling_shift' array isn't created!"); exit(-1);}
+    if ((best_time_shift = (int*)malloc(sizeof(int)*gs.number_organisms*gs.number_baselines))==NULL){puts("The 'best_time_shift' array isn't created!"); exit(-1);}
     if ((next_generation = (double*)malloc(sizeof(double)*gs.number_organisms*gs.number_genes))==NULL){puts("The 'next_generation' array isn't created!"); exit(-1);}
     if ((after_cross = (double*)malloc(sizeof(double)*gs.number_organisms*gs.number_genes))==NULL){puts("The 'after_cross' array isn't created!"); exit(-1);}
     if ((after_mut = (double*)malloc(sizeof(double)*gs.number_organisms*gs.number_genes))==NULL){puts("The 'after mut' array isn't created!"); exit(-1);}
@@ -319,7 +322,8 @@ while (cntr < gs.generations) {
 
         int SD_index[gs.number_organisms];
 
-        fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME,  SD, SD_index, gs.number_organisms, gs.number_baselines, time_sum);
+        fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, best_time_shift, TIME, SD,
+                         SD_index, gs.number_organisms, gs.number_baselines, time_sum);
 
         /*Save final state of best organism to state.dat to get closer to steady state in the next run.*/
         double elite_array[gs.elites];
@@ -367,7 +371,11 @@ while (cntr < gs.generations) {
        printf("\n\n");
        fflush(stdout);
 
-       writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average, &next_generation[elite_index_array[0]*gs.number_genes], gs.number_genes, gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor, best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0]*(time_sum));
+        writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average,
+                                &next_generation[elite_index_array[0] * gs.number_genes], gs.number_genes,
+                                gs.number_organisms, next_generation, cntr, gs.recording_frequency, gs.number_baselines,
+                                elite_state, CL, AP_current, AP_control, best_scaling_factor, best_scaling_shift,
+                                best_time_shift, elite_index_array[0], TIME, elite_index_array[0] * (time_sum));
 
        /*Genetic Operators*/
        int mpool[gs.number_organisms];
@@ -401,7 +409,8 @@ while (cntr < gs.generations) {
             MPI_Recv(&after_mut[i*gs.number_genes*gs.number_organisms/size], gs.number_genes*gs.number_organisms/size, MPI_DOUBLE, i, 8, MPI_COMM_WORLD, &stats[3]);
         }
 
-       fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, SD, SD_index, gs.number_organisms, gs.number_baselines, time_sum);
+        fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, best_time_shift, TIME, SD,
+                         SD_index, gs.number_organisms, gs.number_baselines, time_sum);
 
        fflush(stdout);
 
