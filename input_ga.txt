@@ -3,14 +3,13 @@
 # Human Physiology Lab, 2019 
 
 # Number of organisms (should be even)
-40
+4
 
 # Number of optimized parameters 
-30
-#15
+26
 
 # Number of generations
-700
+10
 
 # Parameters variation range
 # Example: double, lower bound, upper bound
@@ -26,55 +25,52 @@
 0.001 10 
 0.001 10 
 0.001 10
-0.001 10
-0.001 10
-0.001 10
-0.001 10
 5 12  
 5 12  
 5 12  
 5 12  
 5 12  
-5 12  
-5 12  
-0.05 1.0 
-0.05 1.0 
-0.05 1.0 
-0.05 1.0 
-0.05 1.0
-0.05 1.0
-0.05 1.0 
+5 12
+5 12 
+0.05 2.0
+0.05 2.0
+0.05 2.0
+0.05 2.0
+0.05 2.0
+0.05 2.0
+0.05 2.0
 
 # Number of baselines
 7
-#1
 
 # Cycle lengths (n = number of baselines)
-172
-206
-258
-344
-516
-1032
 2064
+1032
+516
+344
+258
+206
+148
 
 # Baselines names (n = number of baselines)
-./baselines/172.txt
-./baselines/206.txt
-./baselines/258.txt
-./baselines/344.txt
-./baselines/516.txt
-./baselines/1032.txt
-./baselines/2064.txt
+./baselines/AP_2064.txt
+./baselines/AP_1032.txt
+./baselines/AP_516.txt
+./baselines/AP_344.txt
+./baselines/AP_258.txt
+./baselines/AP_206.txt
+./baselines/AP_148.txt
+
 
 # Files with initial states (n = number of baselines)
-./states/state_217_3000np.dat
-./states/state_225_3000np.dat
-./states/state_250_3000np.dat
-./states/state_300_3000np.dat
-./states/state_500_3000np.dat
-./states/state_1000_3000np.dat
-./states/state_2000_3000np.dat
+./states/state_1000.dat
+./states/state_1000.dat
+./states/state_500.dat
+./states/state_250.dat
+./states/state_250.dat
+./states/state_200.dat
+./states/state_150.dat
+
 
 # Stimulation current, A/F (n = number of baselines)
 -40
@@ -96,10 +92,11 @@
 0
 0
 
+
 # Elitism strategy
 # Number of Elite organisms
 # Note: Number of Elite organisms should be <= than number of CPUs
-4
+2
 
 # Start from control point (0 or 1):
 #	0 - initial parameters random generation	
@@ -108,5 +105,3 @@
 
 # Recording frequency (k) to the file «Autosave.txt» (1 recording per k generations)
 5
-
-
