@@ -564,6 +564,6 @@ int action_potential(struct State *initial_state, double *scaling_coefficients, 
     //Rewriting states!
     create_state_struct_from_array(initial_state, &STATES[STATE_ARRAY_SIZE * target_cell]);
     scaling_coefficients[genes_without_concentrations + baseline_index] = initial_state->Na_i;
-    scaling_coefficients[genes_without_concentrations + amount_of_baselines + baseline_index] = initial_state->Ca_c;
+    scaling_coefficients[genes_without_concentrations + amount_of_baselines + baseline_index] = initial_state->Ca_rel;
     return 0;
 }
