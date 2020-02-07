@@ -241,11 +241,11 @@ void initialize_constants(double *CONSTANTS, double *scaling_coefficients, doubl
     CONSTANTS[37] = 130;
     CONSTANTS[38] = 1.8;
     CONSTANTS[39] = 5.4;
-    CONSTANTS[40] = 2800;
+    CONSTANTS[40] = 2800 * scaling_coefficients[12]; // I_up_max
     CONSTANTS[41] = 0.0003;
     CONSTANTS[42] = 0.5;
     CONSTANTS[43] = 0.4;
-    CONSTANTS[44] = 200000;
+    CONSTANTS[44] = 200000 * scaling_coefficients[13]; // alpha_rel
     CONSTANTS[45] = 0.0003969;
     CONSTANTS[46] = 0.0000441;
     CONSTANTS[47] = 0.815;
@@ -358,6 +358,7 @@ void create_state_struct_from_array(State *S, double *STATES) {
 
 
 void computeRates(double VOI, double *CONSTANTS, double *RATES, double *STATES, double *ALGEBRAIC) {
+    CONSTANTS[10] = ((CONSTANTS[0] * CONSTANTS[1]) / CONSTANTS[2]) * log(STATES[18] / STATES[6]); // E_Ca = RT/F * log(Ca_c / Ca_d)
     ALGEBRAIC[12] = 2000.00 * CONSTANTS[32] * ((1.00000 - STATES[22]) - STATES[23]) - 666.000 * STATES[23];
     RATES[23] = ALGEBRAIC[12];
     ALGEBRAIC[18] = 0.00350000 * exp(((-STATES[0] * STATES[0]) / 30.0000) / 30.0000) + 0.00150000;

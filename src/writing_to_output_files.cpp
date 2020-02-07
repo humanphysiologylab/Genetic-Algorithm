@@ -30,6 +30,8 @@ void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point
         fprintf(text, "%d\n", cntr);
     }
 
+    fflush(text);
+
     // 5. SD values of each organism in population
     for (i = 0; i < NUMBER_ORGANISMS; i++) fprintf(sd, "%lf\t %d\t %d\n", SD[i], SD_index[i], cntr);
 
@@ -43,7 +45,7 @@ void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point
 
         for (i = 0; i < NUMBER_ORGANISMS; i++) {
             for (j = 0; j < NUMBER_GENES; j++) {
-                fprintf(ctrl_point, "%g\t", next_generation[i * NUMBER_GENES + j]);
+                fprintf(ctrl_point, "%g ", next_generation[i * NUMBER_GENES + j]);
             }
             fprintf(ctrl_point, "\n");
         }
