@@ -14,7 +14,7 @@
 # Parameters variation range
 # Example: double, lower bound, upper bound
 0.001 10 
-5 10
+0.001 10
 0.001 10 
 0.001 10 
 0.001 10 
