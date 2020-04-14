@@ -3,44 +3,52 @@
 # Human Physiology Lab, 2019 
 
 # Number of organisms (should be even)
-4
+8
 
 # Number of optimized parameters 
-28
+36
 
 # Number of generations
-10
+5
 
 # Parameters variation range
 # Example: double, lower bound, upper bound
-0.001 10 
-0.001 10
-0.001 10 
-0.001 10 
-0.001 10 
-0.001 10 
-0.001 10 
-0.001 10 
-0.001 10 
-0.001 10 
-0.001 10 
 0.001 10
 0.001 10
 0.001 10
-5 12  
-5 12  
-5 12  
-5 12  
-5 12  
-5 12
-5 12 
-0.05 2.0
-0.05 2.0
-0.05 2.0
-0.05 2.0
-0.05 2.0
-0.05 2.0
-0.05 2.0
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+0.001 10
+2 20
+2 20
+2 20
+2 20
+2 20
+2 20
+2 20
+0.01 5.0
+0.01 5.0
+0.01 5.0
+0.01 5.0
+0.01 5.0
+0.01 5.0
+0.01 5.0
+80 190
+80 190
+80 190
+80 190
+80 190
+80 190
+80 190
 
 # Number of baselines
 7
@@ -52,7 +60,7 @@
 344
 258
 206
-148
+172
 
 # Baselines names (n = number of baselines)
 ./baselines/AP_2064.txt
@@ -61,27 +69,27 @@
 ./baselines/AP_344.txt
 ./baselines/AP_258.txt
 ./baselines/AP_206.txt
-./baselines/AP_148.txt
+./baselines/AP_172.txt
 
 
 # Files with initial states (n = number of baselines)
-./states/state_1000.dat
-./states/state_1000.dat
-./states/state_500.dat
-./states/state_250.dat
-./states/state_250.dat
-./states/state_200.dat
-./states/state_150.dat
+./states/state_2064.dat
+./states/state_1032.dat
+./states/state_516.dat
+./states/state_344.dat
+./states/state_258.dat
+./states/state_206.dat
+./states/state_172.dat
 
 
 # Stimulation current, A/F (n = number of baselines)
--40
--40
--40
--40
--40
--40
--40
+-60.0
+-61.0
+-62.0
+-62.0
+-63.0
+-62.0
+-62.0
 
 # ISO (n = number of baselines)
 #	1 - include ISO model

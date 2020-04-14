@@ -1,5 +1,4 @@
 #include "sbx_crossover.h"
-
 #define CROSSRATE 0.9 //probability of crossover
 
 void sbx_crossover(double *next_generation, double *after_cross, int *mpool, double *left_border, double *right_border,
@@ -15,8 +14,23 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
 
     seed = (long) time(NULL);
     seed_negative = -seed;
-    ran2(&seed_negative);
-
+    ran2(&seed_negative);   
+    
+    for (i = 0; i < NUMBER_ORGANISMS; i++) {
+        for (ii = 0; ii < NUMBER_GENES; ii++) {
+            if (next_generation[i * NUMBER_GENES + ii] > right_border[ii] ||
+                next_generation[i * NUMBER_GENES + ii] < left_border[ii]) {
+                next_generation[i * NUMBER_GENES + ii] =
+                        left_border[ii] + (right_border[ii] - left_border[ii]) * ran2(&seed);
+            }
+            if (next_generation[i * NUMBER_GENES + ii] > right_border[ii] ||
+                next_generation[i * NUMBER_GENES + ii] < left_border[ii]) {
+                next_generation[i * NUMBER_GENES + ii] =
+                        left_border[ii] + (right_border[ii] - left_border[ii]) * ran2(&seed);
+            }
+        }
+    }
+    
     for (i = 0; i < NUMBER_ORGANISMS / 2; i++) {
         num_1 = mpool[2 * i];
         num_2 = mpool[2 * i + 1];
@@ -26,16 +40,6 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
             for (ii = 0; ii < NUMBER_GENES; ii++) {
                 sw_prob = ran2(&seed);
 
-                if (next_generation[num_1 * NUMBER_GENES + ii] > right_border[ii] ||
-                    next_generation[num_1 * NUMBER_GENES + ii] < left_border[ii]) {
-                    next_generation[num_1 * NUMBER_GENES + ii] =
-                            left_border[ii] + (right_border[ii] - left_border[ii]) * ran2(&seed);
-                }
-                if (next_generation[num_2 * NUMBER_GENES + ii] > right_border[ii] ||
-                    next_generation[num_2 * NUMBER_GENES + ii] < left_border[ii]) {
-                    next_generation[num_2 * NUMBER_GENES + ii] =
-                            left_border[ii] + (right_border[ii] - left_border[ii]) * ran2(&seed);
-                }
 
                 if (sw_prob < 0.5) // "NO"
                 {

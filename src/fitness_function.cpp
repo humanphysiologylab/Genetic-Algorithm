@@ -28,20 +28,76 @@ void scalar_multiplication(double *AP_control, double *AP_current, int length, d
 
 float SD_calculation(double *AP_control, double *AP_current, float *best_scaling_factor, float *best_scaling_shift,
                      int length) {
+    double Variance;
+    double AP_control_scaled, sd;
+    double diff_between_potentials;
+    int s, ss, points_after;
+    double XY, X1, Y1, XX;
+    int ones;
+    double beta, alpha;
 
-    double sd = 0;
+    int voltage_border = -20;          // start point (in mV) for SD calculation
+    int minimal_amplitude = 80;         // mV
+    int minimal_rest_potential = -60;   // mV
 
-    for (int i = 0; i < length; i++) {
-        double diff = AP_control[i] - AP_current[i];
-        sd += diff * diff;
+    int maximal_rest_potential = -90;   // mV
+    sd = 0;
+    ss = 0;
+
+//    scalar_multiplication(AP_control, AP_current, length, &XY, &X1, &Y1, &XX, &ones, voltage_border);
+
+/*    if(XX!=0)
+    {
+    	beta = (XY * X1 - Y1 * XX)/(X1 * X1 - ones * XX);
+   	alpha = (XY - beta * X1)/XX;
+//	if (alpha < minimal_amplitude){
+//            alpha = minimal_amplitude;
+//            beta = (Y1 - alpha * X1)/ones;
+//    	}
+
+
+    	if ((AP_control[0] * alpha + beta) > minimal_rest_potential){
+ 		beta = minimal_rest_potential;
+        	alpha = (XY - beta * X1)/XX;
+    	}
+	if((AP_control[0] * alpha + beta) < maximal_rest_potential)
+    	{
+        	beta = maximal_rest_potential;
+        	alpha = (XY - beta * X1)/XX;
+    	}
+	if (alpha < minimal_amplitude) alpha = minimal_amplitude;*/
+
+    points_after = 0;
+    for (s = 0; s < length; s++) {
+//       		if ((AP_current[s] > voltage_border)||(points_after == 1)){
+//        		points_after = 1;
+//          		AP_control_scaled = AP_control[s] * alpha + beta;
+        diff_between_potentials = AP_control[s] - AP_current[s];
+        if ((AP_current[s]) == 0.0) {
+            printf("AP_current[%d] is off\n", s);
+            getc(stdin);
+        }
+        sd += diff_between_potentials * diff_between_potentials;
+        ss += 1;
+        //       	}
     }
 
-    double rmse = sqrt(sd / length);
+    Variance = sqrt(sd / (ss));
+/*    }
+    else
+    {
+	alpha=0;
+	beta=0;
+	Variance=9e37;
 
-    *best_scaling_factor = 1;
-    *best_scaling_shift = 0;
+    }*/
 
-    return rmse;
+
+
+    *best_scaling_factor = 1;//alpha;
+    *best_scaling_shift = 0; //beta;
+
+    return Variance;
 }
 
 void create_SD_index(int NUMBER_ORGANISMS, int *SD_index) {
@@ -79,12 +135,10 @@ void fitness_function(double *AP_control, double *AP_current, float *best_scalin
                                     &best_scaling_factor[baseline_counter + NUMBER_BASELINES * c],
                                     &best_scaling_shift[baseline_counter + NUMBER_BASELINES * c],
                                     TIME[baseline_counter]); //Authomatic baseline scaling is implemented.
-
             if (isnan(SD[c])) {
                 printf("SD is NAN!; Set to 1e100\n");
                 SD[c] = 1e100;
             }
-
             t_current += TIME[baseline_counter];
         }
         t_current = 0;

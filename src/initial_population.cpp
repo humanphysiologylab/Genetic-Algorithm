@@ -24,19 +24,33 @@ void initial_population(double *next_generation, double *left_border, double *ri
         ran2(&seed_negative);
         double rand_num = 0.;
         for (organism = 0; organism < NUMBER_ORGANISMS; organism++) {
+
             /* Conductivities random generation */
-            for (j = 0; j < NUMBER_GENES - 2 * NUMBER_BASELINES; j++) {
-                rand_num = ran2(&seed);
-                if (rand_num > 0.5) {
-                    next_generation[organism * NUMBER_GENES + j] = 1.0 + (right_border[j] - 1.0) * ran2(&seed);
+            for (j = 0; j < NUMBER_GENES - 3 * NUMBER_BASELINES; j++) {
+
+                if (left_border[j] >= right_border[j]) {
+                    std::cout << "Error in input file!\n";
+                    std::cout << "Range for parameter № " << j << " is invalid: [" << left_border[j] << ", " << right_border[j] << "]\n";
+                    exit(-1);
+                }
+
+                if ((left_border[j] < 1) && (1 < right_border[j])) {
+                    if (ran2(&seed) > 0.5) {
+                        next_generation[organism * NUMBER_GENES + j] = pow(right_border[j], ran2(&seed));
+                    } else {
+                        next_generation[organism * NUMBER_GENES + j] = pow(left_border[j], 1 - ran2(&seed));
+                    }
                 } else {
-                    next_generation[organism * NUMBER_GENES + j] = 1.0 + (left_border[j] - 1.0) * ran2(&seed);
+                    double r = ran2(&seed);
+                    next_generation[organism * NUMBER_GENES + j] = pow(right_border[j], r) * pow(left_border[j], 1 - r);
                 }
             }
-            /* Random generation of [Na+]i and [Ca++]nsr concentrations */
+
+            /* Concentrations */
             for (j = 0; j < NUMBER_BASELINES; j++) {
-                next_generation[(organism + 1) * NUMBER_GENES - 2 * NUMBER_BASELINES + j] = initial_state[j].Na_i;
-                next_generation[(organism + 1) * NUMBER_GENES - 1 * NUMBER_BASELINES + j] = initial_state[j].Ca_rel;
+                next_generation[(organism + 1) * NUMBER_GENES - 3 * NUMBER_BASELINES + j] = initial_state[j].Na_i;
+                next_generation[(organism + 1) * NUMBER_GENES - 2 * NUMBER_BASELINES + j] = initial_state[j].Ca_rel;
+                next_generation[(organism + 1) * NUMBER_GENES - 1 * NUMBER_BASELINES + j] = initial_state[j].K_i;
             }
         }
     }

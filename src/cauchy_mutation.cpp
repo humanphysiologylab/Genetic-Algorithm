@@ -4,6 +4,65 @@
 #define MUTRATE 0.9 //probability of mutation
 
 
+void normalize_genes(/*in*/    double *genes_input, double *left_border, double *right_border,
+                               int number_organisms, int number_genes, int number_conductancies,
+                     /*out*/   double *genes_output, double *left_border_normalized, double *right_border_normalized,
+                     /*other*/ double left_border_value, double right_border_value) {
+
+
+    for (int i = 0; i < number_organisms; ++i) {
+        for (int j = 0; j < number_genes; ++j) {
+
+            if (j < number_conductancies) {
+                genes_output[i * number_genes + j] = log10(genes_input[i * number_genes + j]);
+                left_border_normalized[j] = log10(left_border[j]);
+                right_border_normalized[j] = log10(right_border[j]);
+            } else {
+                genes_output[i * number_genes + j] = genes_input[i * number_genes + j];
+                left_border_normalized[j] = left_border[j]; right_border_normalized[j] = right_border[j];
+            }
+
+            genes_output[i * number_genes + j] = left_border_value +
+                                                 (genes_output[i * number_genes + j] - left_border_normalized[j]) /
+                                                 (right_border_normalized[j] - left_border_normalized[j]) *
+                                                 (right_border_value - left_border_value);
+            left_border_normalized[j] = left_border_value; right_border_normalized[j] = right_border_value;
+            //std::cout << genes_input[i * number_genes + j] << " -- > " << genes_output[i * number_genes + j] << "\n";
+        }
+    }
+}
+
+void denormalize_genes(/*in*/    double *genes_input, double *left_border, double *right_border,
+                                 int number_organisms, int number_genes, int number_conductancies,
+                       /*out*/   double *genes_output,
+                       /*other*/ double left_border_value, double right_border_value) {
+
+
+    for (int i = 0; i < number_organisms; ++i) {
+        for (int j = 0; j < number_conductancies; ++j) {
+
+            genes_output[i * number_genes + j] = log10(left_border[j]) +
+                                                 (genes_input[i * number_genes + j] - left_border_value) /
+                                                 (right_border_value - left_border_value) *
+                                                 (log10(right_border[j]) - log10(left_border[j]));
+
+            genes_output[i * number_genes + j] = pow(10, genes_output[i * number_genes + j]);
+            //std::cout << genes_input[i * number_genes + j] << " -- > " << genes_output[i * number_genes + j] << "\n";
+
+        }
+        for (int j = number_conductancies; j < number_genes; ++j) {
+
+            genes_output[i * number_genes + j] = left_border[j] +
+                                                 (genes_input[i * number_genes + j] - left_border_value) /
+                                                 (right_border_value - left_border_value) *
+                                                 (right_border[j] - left_border[j]);
+
+            //std::cout << genes_input[i * number_genes + j] << " -- > " << genes_output[i * number_genes + j] << "\n";
+        }
+    }
+}
+
+
 void box_muller_transform(double *uniform_vector, int NUMBER_GENES, long seed) {
     double u, v, s, z1, sq, rand_ud;
     double mu, epsilon;
@@ -50,101 +109,78 @@ void box_muller_transform(double *uniform_vector, int NUMBER_GENES, long seed) {
     }
 }
 
-
 void
 cauchy_mutation(double *after_mut, double *after_cross, double *left_border, double *right_border, int NUMBER_ORGANISMS,
                 int NUMBER_GENES) {
-    double mut_prob;
-    double rnd;
-    double delta1, delta2, delta_q;
-    double sigma = 0.18;
+
+    double gamma = 0.05;
     int mu = 0;
 
-    int i = 0;
-    int j = 0;
-    double r_min = 0;
-    double r_max = 0;
-    long seed, seed_negative;
-
-    double shift, sq_left, sq_right, x_max, x_min;
-    double uniform_vector[NUMBER_GENES];
-    double right_end[NUMBER_GENES], left_end[NUMBER_GENES];
-
-    seed = (long) time(NULL);
-    seed_negative = -seed;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    long seed = long(tv.tv_usec);
+    long seed_negative = -seed;
     ran2(&seed_negative);
 
-    for (i = 0; i < NUMBER_ORGANISMS; i++) {
-        mut_prob = ran2(&seed);
+    for (int i = 0; i < NUMBER_ORGANISMS; i++) {
+        double mut_prob = ran2(&seed);
 
         if (mut_prob <= 1 - MUTRATE) {
-            for (j = 0; j < NUMBER_GENES; j++) {
+            for (int j = 0; j < NUMBER_GENES; j++) {
                 after_mut[i * NUMBER_GENES + j] = after_cross[i * NUMBER_GENES + j];
             }
+
         } else {
-            int iter = 0;
+
             double distance_min1 = 1000000.;
             double distance_min2 = 1000000.;
             double distance = 0;
 
+            double uniform_vector[NUMBER_GENES];
             box_muller_transform(uniform_vector, NUMBER_GENES, seed);
 
             /* right border */
-            for (iter = 0; iter < NUMBER_GENES; iter++) {
-                if (uniform_vector[iter] > 0) {
-                    distance = (right_border[iter] - after_cross[i * NUMBER_GENES + iter]) / uniform_vector[iter];
+            for (int j = 0; j < NUMBER_GENES; j++) {
+                if (uniform_vector[j] > 0) {
+                    distance = (right_border[j] - after_cross[i * NUMBER_GENES + j]) / uniform_vector[j];
                 } else {
-                    distance = (left_border[iter] - after_cross[i * NUMBER_GENES + iter]) / uniform_vector[iter];
+                    distance = (left_border[j] - after_cross[i * NUMBER_GENES + j]) / uniform_vector[j];
                 }
                 if (distance < distance_min1) {
                     distance_min1 = distance;
                 }
             }
+
             /* left border*/
-            for (iter = 0; iter < NUMBER_GENES; iter++) {
-                if (-uniform_vector[iter] > 0) {
-                    distance = (right_border[iter] - after_cross[i * NUMBER_GENES + iter]) / (-uniform_vector[iter]);
+            for (int j = 0; j < NUMBER_GENES; j++) {
+                if (uniform_vector[j] > 0) {
+                    distance = (after_cross[i * NUMBER_GENES + j] - left_border[j]) / uniform_vector[j];
                 } else {
-                    distance = (left_border[iter] - after_cross[i * NUMBER_GENES + iter]) / (-uniform_vector[iter]);
+                    distance = (after_cross[i * NUMBER_GENES + j] - right_border[j]) / uniform_vector[j];
                 }
                 if (distance < distance_min2) {
                     distance_min2 = distance;
                 }
             }
-            /* calculate 2 edge points: */
-            for (iter = 0; iter < NUMBER_GENES; iter++) {
-                right_end[iter] = after_cross[i * NUMBER_GENES + iter] + distance_min1 * uniform_vector[iter];
-                left_end[iter] = after_cross[i * NUMBER_GENES + iter] + distance_min2 * (-uniform_vector[iter]);
-            }
 
-            /* length of 2 vectors:*/
-            sq_left = 0;
-            sq_right = 0;
-            for (iter = 0; iter < NUMBER_GENES; iter++) {
-                sq_right += (right_end[iter] - after_cross[i * NUMBER_GENES + iter]) *
-                            (right_end[iter] - after_cross[i * NUMBER_GENES + iter]);
-                sq_left += (left_end[iter] - after_cross[i * NUMBER_GENES + iter]) *
-                           (left_end[iter] - after_cross[i * NUMBER_GENES + iter]);
-            }
-            x_max = sqrt(sq_right);
-            x_min = -sqrt(sq_left);
 
-            delta1 = -x_min;
-            delta2 = x_max;
+            double r_min = (atan(-distance_min2 / gamma)) / pi + 0.5;
+            double r_max = (atan(distance_min1 / gamma)) / pi + 0.5;
 
-            r_min = (atan(-delta1 / sigma)) / pi + 0.5;
-            r_max = (atan(delta2 / sigma)) / pi + 0.5;
+            double rnd = r_min + (r_max - r_min) * ran2(&seed);
 
-            rnd = r_min + (r_max - r_min) * ran2(&seed);
-            delta_q = mu + sigma * tan(pi * (rnd - 1. / 2));
+            //std::cout << "r_min = " << r_min << "; r_max = " << r_max << "; rnd = " << rnd << ";\n";
+            double shift = mu + gamma * tan(pi * (rnd - 1. / 2));
 
-            shift = delta_q;
-
-            for (iter = 0; iter < NUMBER_GENES; iter++) {
-                after_mut[i * NUMBER_GENES + iter] =
-                        after_cross[i * NUMBER_GENES + iter] + shift * uniform_vector[iter];
+            for (int j = 0; j < NUMBER_GENES; j++) {
+                after_mut[i * NUMBER_GENES + j] =
+                        after_cross[i * NUMBER_GENES + j] + shift * uniform_vector[j];
+            
             }
         }
 
     }
 }
+
+
+

@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+//#include "ord_model/consts.h"
 #include "maleckar.h"
-
 void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point, FILE *text, FILE *sd, FILE *ap_best,
                              double *SD, int *SD_index, double average, double *best_parameters, int NUMBER_GENES,
                              int NUMBER_ORGANISMS, double *next_generation, int cntr, int recording_frequency,

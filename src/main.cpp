@@ -21,16 +21,18 @@
 #include <cstdlib>
 #include <ctime>
 #include <unistd.h>
+#include <iostream>
 
 #include "ga.h"
 #include "cauchy_mutation.h"
 #include "fitness_function.h"
 #include "initial_population.h"
+//#include "ord_model/consts.h"
 #include "sbx_crossover.h"
 #include "tournament_selection.h"
 #include "writing_to_output_files.h"
+//#include "ord_model/atrium.h"
 #include "maleckar.h"
-
 
 void scanf_baseline(int j0, int j1, FILE *ff, double *AP_control) {
     int j;
@@ -94,6 +96,7 @@ static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
 }
 
 int main(int argc, char *argv[]) {
+    //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 
     if (argc != 2) {
         printf("Error! GA input file required! \n");
@@ -105,9 +108,23 @@ int main(int argc, char *argv[]) {
     MPI_Request reqs[6];
     MPI_Status stats[12];
 
+
+//	printf("after MPI init\n");
+
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+/*if (rank==0)
+{
+    int i = 0;
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+    printf("PID %d on %s ready for attach\n", getpid(), hostname);
+    fflush(stdout);
+    while (0 == i)
+        sleep(5);
+}*/
+//	printf("my rank is %d\n",rank);
     fflush(stdout);
 
     /*Create MPI structure for initial state*/
@@ -122,7 +139,7 @@ int main(int argc, char *argv[]) {
     struct GlobalSetup gs;
 
     if (rank == 0) {
-
+//	printf("rank is zero\n");
         const int ciBufSize = 1024;
         int ii;
         char *token, *ptoken, caBuf[ciBufSize];
@@ -424,7 +441,6 @@ int main(int argc, char *argv[]) {
     int cntr = 0;
 
     while (cntr < gs.generations) {
-
         if (rank == 0) {
             printf("\nGeneration = %d\n", cntr);
 
@@ -443,9 +459,9 @@ int main(int argc, char *argv[]) {
                 if ((cc == 0) || ((cc != 0) && (SD[cc] != SD[cc - 1]))) {
                     elite_array[c] = SD[cc];
                     elite_index_array[c] = SD_index[cc];
-                    for (i = 0; i < gs.number_baselines; i++) {
-                        elite_state[c * gs.number_baselines + i] = state_struct[elite_index_array[c] * gs.number_baselines + i];
-                    }
+                    for (i = 0; i < gs.number_baselines; i++)
+                        elite_state[c * gs.number_baselines + i] = state_struct[
+                                elite_index_array[c] * gs.number_baselines + i];
                     c += 1;
                 }
                 cc += 1;
@@ -453,9 +469,9 @@ int main(int argc, char *argv[]) {
                     while (c < gs.elites) {
                         elite_array[c] = SD[cc];
                         elite_index_array[c] = SD_index[cc];
-                        for (i = 0; i < gs.number_baselines; i++) {
-                            elite_state[c * gs.number_baselines + i] = state_struct[elite_index_array[c] * gs.number_baselines + i];
-                        }
+                        for (i = 0; i < gs.number_baselines; i++)
+                            elite_state[c * gs.number_baselines + i] = state_struct[
+                                    elite_index_array[c] * gs.number_baselines + i];
                         c += 1;
                         cc -= 1;
                     }
@@ -464,35 +480,35 @@ int main(int argc, char *argv[]) {
 
             double *elite_organisms;
             elite_organisms = (double *) malloc(sizeof(double) * gs.elites * gs.number_genes);
-            for (i = 0; i < gs.elites; i++) {
-                for (j = 0; j < gs.number_genes; j++) {
-                    elite_organisms[i * gs.number_genes + j] = next_generation[elite_index_array[i] * gs.number_genes + j];
-                }
-            }
+            for (i = 0; i < gs.elites; i++)
+                for (j = 0; j < gs.number_genes; j++)
+                    elite_organisms[i * gs.number_genes + j] = next_generation[elite_index_array[i] * gs.number_genes +
+                                                                               j];
 
             double average = 0;
-            for (c = 0; c < gs.number_organisms; c++) {
-                average += SD[c];
-            }
+            for (c = 0; c < gs.number_organisms; c++) average += SD[c];
             average = average / gs.number_organisms;
 
 
             fflush(stdout);
-
             printf("Best SD: %.4f mV\n", SD[0]);
             printf("Average SD: %.4f mV\n", average);
             printf("The fittest organism:\n");
-
-            for (i = 0; i < gs.number_genes - 2 * gs.number_baselines; i++) {
+            for (i = 0; i < gs.number_genes - 3 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
             }
             printf("\n");
-            printf("Nai: ");
+            printf("Na_i: ");
+            for (i = gs.number_genes - 3 * gs.number_baselines; i < gs.number_genes - 2 * gs.number_baselines; i++) {
+                printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
+            }
+            printf("\n");
+            printf("Ca_sr: ");
             for (i = gs.number_genes - 2 * gs.number_baselines; i < gs.number_genes - 1 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
             }
             printf("\n");
-            printf("CaSR: ");
+            printf("K_i: ");
             for (i = gs.number_genes - 1 * gs.number_baselines; i < gs.number_genes - 0 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
             }
@@ -500,6 +516,9 @@ int main(int argc, char *argv[]) {
 
             printf("\n\n");
             fflush(stdout);
+
+            //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
+            //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
 
             writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average,
                                     &next_generation[elite_index_array[0] * gs.number_genes], gs.number_genes,
@@ -513,7 +532,25 @@ int main(int argc, char *argv[]) {
                                  gs.number_baselines);
             sbx_crossover(next_generation, after_cross, mpool, left_border, right_border, gs.number_organisms,
                           gs.number_genes);
-            cauchy_mutation(after_mut, after_cross, left_border, right_border, gs.number_organisms, gs.number_genes);
+                          
+
+
+            double after_cross_normalized[gs.number_organisms * gs.number_genes];
+            double left_border_normalized[gs.number_genes], right_border_normalized[gs.number_genes];
+            int number_conductancies = 15;
+
+            normalize_genes(/*in*/ after_cross, left_border, right_border,
+                                   gs.number_organisms, gs.number_genes, number_conductancies,
+                            /*out*/ after_cross_normalized, left_border_normalized, right_border_normalized);
+
+            double after_mut_normalized[gs.number_organisms * gs.number_genes];
+            cauchy_mutation(after_mut_normalized, after_cross_normalized,
+                            left_border_normalized, right_border_normalized,
+                            gs.number_organisms, gs.number_genes);
+
+            denormalize_genes(/*in*/ after_mut_normalized, left_border, right_border,
+                                   gs.number_organisms, gs.number_genes, number_conductancies,
+                              /*out*/ after_mut);
 
 
             /*SLOWEST: AP calculations*/
@@ -596,16 +633,28 @@ int main(int argc, char *argv[]) {
             for (i = 0; i < gs.number_organisms; i++)
                 for (j = 0; j < gs.number_genes; j++)
                     next_generation[i * gs.number_genes + j] = after_mut[i * gs.number_genes + j];
+                    
+            
         } else {
             i = 0;
+//    char hostname[256];
+//    gethostname(hostname, sizeof(hostname));
+//    printf("PID %d on %s ready for attach\n", getpid(), hostname);
+            //   fflush(stdout);
+//    while (0 == i)
+//        sleep(5);
+
+//	printf("line 459, rank %d\n", rank);
             fflush(stdout);
 
             MPI_Recv(after_mut, gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
                      &stats[0]);
 
+//	printf("line 473, rank %d\n", rank);
             MPI_Recv(state_struct, gs.number_organisms * gs.number_baselines / size, my_MPI_struct, 0, 2,
                      MPI_COMM_WORLD, &stats[1]);
 
+//	printf("line 476, rank %d\n", rank);
             t_current = 0;
             for (i = 0; i < gs.number_organisms / size; i++) {
                 for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
@@ -625,6 +674,7 @@ int main(int argc, char *argv[]) {
 
             if (rank < gs.elites) {
 
+//	printf("line 481, rank %d\n", rank);
                 fflush(stdout);
                 MPI_Recv(after_mut, gs.number_genes, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, &stats[0]);
                 MPI_Recv(elite_state, gs.number_baselines, my_MPI_struct, 0, 6, MPI_COMM_WORLD, &stats[1]);
