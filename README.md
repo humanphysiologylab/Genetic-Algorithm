@@ -1,11 +1,15 @@
 # Genetic Algorithm
 Genetic Algorithm implementation to determine the set of cardiomyocyte model parameters.
 
-## Build and compile
+## Build
 
 To compile the code type the following commands in the terminal:
 ```C
-cmake CMakeLists.txt
+git clone https://github.com/humanphysiologylab/Genetic-Algorithm.git
+cd Genetic-Algorithm
+mkdir build-release && cd $_
+module load mpi/openmpi-x86_64
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
 IMPORTANT NOTE: this implementation of genetic algorithm requires MPI!

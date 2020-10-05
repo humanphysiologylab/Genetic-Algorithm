@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
     MPI_Type_contiguous(STATE_ARRAY_SIZE, MPI_DOUBLE, &my_MPI_struct);
     MPI_Type_commit(&my_MPI_struct);
 
-    double *IA, *right_border, *left_border;
+    double *IA = 0, *right_border = 0, *left_border = 0;
     int *CL, *ISO;
     char baseline_file_name[256][256], statedat_file_name[256][256];
 
