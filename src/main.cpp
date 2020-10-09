@@ -22,6 +22,8 @@
 #include <ctime>
 #include <unistd.h>
 #include <iostream>
+#include <cassert>
+#include <filesystem>
 
 #include "ga.h"
 #include "cauchy_mutation.h"
@@ -65,13 +67,13 @@ int time_array(long &time_sum, FILE *f) {
 		c = fgetc(f);
 		if (c == '\n')
 			counter++;
-	} while (c != EOF)
+	} while (c != EOF);
 
     time_sum += counter;
     return counter;
 }
 
-
+/*
 void open_output_files() {
 	//?? hardcoded names plus globals plus what if there is no ga_output directory...
     owle = fopen("./ga_output/low_err.txt", "w");
@@ -81,7 +83,7 @@ void open_output_files() {
     text = fopen("./ga_output/output1.txt", "w");
     sd = fopen("./ga_output/SD.txt", "w");
 }
-
+*/
 
 static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
     //?? check it again
@@ -105,20 +107,33 @@ static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
 
 int main(int argc, char *argv[]) {
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+	std::filesystem::create_directory("ga_output");
+	FILE *f, *owle, *best, *avr, *test, *ap_best, *text, *sd, *ctrl_point;
+    owle = fopen("./ga_output/low_err.txt", "w");
+    best = fopen("./ga_output/best.txt", "w");
+    avr = fopen("./ga_output/average.txt", "w");
+    ap_best = fopen("./ga_output/AP_best.txt", "w");
+    text = fopen("./ga_output/output1.txt", "w");
+    sd = fopen("./ga_output/SD.txt", "w");
+	if (!(owle && best && avr && ap_best && text && sd)) {
+		printf("Cannot open files for output\n");
+		return -1;
+	}
 
     if (argc != 2) {
         printf("Error! GA input file required! \n");
         return -1;
     }
     
-	time_t start1, end;
-    start1 = time(NULL);
+
     
     int *TIME;
 
     
     MPI_Init(&argc, &argv);
     
+    double start1, end;
+    start1 = MPI_Wtime();
     //??
     MPI_Request reqs[6];
     MPI_Status stats[12];
@@ -165,7 +180,7 @@ int main(int argc, char *argv[]) {
         fInput = fopen(InputFile, "r");
         if (!fInput) {
             printf("No input file!\n");
-            exit(-1);
+            return -1;
         }
 
         gs.number_organisms = atoi(read_line(caBuf, ciBufSize, fInput));
@@ -236,6 +251,7 @@ int main(int argc, char *argv[]) {
         printf("Number of CPUs: %d\n", size);
 
         for (i = 1; i < size; i++) {
+			//?? All these things should be done using Bcast and MPI IO
             MPI_Isend(&gs, GlobalSetupSize, MPI_INT, i, 1, MPI_COMM_WORLD, &reqs[0]);
             MPI_Isend(IA, gs.number_baselines, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, &reqs[1]);
             MPI_Isend(CL, gs.number_baselines, MPI_INT, i, 3, MPI_COMM_WORLD, &reqs[2]);
@@ -246,7 +262,7 @@ int main(int argc, char *argv[]) {
 
         }
 
-        open_output_files();
+        //open_output_files();
         //end master
     } else {
 		//slave
@@ -349,6 +365,10 @@ int main(int argc, char *argv[]) {
     time_sum = 0;
     for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
         filename = fopen(baseline_file_name[baseline_counter], "r");
+        if (filename == NULL) {
+			printf("Cannot open baseline file: %s\n", baseline_file_name[baseline_counter]);
+			return -1;
+		}
         TIME[baseline_counter] = time_array(time_sum, filename);
         fclose(filename);
     }
@@ -383,7 +403,10 @@ int main(int argc, char *argv[]) {
     elite_state = (struct State *) malloc(sizeof(struct State) * gs.elites * (gs.number_baselines));
     for (i = 0; i < gs.number_baselines; i++) {
         FILE *fin = fopen(statedat_file_name[i], "r");
-        if (!fin) printf("!!! Cannot open IC file\n");
+        if (!fin) {
+			printf("Cannot open IC file: %s\n", statedat_file_name[i]);
+			return -1;
+		}
         fread(&initial_state[i], sizeof(struct State), 1, fin);
         fclose(fin);
     }
@@ -723,9 +746,10 @@ int main(int argc, char *argv[]) {
         fclose(sd);
     }
 
+    end =  MPI_Wtime();
+    if (rank == 0)
+		printf("Time: %f sec\n", end - start1);
+		
     MPI_Finalize();
-    end = time(NULL);
-    printf("Time: %f sec\n", difftime(end, start1));
-
     return 0;
 }
