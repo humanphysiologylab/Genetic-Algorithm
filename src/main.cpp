@@ -15,7 +15,7 @@
 //     are prohibited for any commercial purposes.
 
 
-#include "mpi.h"
+#include <mpi.h>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
@@ -35,31 +35,37 @@
 #include "maleckar.h"
 
 void scanf_baseline(int j0, int j1, FILE *ff, double *AP_control) {
-    int j;
-    for (j = j0; j < j1; j++) {
+	//?? what is a baseline
+	assert(j0 >= 0);
+    for (int j = j0; j < j1; j++) {
         fscanf(ff, "%lf\n", &AP_control[j]);
     }
 }
 
 void normalize_baseline(int j0, int j1, double *AP_control) {
     // max (min) is the time of baseline maximum (minimum)
-    int i;
-    float max = -200., min = 200.;
-    for (i = j0; i < j1; i++) {
+    assert(j0 >= 0);
+    if (j0 >= j1)
+		return;
+	
+    double max = AP_control[j0], min = AP_control[j0];
+    for (int i = j0; i < j1; i++) {
         if (min > AP_control[i]) min = AP_control[i];
         if (max < AP_control[i]) max = AP_control[i];
     }
-    for (i = j0; i < j1; i++) AP_control[i] = (AP_control[i] - min) / (max - min);
+    for (int i = j0; i < j1; i++)
+		AP_control[i] = (AP_control[i] - min) / (max - min);
 }
 
 int time_array(long &time_sum, FILE *f) {
+	//?? dangerous function, we add counter to time_sum, but return it at the same time... why?
     int counter = 0;
-    char c;
-
-    while (!feof(f) && !ferror(f)) {
-        if ((c = fgetc(f)) == '\n')
-            counter++;
-    }
+	int c;
+	do {
+		c = fgetc(f);
+		if (c == '\n')
+			counter++;
+	} while (c != EOF)
 
     time_sum += counter;
     return counter;
@@ -67,6 +73,7 @@ int time_array(long &time_sum, FILE *f) {
 
 
 void open_output_files() {
+	//?? hardcoded names plus globals plus what if there is no ga_output directory...
     owle = fopen("./ga_output/low_err.txt", "w");
     best = fopen("./ga_output/best.txt", "w");
     avr = fopen("./ga_output/average.txt", "w");
@@ -77,6 +84,7 @@ void open_output_files() {
 
 
 static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
+    //?? check it again
     char *p;
 
     do {
@@ -100,16 +108,21 @@ int main(int argc, char *argv[]) {
 
     if (argc != 2) {
         printf("Error! GA input file required! \n");
-        exit(-1);
+        return -1;
     }
-
+    
+	time_t start1, end;
     start1 = time(NULL);
+    
+    int *TIME;
+
+    
     MPI_Init(&argc, &argv);
+    
+    //??
     MPI_Request reqs[6];
     MPI_Status stats[12];
 
-
-//	printf("after MPI init\n");
 
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -125,12 +138,15 @@ int main(int argc, char *argv[]) {
         sleep(5);
 }*/
 //	printf("my rank is %d\n",rank);
-    fflush(stdout);
+//    fflush(stdout);
+
+
 
     /*Create MPI structure for initial state*/
     MPI_Datatype my_MPI_struct, gs_struct;
     MPI_Type_contiguous(STATE_ARRAY_SIZE, MPI_DOUBLE, &my_MPI_struct);
     MPI_Type_commit(&my_MPI_struct);
+
 
     double *IA = 0, *right_border = 0, *left_border = 0;
     int *CL, *ISO;
@@ -231,10 +247,13 @@ int main(int argc, char *argv[]) {
         }
 
         open_output_files();
+        //end master
     } else {
-
+		//slave
+		
 //	printf("line 205, rank %d\n", rank);
-        fflush(stdout);
+//        fflush(stdout);
+        
         MPI_Recv(&gs, GlobalSetupSize, MPI_INT, 0, 1, MPI_COMM_WORLD, &stats[0]);
 
         if ((CL = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
@@ -256,7 +275,7 @@ int main(int argc, char *argv[]) {
 
         MPI_Recv(baseline_file_name, gs.number_baselines * 256, MPI_CHAR, 0, 5, MPI_COMM_WORLD, &stats[4]);
         MPI_Recv(statedat_file_name, gs.number_baselines * 256, MPI_CHAR, 0, 6, MPI_COMM_WORLD, &stats[5]);
-    }
+    }//end slave
 
 
     FILE *baseline_file[gs.number_baselines];
@@ -266,6 +285,9 @@ int main(int argc, char *argv[]) {
         puts("The 'TIME' array isn't created!");
         exit(-1);
     }
+    
+    
+    
     if (rank == 0) {
         if ((SD = (double *) malloc(sizeof(double) * gs.number_organisms)) == NULL) {
             puts("The 'SD' array isn't created!");
@@ -438,9 +460,7 @@ int main(int argc, char *argv[]) {
         MPI_Send(next_generation, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, 8, MPI_COMM_WORLD);
     }
 
-    int cntr = 0;
-
-    while (cntr < gs.generations) {
+    for (int cntr = 0; cntr < gs.generations; cntr++) {
         if (rank == 0) {
             printf("\nGeneration = %d\n", cntr);
 
@@ -692,7 +712,6 @@ int main(int argc, char *argv[]) {
                 MPI_Send(after_mut, gs.number_genes, MPI_DOUBLE, 0, 9, MPI_COMM_WORLD);
             }
         }
-        cntr += 1;
     }
 
     if (rank == 0) {

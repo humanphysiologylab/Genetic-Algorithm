@@ -4,12 +4,10 @@
 #define GlobalSetupSize 7
 
 FILE *f, *owle, *best, *avr, *test, *ap_best, *text, *sd, *ctrl_point;
-time_t start1, end;
 
 double *AP_control, *AP_current, *Na_conc, *SD, *next_generation, *after_mut, *after_cross;
 double best_organism_ap, scaling_factor, scaling_shift;
 float *best_scaling_factor, *best_scaling_shift;
-int *TIME;
 
 struct GlobalSetup{
     int number_organisms;
