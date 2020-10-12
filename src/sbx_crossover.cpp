@@ -1,5 +1,5 @@
 #include "sbx_crossover.h"
-#define CROSSRATE 0.9 //probability of crossover
+const double CROSSRATE = 0.9; //probability of crossover
 
 void sbx_crossover(double *next_generation, double *after_cross, int *mpool, double *left_border, double *right_border,
                    int NUMBER_ORGANISMS, int NUMBER_GENES) {

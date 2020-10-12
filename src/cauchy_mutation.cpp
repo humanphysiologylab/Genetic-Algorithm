@@ -1,7 +1,7 @@
 #include "cauchy_mutation.h"
 
-#define pi 3.141592653589793238462643
-#define MUTRATE 0.9 //probability of mutation
+const double pi = 3.141592653589793238462643;
+const double MUTRATE = 0.9; //probability of mutation
 
 
 void normalize_genes(/*in*/    double *genes_input, double *left_border, double *right_border,

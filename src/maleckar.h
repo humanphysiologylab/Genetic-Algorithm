@@ -7,7 +7,7 @@
 #include <cmath>
 #include <iostream>
 
-#define STATE_ARRAY_SIZE 39
+const int STATE_ARRAY_SIZE = 39;
 
 struct State {
 	double V; // in component membrane (millivolt).

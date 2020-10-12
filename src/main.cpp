@@ -5,7 +5,8 @@
 // Authors:
 //     Dmitrii Smirnov <dmitrii.smirnov@phystech.edu>
 //     Roman Syunyaev <roman.syunyaev@gmail.com>
-//     Laboratory of Human Physiology, Moscow Institute of Physics and Technology, 2019
+//     Alexander Timofeev <richardstallman42@gmail.com>
+//     Laboratory of Human Physiology, Moscow Institute of Physics and Technology, 2020
 //
 // License:
 //     Redistribution and use of the code with or without modification
@@ -25,7 +26,6 @@
 #include <cassert>
 #include <filesystem>
 
-#include "ga.h"
 #include "cauchy_mutation.h"
 #include "fitness_function.h"
 #include "initial_population.h"
@@ -73,18 +73,6 @@ int time_array(long &time_sum, FILE *f) {
     return counter;
 }
 
-/*
-void open_output_files() {
-	//?? hardcoded names plus globals plus what if there is no ga_output directory...
-    owle = fopen("./ga_output/low_err.txt", "w");
-    best = fopen("./ga_output/best.txt", "w");
-    avr = fopen("./ga_output/average.txt", "w");
-    ap_best = fopen("./ga_output/AP_best.txt", "w");
-    text = fopen("./ga_output/output1.txt", "w");
-    sd = fopen("./ga_output/SD.txt", "w");
-}
-*/
-
 static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
     //?? check it again
     char *p;
@@ -105,72 +93,125 @@ static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
     return p;
 }
 
+
+
+
+
+struct GlobalSetup{
+    int number_organisms;
+    int number_genes;
+    int generations;
+    int number_baselines;
+    int elites;
+    int autosave;
+    int recording_frequency;
+};
+const int GlobalSetupItemsNumber = 7;
+
 int main(int argc, char *argv[]) {
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
-	std::filesystem::create_directory("ga_output");
-	FILE *f, *owle, *best, *avr, *test, *ap_best, *text, *sd, *ctrl_point;
-    owle = fopen("./ga_output/low_err.txt", "w");
-    best = fopen("./ga_output/best.txt", "w");
-    avr = fopen("./ga_output/average.txt", "w");
-    ap_best = fopen("./ga_output/AP_best.txt", "w");
-    text = fopen("./ga_output/output1.txt", "w");
-    sd = fopen("./ga_output/SD.txt", "w");
-	if (!(owle && best && avr && ap_best && text && sd)) {
-		printf("Cannot open files for output\n");
-		return -1;
-	}
-
-    if (argc != 2) {
-        printf("Error! GA input file required! \n");
-        return -1;
-    }
-    
-
-    
-    int *TIME;
-
-    
     MPI_Init(&argc, &argv);
-    
-    double start1, end;
-    start1 = MPI_Wtime();
-    //??
-    MPI_Request reqs[6];
-    MPI_Status stats[12];
-
 
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-/*if (rank==0)
-{
-    int i = 0;
-    char hostname[256];
-    gethostname(hostname, sizeof(hostname));
-    printf("PID %d on %s ready for attach\n", getpid(), hostname);
-    fflush(stdout);
-    while (0 == i)
-        sleep(5);
-}*/
-//	printf("my rank is %d\n",rank);
-//    fflush(stdout);
 
+    /* create an MPI type for struct GlobalSetup */
+    int          blocklengths[GlobalSetupItemsNumber] = {1, 1, 1, 1, 1, 1, 1};
+    MPI_Datatype types[GlobalSetupItemsNumber] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+    MPI_Datatype GlobalSetupMPI;
+    MPI_Aint     displacements[GlobalSetupItemsNumber];
 
+    displacements[0] = offsetof(GlobalSetup, number_organisms);
+    displacements[1] = offsetof(GlobalSetup, number_genes);
+    displacements[2] = offsetof(GlobalSetup, generations);
+    displacements[3] = offsetof(GlobalSetup, number_baselines);
+    displacements[4] = offsetof(GlobalSetup, elites);
+    displacements[5] = offsetof(GlobalSetup, autosave);
+    displacements[6] = offsetof(GlobalSetup, recording_frequency);
 
-    /*Create MPI structure for initial state*/
-    MPI_Datatype my_MPI_struct, gs_struct;
+    MPI_Type_create_struct(GlobalSetupItemsNumber, blocklengths, displacements, types, &GlobalSetupMPI);
+    MPI_Type_commit(&GlobalSetupMPI);
+    /* done */
+
+    /* Create MPI structure for initial state */
+    MPI_Datatype my_MPI_struct;
     MPI_Type_contiguous(STATE_ARRAY_SIZE, MPI_DOUBLE, &my_MPI_struct);
     MPI_Type_commit(&my_MPI_struct);
+    /* done */
+    
+    
+    
+    
+    
+    long t_current;
+    
+    long time_sum;
+    long baseline_counter;
+
+    
+double *AP_control, *AP_current, *Na_conc, *SD, *next_generation, *after_mut, *after_cross;
+double best_organism_ap, scaling_factor, scaling_shift;
+float *best_scaling_factor, *best_scaling_shift;
+    
+    
+    
+    //open files and make sure it was successful
+    int init_status = 0;
+    
+    FILE *f, *owle, *best, *avr, *test, *ap_best, *text, *sd, *ctrl_point;
+
+    if (rank == 0) {
+		std::filesystem::create_directory("ga_output");
+		owle = fopen("./ga_output/low_err.txt", "w");
+		best = fopen("./ga_output/best.txt", "w");
+		avr = fopen("./ga_output/average.txt", "w");
+		ap_best = fopen("./ga_output/AP_best.txt", "w");
+		text = fopen("./ga_output/output1.txt", "w");
+		sd = fopen("./ga_output/SD.txt", "w");
+		
+		if (!(owle && best && avr && ap_best && text && sd)) {
+			printf("Cannot open files for output\n");
+			init_status = -1;
+		}
+
+		if (argc != 2) {
+			printf("Error! GA input file required! \n");
+			init_status = -1;
+		}
+	}
+	
+    MPI_Bcast(&init_status, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    
+    if (init_status != 0) {
+		MPI_Finalize();
+		return 0;
+	}
+	//initialization complete
+	
+    
+    //timer
+    double start1, end;
+    start1 = MPI_Wtime();
+    
+    
+    
+    
+    
+    
+    //??
+    MPI_Request reqs[6];
+    MPI_Status stats[12];
+
 
 
     double *IA = 0, *right_border = 0, *left_border = 0;
     int *CL, *ISO;
     char baseline_file_name[256][256], statedat_file_name[256][256];
 
-    struct GlobalSetup gs;
+    GlobalSetup gs;
 
     if (rank == 0) {
-//	printf("rank is zero\n");
         const int ciBufSize = 1024;
         int ii;
         char *token, *ptoken, caBuf[ciBufSize];
@@ -250,27 +291,13 @@ int main(int argc, char *argv[]) {
         printf("Number of elite organisms: %d\n", gs.elites);
         printf("Number of CPUs: %d\n", size);
 
-        for (i = 1; i < size; i++) {
-			//?? All these things should be done using Bcast and MPI IO
-            MPI_Isend(&gs, GlobalSetupSize, MPI_INT, i, 1, MPI_COMM_WORLD, &reqs[0]);
-            MPI_Isend(IA, gs.number_baselines, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, &reqs[1]);
-            MPI_Isend(CL, gs.number_baselines, MPI_INT, i, 3, MPI_COMM_WORLD, &reqs[2]);
-            MPI_Isend(ISO, gs.number_baselines, MPI_INT, i, 4, MPI_COMM_WORLD, &reqs[3]);
-
-            MPI_Isend(baseline_file_name, gs.number_baselines * 256, MPI_CHAR, i, 5, MPI_COMM_WORLD, &reqs[4]);
-            MPI_Isend(statedat_file_name, gs.number_baselines * 256, MPI_CHAR, i, 6, MPI_COMM_WORLD, &reqs[5]);
-
-        }
-
-        //open_output_files();
+  
+        MPI_Bcast(&gs, 1, GlobalSetupMPI, 0, MPI_COMM_WORLD);
         //end master
     } else {
 		//slave
 		
-//	printf("line 205, rank %d\n", rank);
-//        fflush(stdout);
-        
-        MPI_Recv(&gs, GlobalSetupSize, MPI_INT, 0, 1, MPI_COMM_WORLD, &stats[0]);
+        MPI_Bcast(&gs, 1, GlobalSetupMPI, 0, MPI_COMM_WORLD);
 
         if ((CL = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
             puts("The 'CL' array isn't created!");
@@ -284,19 +311,22 @@ int main(int argc, char *argv[]) {
             puts("The 'ISO' array isn't created!");
             exit(-1);
         }
-
-        MPI_Recv(IA, gs.number_baselines, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, &stats[1]);
-        MPI_Recv(CL, gs.number_baselines, MPI_INT, 0, 3, MPI_COMM_WORLD, &stats[2]);
-        MPI_Recv(ISO, gs.number_baselines, MPI_INT, 0, 4, MPI_COMM_WORLD, &stats[3]);
-
-        MPI_Recv(baseline_file_name, gs.number_baselines * 256, MPI_CHAR, 0, 5, MPI_COMM_WORLD, &stats[4]);
-        MPI_Recv(statedat_file_name, gs.number_baselines * 256, MPI_CHAR, 0, 6, MPI_COMM_WORLD, &stats[5]);
     }//end slave
+    
+    MPI_Bcast(IA, gs.number_baselines, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(CL, gs.number_baselines, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(ISO, gs.number_baselines, MPI_INT, 0, MPI_COMM_WORLD);
+
+    MPI_Bcast(baseline_file_name, gs.number_baselines * 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+    MPI_Bcast(statedat_file_name, gs.number_baselines * 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+    
+    
 
 
     FILE *baseline_file[gs.number_baselines];
     FILE *filename;
 
+    int *TIME;
     if ((TIME = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
         puts("The 'TIME' array isn't created!");
         exit(-1);
@@ -373,8 +403,7 @@ int main(int argc, char *argv[]) {
         fclose(filename);
     }
 
-    double *AP_control;
-    double *AP_current;
+
 
     if ((AP_control = (double *) malloc(sizeof(double) * (time_sum))) == NULL) {
         puts("The 'AP_control' array isn't created!");
@@ -390,6 +419,9 @@ int main(int argc, char *argv[]) {
     /*Read initial states for each BASELINE from the files in the directory.*/
     struct State initial_state[gs.number_baselines];
     struct State *state_struct, *elite_state, *state_struct_rewrite;
+    
+    
+    
     if (rank == 0) {
         state_struct = (struct State *) malloc(sizeof(struct State) * gs.number_organisms * (gs.number_baselines));
         state_struct_rewrite = (struct State *) malloc(
@@ -400,8 +432,15 @@ int main(int argc, char *argv[]) {
         state_struct_rewrite = (struct State *) malloc(
                 sizeof(struct State) * gs.number_organisms / size * (gs.number_baselines));
     }
+   
+   
+   
+   
+   
     elite_state = (struct State *) malloc(sizeof(struct State) * gs.elites * (gs.number_baselines));
-    for (i = 0; i < gs.number_baselines; i++) {
+    
+    
+    for (int i = 0; i < gs.number_baselines; i++) {
         FILE *fin = fopen(statedat_file_name[i], "r");
         if (!fin) {
 			printf("Cannot open IC file: %s\n", statedat_file_name[i]);
@@ -410,12 +449,18 @@ int main(int argc, char *argv[]) {
         fread(&initial_state[i], sizeof(struct State), 1, fin);
         fclose(fin);
     }
+   
+   
     if (rank == 0) {
-        for (j = 0; j < gs.number_organisms; j++)
-            for (i = 0; i < gs.number_baselines; i++)
+        for (int j = 0; j < gs.number_organisms; j++)
+            for (int i = 0; i < gs.number_baselines; i++)
                 state_struct[i + j *
                                  gs.number_baselines] = initial_state[i];    //use same structure for every organism initially
     }
+
+
+
+
 
     for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
         baseline_file[baseline_counter] = fopen(baseline_file_name[baseline_counter], "r");
@@ -429,20 +474,29 @@ int main(int argc, char *argv[]) {
         t_current += TIME[baseline_counter];
     }
 
+
+
+
+
     if (rank == 0)
         initial_population(next_generation, left_border, right_border, initial_state, gs.number_organisms,
                            gs.number_genes, gs.number_baselines, gs.autosave);
 
+
+
+
+
+
     t_current = 0;
     if (rank == 0) {
-        for (i = 1; i < size; i++) {
+        for (int i = 1; i < size; i++) {
             MPI_Isend(&next_generation[gs.number_genes * gs.number_organisms / size * (i)],
                       gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, &reqs[0]);
             MPI_Isend(&state_struct[gs.number_baselines * gs.number_organisms / size * (i)],
                       gs.number_organisms * gs.number_baselines / size, my_MPI_struct, i, 1, MPI_COMM_WORLD, &reqs[1]);
         }
 
-        for (i = 0; i < gs.number_organisms / size; i++) {
+        for (int i = 0; i < gs.number_organisms / size; i++) {
             for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                 action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                  &next_generation[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
@@ -452,7 +506,7 @@ int main(int argc, char *argv[]) {
             }
             t_current = 0;
         }
-        for (i = 1; i < size; i++) {
+        for (int i = 1; i < size; i++) {
             MPI_Recv(&AP_current[i * (time_sum) * gs.number_organisms / size], (time_sum) * gs.number_organisms / size,
                      MPI_DOUBLE, i, 3, MPI_COMM_WORLD, &stats[1]);
             MPI_Recv(&state_struct[i * gs.number_baselines * gs.number_organisms / size],
@@ -468,7 +522,7 @@ int main(int argc, char *argv[]) {
                  &stats[0]);
         MPI_Recv(state_struct, gs.number_organisms * gs.number_baselines / size, my_MPI_struct, 0, 1, MPI_COMM_WORLD,
                  &stats[1]);
-        for (i = 0; i < gs.number_organisms / size; i++) {
+        for (int i = 0; i < gs.number_organisms / size; i++) {
             for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                 action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                  &next_generation[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
@@ -483,6 +537,12 @@ int main(int argc, char *argv[]) {
         MPI_Send(next_generation, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, 8, MPI_COMM_WORLD);
     }
 
+
+
+
+
+
+
     for (int cntr = 0; cntr < gs.generations; cntr++) {
         if (rank == 0) {
             printf("\nGeneration = %d\n", cntr);
@@ -496,13 +556,13 @@ int main(int argc, char *argv[]) {
             double elite_array[gs.elites];
             int elite_index_array[gs.elites];
             int cc = 0;
-            c = 0;
+            int c = 0;
 
             while (c < gs.elites) {
                 if ((cc == 0) || ((cc != 0) && (SD[cc] != SD[cc - 1]))) {
                     elite_array[c] = SD[cc];
                     elite_index_array[c] = SD_index[cc];
-                    for (i = 0; i < gs.number_baselines; i++)
+                    for (int i = 0; i < gs.number_baselines; i++)
                         elite_state[c * gs.number_baselines + i] = state_struct[
                                 elite_index_array[c] * gs.number_baselines + i];
                     c += 1;
@@ -512,7 +572,7 @@ int main(int argc, char *argv[]) {
                     while (c < gs.elites) {
                         elite_array[c] = SD[cc];
                         elite_index_array[c] = SD_index[cc];
-                        for (i = 0; i < gs.number_baselines; i++)
+                        for (int i = 0; i < gs.number_baselines; i++)
                             elite_state[c * gs.number_baselines + i] = state_struct[
                                     elite_index_array[c] * gs.number_baselines + i];
                         c += 1;
@@ -523,13 +583,13 @@ int main(int argc, char *argv[]) {
 
             double *elite_organisms;
             elite_organisms = (double *) malloc(sizeof(double) * gs.elites * gs.number_genes);
-            for (i = 0; i < gs.elites; i++)
-                for (j = 0; j < gs.number_genes; j++)
+            for (int i = 0; i < gs.elites; i++)
+                for (int j = 0; j < gs.number_genes; j++)
                     elite_organisms[i * gs.number_genes + j] = next_generation[elite_index_array[i] * gs.number_genes +
                                                                                j];
 
             double average = 0;
-            for (c = 0; c < gs.number_organisms; c++) average += SD[c];
+            for (int c = 0; c < gs.number_organisms; c++) average += SD[c];
             average = average / gs.number_organisms;
 
 
@@ -537,22 +597,22 @@ int main(int argc, char *argv[]) {
             printf("Best SD: %.4f mV\n", SD[0]);
             printf("Average SD: %.4f mV\n", average);
             printf("The fittest organism:\n");
-            for (i = 0; i < gs.number_genes - 3 * gs.number_baselines; i++) {
+            for (int i = 0; i < gs.number_genes - 3 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
             }
             printf("\n");
             printf("Na_i: ");
-            for (i = gs.number_genes - 3 * gs.number_baselines; i < gs.number_genes - 2 * gs.number_baselines; i++) {
+            for (int i = gs.number_genes - 3 * gs.number_baselines; i < gs.number_genes - 2 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
             }
             printf("\n");
             printf("Ca_sr: ");
-            for (i = gs.number_genes - 2 * gs.number_baselines; i < gs.number_genes - 1 * gs.number_baselines; i++) {
+            for (int i = gs.number_genes - 2 * gs.number_baselines; i < gs.number_genes - 1 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
             }
             printf("\n");
             printf("K_i: ");
-            for (i = gs.number_genes - 1 * gs.number_baselines; i < gs.number_genes - 0 * gs.number_baselines; i++) {
+            for (int i = gs.number_genes - 1 * gs.number_baselines; i < gs.number_genes - 0 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
             }
             printf("\n");
@@ -598,14 +658,14 @@ int main(int argc, char *argv[]) {
 
             /*SLOWEST: AP calculations*/
             t_current = 0;
-            for (i = 1; i < size; i++) {
+            for (int i = 1; i < size; i++) {
                 MPI_Isend(&after_mut[gs.number_organisms * gs.number_genes / size * (i)],
                           gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &reqs[0]);
                 MPI_Isend(&state_struct[gs.number_baselines * gs.number_organisms / size * (i)],
                           gs.number_organisms * gs.number_baselines / size, my_MPI_struct, i, 2, MPI_COMM_WORLD,
                           &reqs[1]);
             }
-            for (i = 0; i < gs.number_organisms / size; i++) {
+            for (int i = 0; i < gs.number_organisms / size; i++) {
                 for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                     action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                      &after_mut[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
@@ -617,7 +677,7 @@ int main(int argc, char *argv[]) {
                 t_current = 0;
             }
 
-            for (i = 1; i < size; i++) {
+            for (int i = 1; i < size; i++) {
                 MPI_Recv(&AP_current[i * (time_sum) * gs.number_organisms / size],
                          (time_sum) * gs.number_organisms / size, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, &stats[1]);
                 MPI_Recv(&state_struct[i * gs.number_baselines * gs.number_organisms / size],
@@ -634,8 +694,7 @@ int main(int argc, char *argv[]) {
 
             /*Elite AP recalculations to get closer to steady state. Note that we suppose number of cores to be more then the number of Elite organisms in this implementation.
              * 1 Elite per core.*/
-            h = 0;
-            for (h = 1; h < gs.elites; h++) {
+            for (int h = 1; h < gs.elites; h++) {
                 MPI_Isend(&elite_organisms[h * gs.number_genes], gs.number_genes, MPI_DOUBLE, h, 4, MPI_COMM_WORLD,
                           &reqs[0]);
                 MPI_Isend(&elite_state[gs.number_baselines * h], gs.number_baselines, my_MPI_struct, h, 6,
@@ -651,7 +710,7 @@ int main(int argc, char *argv[]) {
                 t_current += TIME[baseline_counter];
             }
 
-            for (h = 1; h < gs.elites; h++) {
+            for (int h = 1; h < gs.elites; h++) {
                 MPI_Recv(&AP_current[SD_index[gs.number_organisms - gs.elites + h] * (time_sum)], time_sum, MPI_DOUBLE,
                          h, 5, MPI_COMM_WORLD, &stats[1]);
                 MPI_Recv(&elite_state[h * gs.number_baselines], gs.number_baselines, my_MPI_struct, h, 7,
@@ -662,24 +721,23 @@ int main(int argc, char *argv[]) {
 
             /*Replace worst organisms to elite*/
             int num = 0;
-            for (i = gs.number_organisms - gs.elites; i < gs.number_organisms; i++) {
+            for (int i = gs.number_organisms - gs.elites; i < gs.number_organisms; i++) {
                 if (SD[i] > elite_array[num]) {
-                    for (j = 0; j < gs.number_genes; j++)
+                    for (int j = 0; j < gs.number_genes; j++)
                         after_mut[SD_index[i] * gs.number_genes + j] = elite_organisms[num * gs.number_genes + j];
-                    for (j = 0; j < gs.number_baselines; j++)
+                    for (int j = 0; j < gs.number_baselines; j++)
                         state_struct[SD_index[i] * gs.number_baselines + j] = elite_state[num * gs.number_baselines +
                                                                                           j];
                     num += 1;
                 }
             }
 
-            for (i = 0; i < gs.number_organisms; i++)
-                for (j = 0; j < gs.number_genes; j++)
+            for (int i = 0; i < gs.number_organisms; i++)
+                for (int j = 0; j < gs.number_genes; j++)
                     next_generation[i * gs.number_genes + j] = after_mut[i * gs.number_genes + j];
                     
             
         } else {
-            i = 0;
 //    char hostname[256];
 //    gethostname(hostname, sizeof(hostname));
 //    printf("PID %d on %s ready for attach\n", getpid(), hostname);
@@ -699,7 +757,7 @@ int main(int argc, char *argv[]) {
 
 //	printf("line 476, rank %d\n", rank);
             t_current = 0;
-            for (i = 0; i < gs.number_organisms / size; i++) {
+            for (int i = 0; i < gs.number_organisms / size; i++) {
                 for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                     action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                      &after_mut[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
@@ -737,6 +795,15 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    
+    
+    
+    
+    
+    
+    
+    
+    //finalize
     if (rank == 0) {
         fclose(text);
         fclose(owle);
@@ -746,10 +813,13 @@ int main(int argc, char *argv[]) {
         fclose(sd);
     }
 
-    end =  MPI_Wtime();
+    end = MPI_Wtime();
     if (rank == 0)
 		printf("Time: %f sec\n", end - start1);
 		
+    MPI_Type_free(&GlobalSetupMPI);
+    MPI_Type_free(&my_MPI_struct);
+	
     MPI_Finalize();
     return 0;
 }
