@@ -14,8 +14,8 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
 
     seed = (long) time(NULL);
     seed_negative = -seed;
-    ran2(&seed_negative);   
-    
+    ran2(&seed_negative);
+
     for (i = 0; i < NUMBER_ORGANISMS; i++) {
         for (ii = 0; ii < NUMBER_GENES; ii++) {
             if (next_generation[i * NUMBER_GENES + ii] > right_border[ii] ||
@@ -30,7 +30,7 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
             }
         }
     }
-    
+
     for (i = 0; i < NUMBER_ORGANISMS / 2; i++) {
         num_1 = mpool[2 * i];
         num_2 = mpool[2 * i + 1];

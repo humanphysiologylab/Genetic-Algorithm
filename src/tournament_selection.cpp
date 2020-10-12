@@ -1,18 +1,18 @@
 #include "tournament_selection.h"
 
 void tournament_selection(int *mpool, double *SD, struct State *state_struct, struct State *state_struct_rewrite, int NUMBER_ORGANISMS, int NUMBER_BASELINES){
-    
+
     int i,j, tt, index_1, index_2;
     int c = 0;
     double copy_1[NUMBER_ORGANISMS];
     double copy_2[NUMBER_ORGANISMS];
-    
+
     for (tt = 0;tt<NUMBER_ORGANISMS;tt++)
     {
         copy_1[tt]= SD[tt];
         copy_2[tt]= SD[tt];
     }
-    
+
     srand(time(NULL));
     while (c < NUMBER_ORGANISMS/2)
     {
@@ -61,7 +61,7 @@ void tournament_selection(int *mpool, double *SD, struct State *state_struct, st
             c+=1;
         }
     }
-    
+
     for (i=0;i<NUMBER_ORGANISMS;i++)
         for (j=0;j<NUMBER_BASELINES;j++) state_struct[j+i*NUMBER_BASELINES] = state_struct_rewrite[j+i*NUMBER_BASELINES];
 

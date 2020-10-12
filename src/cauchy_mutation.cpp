@@ -175,7 +175,7 @@ cauchy_mutation(double *after_mut, double *after_cross, double *left_border, dou
             for (int j = 0; j < NUMBER_GENES; j++) {
                 after_mut[i * NUMBER_GENES + j] =
                         after_cross[i * NUMBER_GENES + j] + shift * uniform_vector[j];
-            
+
             }
         }
 
