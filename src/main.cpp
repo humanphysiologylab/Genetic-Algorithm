@@ -209,10 +209,14 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-    double *IA = 0;
+    double *IA = 0; //Stimulation current, A/F
     double *right_border = 0, *left_border = 0; //min and max possible values of parameters
     int *CL = 0; //Cycle lengths
+    
+    //1 - include ISO model
+    //0 - without ISO model
     int *ISO = 0;
+    
     char baseline_file_names[256][256], statedat_file_names[256][256];
 
     GlobalSetup gs;
@@ -282,13 +286,16 @@ float *best_scaling_factor, *best_scaling_shift;
             
         for (int i = 0; i < gs.number_baselines; i++)
             strcpy(baseline_file_names[i], read_line(caBuf, ciBufSize, fInput));
-        
+
         //read initial states filenames
         for (int i = 0; i < gs.number_baselines; i++)
             strcpy(statedat_file_names[i], read_line(caBuf, ciBufSize, fInput));
 
-        for (int ii = 0; ii < gs.number_baselines; ii++) IA[ii] = atof(read_line(caBuf, ciBufSize, fInput));
-        for (int ii = 0; ii < gs.number_baselines; ii++) ISO[ii] = atoi(read_line(caBuf, ciBufSize, fInput));
+        for (int i = 0; i < gs.number_baselines; i++)
+            IA[i] = atof(read_line(caBuf, ciBufSize, fInput));
+
+        for (int i = 0; i < gs.number_baselines; i++)
+            ISO[i] = atoi(read_line(caBuf, ciBufSize, fInput));
 
         gs.elites = atoi(read_line(caBuf, ciBufSize, fInput));
         gs.autosave = atoi(read_line(caBuf, ciBufSize, fInput));
@@ -305,7 +312,7 @@ float *best_scaling_factor, *best_scaling_shift;
         MPI_Bcast(&gs, 1, GlobalSetupMPI, 0, MPI_COMM_WORLD);
         //end master
     } else {
-		//slave
+		//slave receives params from master thats all
 
         MPI_Bcast(&gs, 1, GlobalSetupMPI, 0, MPI_COMM_WORLD);
 
@@ -333,10 +340,9 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-    FILE *baseline_file[gs.number_baselines];
-    FILE *filename;
 
-    int *TIME;
+    int *TIME; //?? array of durations of each AP record?
+    
     if ((TIME = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
         puts("The 'TIME' array isn't created!");
         exit(-1);
@@ -371,7 +377,7 @@ float *best_scaling_factor, *best_scaling_shift;
             puts("The 'after mut' array isn't created!");
             exit(-1);
         }
-    } else {
+    } else {//duplicating...
         if ((SD = (double *) malloc(sizeof(double) * gs.number_organisms / size)) == NULL) {
             puts("The 'SD' array isn't created!");
             exit(-1);
@@ -402,16 +408,25 @@ float *best_scaling_factor, *best_scaling_shift;
 
     }
 
-    time_sum = 0;
-    for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-        filename = fopen(baseline_file_names[baseline_counter], "r");
-        if (filename == NULL) {
-			printf("Cannot open baseline file: %s\n", baseline_file_names[baseline_counter]);
-			return -1;
-		}
-        TIME[baseline_counter] = time_array(time_sum, filename);
-        fclose(filename);
+
+
+
+
+    if (rank == 0) {
+        time_sum = 0;
+        for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+            FILE *filename = fopen(baseline_file_names[baseline_counter], "r");
+            if (filename == NULL) {
+                printf("Cannot open baseline file: %s\n", baseline_file_names[baseline_counter]);
+                return -1;
+            }
+            TIME[baseline_counter] = time_array(time_sum, filename);
+            fclose(filename);
+        }
     }
+    MPI_Bcast(&time_sum, 1, MPI_LONG, 0, MPI_COMM_WORLD);
+    MPI_Bcast(TIME, gs.number_baselines, MPI_INT, 0, MPI_COMM_WORLD);
+
 
 
 
@@ -424,13 +439,15 @@ float *best_scaling_factor, *best_scaling_shift;
         exit(-1);
     }
 
-    t_current = 0;
+
+
+
+
+
 
     /*Read initial states for each BASELINE from the files in the directory.*/
-    struct State initial_state[gs.number_baselines];
-    struct State *state_struct, *elite_state, *state_struct_rewrite;
-
-
+    State initial_state[gs.number_baselines];
+    State *state_struct, *elite_state, *state_struct_rewrite;
 
     if (rank == 0) {
         state_struct = (struct State *) malloc(sizeof(struct State) * gs.number_organisms * (gs.number_baselines));
@@ -443,52 +460,59 @@ float *best_scaling_factor, *best_scaling_shift;
                 sizeof(struct State) * gs.number_organisms / size * (gs.number_baselines));
     }
 
-
-
-
-
     elite_state = (struct State *) malloc(sizeof(struct State) * gs.elites * (gs.number_baselines));
 
 
-    for (int i = 0; i < gs.number_baselines; i++) {
-        FILE *fin = fopen(statedat_file_names[i], "r");
-        if (!fin) {
-			printf("Cannot open IC file: %s\n", statedat_file_names[i]);
-			return -1;
-		}
-        fread(&initial_state[i], sizeof(struct State), 1, fin);
-        fclose(fin);
-    }
-
-
+   
     if (rank == 0) {
+        for (int i = 0; i < gs.number_baselines; i++) {
+            FILE *fin = fopen(statedat_file_names[i], "r");
+            if (!fin) {
+                printf("Cannot open IC file: %s\n", statedat_file_names[i]);
+                return -1;
+            }
+            fread(&initial_state[i], sizeof(struct State), 1, fin); //?? NOT SAFE!
+            fclose(fin);
+        }
+    }
+    MPI_Bcast(initial_state, gs.number_baselines, StateVectorMPI, 0, MPI_COMM_WORLD);
+    
+    
+
+
+    if (rank == 0) { //?? why only root got initial state in state_struct?
         for (int j = 0; j < gs.number_organisms; j++)
             for (int i = 0; i < gs.number_baselines; i++)
                 state_struct[i + j *
-                                 gs.number_baselines] = initial_state[i];    //use same structure for every organism initially
+                                 gs.number_baselines] = initial_state[i];
+            //use same structure for every organism initially
     }
 
 
 
 
 
-    for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-        baseline_file[baseline_counter] = fopen(baseline_file_names[baseline_counter], "r");
-        if (!baseline_file[baseline_counter]) {
-            printf("No Baseline file!\n");
-            exit(-1);
+
+    //read baseline APs
+    if (rank == 0) {
+        for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+            FILE *file = fopen(baseline_file_names[baseline_counter], "r");
+            if (!file) {
+                printf("Cannot open baseline file: %s\n", baseline_file_names[baseline_counter]);
+                exit(-1);
+            }
+            scanf_baseline(0, TIME[baseline_counter], file, &AP_control[t_current]);
+    //        normalize_baseline(0, TIME[baseline_counter], &AP_control[t_current]); //rescale baseline from 0 to 1. Max is the time of maximum for baseline.
+            fclose(file);
+            t_current += TIME[baseline_counter];
         }
-        scanf_baseline(0, TIME[baseline_counter], baseline_file[baseline_counter], &AP_control[t_current]);
-//        normalize_baseline(0, TIME[baseline_counter], &AP_control[t_current]); //rescale baseline from 0 to 1. Max is the time of maximum for baseline.
-        fclose(baseline_file[baseline_counter]);
-        t_current += TIME[baseline_counter];
     }
+    MPI_Bcast(AP_control, time_sum, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
 
 
 
-
-    if (rank == 0)
+    if (rank == 0) //?? initial population only at root?
         initial_population(next_generation, left_border, right_border, initial_state, gs.number_organisms,
                            gs.number_genes, gs.number_baselines, gs.autosave);
 
@@ -496,8 +520,6 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-
-    t_current = 0;
     if (rank == 0) {
         for (int i = 1; i < size; i++) {
             MPI_Isend(&next_generation[gs.number_genes * gs.number_organisms / size * (i)],
@@ -507,14 +529,13 @@ float *best_scaling_factor, *best_scaling_shift;
         }
 
         for (int i = 0; i < gs.number_organisms / size; i++) {
-            for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+            for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                 action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                  &next_generation[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
                                  CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
                                  ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
                 t_current += TIME[baseline_counter];
             }
-            t_current = 0;
         }
         for (int i = 1; i < size; i++) {
             MPI_Recv(&AP_current[i * (time_sum) * gs.number_organisms / size], (time_sum) * gs.number_organisms / size,
@@ -533,14 +554,13 @@ float *best_scaling_factor, *best_scaling_shift;
         MPI_Recv(state_struct, gs.number_organisms * gs.number_baselines / size, StateVectorMPI, 0, 1, MPI_COMM_WORLD,
                  &stats[1]);
         for (int i = 0; i < gs.number_organisms / size; i++) {
-            for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+            for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                 action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                  &next_generation[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
                                  CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
                                  ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
                 t_current += TIME[baseline_counter];
             }
-            t_current = 0;
         }
         MPI_Send(AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
         MPI_Send(state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI, 0, 4, MPI_COMM_WORLD);
@@ -745,7 +765,7 @@ float *best_scaling_factor, *best_scaling_shift;
                 for (int j = 0; j < gs.number_genes; j++)
                     next_generation[i * gs.number_genes + j] = after_mut[i * gs.number_genes + j];
 
-
+            free(elite_organisms);
         } else {
 //    char hostname[256];
 //    gethostname(hostname, sizeof(hostname));
@@ -829,6 +849,25 @@ float *best_scaling_factor, *best_scaling_shift;
     MPI_Type_free(&GlobalSetupMPI);
     MPI_Type_free(&StateVectorMPI);
 
+    free(left_border);
+    free(right_border);
+    free(CL);
+    free(IA);
+    free(ISO);
+    free(SD);
+    free(TIME);
+    free(best_scaling_factor);
+    free(best_scaling_shift);
+    free(next_generation);
+    free(after_cross);
+    free(after_mut);
+    free(AP_control);
+    free(AP_current);
+    free(state_struct);
+    free(state_struct_rewrite);
+    free(elite_state);
+
+    
     MPI_Finalize();
     return 0;
 }
