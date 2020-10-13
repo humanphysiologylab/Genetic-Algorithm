@@ -547,8 +547,6 @@ float *best_scaling_factor, *best_scaling_shift;
         }
 
     } else {
-//	printf("line 303, rank %d\n", rank);
-        fflush(stdout);
         MPI_Recv(next_generation, gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD,
                  &stats[0]);
         MPI_Recv(state_struct, gs.number_organisms * gs.number_baselines / size, StateVectorMPI, 0, 1, MPI_COMM_WORLD,
@@ -686,7 +684,7 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
             /*SLOWEST: AP calculations*/
-            t_current = 0;
+            
             for (int i = 1; i < size; i++) {
                 MPI_Isend(&after_mut[gs.number_organisms * gs.number_genes / size * (i)],
                           gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &reqs[0]);
@@ -695,7 +693,7 @@ float *best_scaling_factor, *best_scaling_shift;
                           &reqs[1]);
             }
             for (int i = 0; i < gs.number_organisms / size; i++) {
-                for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+                for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                     action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                      &after_mut[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
                                      CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
@@ -703,7 +701,6 @@ float *best_scaling_factor, *best_scaling_shift;
                     t_current += TIME[baseline_counter];
 
                 }
-                t_current = 0;
             }
 
             for (int i = 1; i < size; i++) {
@@ -721,6 +718,11 @@ float *best_scaling_factor, *best_scaling_shift;
 
             fflush(stdout);
 
+
+
+
+
+
             /*Elite AP recalculations to get closer to steady state. Note that we suppose number of cores to be more then the number of Elite organisms in this implementation.
              * 1 Elite per core.*/
             for (int h = 1; h < gs.elites; h++) {
@@ -730,8 +732,8 @@ float *best_scaling_factor, *best_scaling_shift;
                           MPI_COMM_WORLD, &reqs[1]);
             }
 
-            t_current = 0;
-            for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+          
+            for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                 action_potential(&elite_state[baseline_counter], &elite_organisms[0],
                                  &AP_current[SD_index[gs.number_organisms - gs.elites] * (time_sum) + t_current],
                                  CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
@@ -747,6 +749,16 @@ float *best_scaling_factor, *best_scaling_shift;
                 MPI_Recv(&elite_organisms[h * gs.number_genes], gs.number_genes, MPI_DOUBLE, h, 9, MPI_COMM_WORLD,
                          &stats[4]);
             }
+
+
+
+
+
+
+
+
+
+
 
             /*Replace worst organisms to elite*/
             int num = 0;
@@ -767,34 +779,23 @@ float *best_scaling_factor, *best_scaling_shift;
 
             free(elite_organisms);
         } else {
-//    char hostname[256];
-//    gethostname(hostname, sizeof(hostname));
-//    printf("PID %d on %s ready for attach\n", getpid(), hostname);
-            //   fflush(stdout);
-//    while (0 == i)
-//        sleep(5);
-
-//	printf("line 459, rank %d\n", rank);
-            fflush(stdout);
+            //slave
+           
 
             MPI_Recv(after_mut, gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
                      &stats[0]);
 
-//	printf("line 473, rank %d\n", rank);
             MPI_Recv(state_struct, gs.number_organisms * gs.number_baselines / size, StateVectorMPI, 0, 2,
                      MPI_COMM_WORLD, &stats[1]);
 
-//	printf("line 476, rank %d\n", rank);
-            t_current = 0;
             for (int i = 0; i < gs.number_organisms / size; i++) {
-                for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+                for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                     action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
                                      &after_mut[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
                                      CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
                                      ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
                     t_current += TIME[baseline_counter];
                 }
-                t_current = 0;
             }
 
             MPI_Send(AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
@@ -804,12 +805,11 @@ float *best_scaling_factor, *best_scaling_shift;
 
             if (rank < gs.elites) {
 
-//	printf("line 481, rank %d\n", rank);
-                fflush(stdout);
+
                 MPI_Recv(after_mut, gs.number_genes, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, &stats[0]);
                 MPI_Recv(elite_state, gs.number_baselines, StateVectorMPI, 0, 6, MPI_COMM_WORLD, &stats[1]);
-                t_current = 0;
-                for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+              
+                for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                     action_potential(&elite_state[baseline_counter], &after_mut[0], &AP_current[t_current],
                                      CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
                                      ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
