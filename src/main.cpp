@@ -154,8 +154,8 @@ int main(int argc, char *argv[]) {
     long baseline_counter;
 
 
-double *AP_control, *AP_current, *Na_conc, *SD, *next_generation, *after_mut, *after_cross;
-double best_organism_ap, scaling_factor, scaling_shift;
+double *AP_control, *AP_current, *SD, *next_generation, *after_mut, *after_cross;//, *Na_conc;
+double  scaling_factor, scaling_shift;
 float *best_scaling_factor, *best_scaling_shift;
 
 
@@ -670,7 +670,7 @@ float *best_scaling_factor, *best_scaling_shift;
 
             double after_cross_normalized[gs.number_organisms * gs.number_genes];
             double left_border_normalized[gs.number_genes], right_border_normalized[gs.number_genes];
-            int number_conductancies = 15;
+            const int number_conductancies = 15;
 
             normalize_genes(/*in*/ after_cross, left_border, right_border,
                                    gs.number_organisms, gs.number_genes, number_conductancies,
@@ -743,7 +743,7 @@ float *best_scaling_factor, *best_scaling_shift;
           
             for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                 action_potential(&elite_state[baseline_counter], &elite_organisms[0],
-                                 &AP_current[SD_index[gs.number_organisms - gs.elites] * (time_sum) + t_current],
+                                 &AP_current[SD_index[gs.number_organisms - gs.elites] * (time_sum) + t_current],//!!
                                  CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
                                  ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
                 t_current += TIME[baseline_counter];

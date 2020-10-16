@@ -3,7 +3,7 @@ const double CROSSRATE = 0.9; //probability of crossover
 
 void sbx_crossover(double *next_generation, double *after_cross, int *mpool, double *left_border, double *right_border,
                    int NUMBER_ORGANISMS, int NUMBER_GENES) {
-    int etaC = 10; //The order of the polynomial for the SBX crossover
+    const int etaC = 10; //The order of the polynomial for the SBX crossover
     int i, ii, jj;
     int num_1, num_2;
     double sw_prob;
@@ -15,7 +15,7 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
     seed = (long) time(NULL);
     seed_negative = -seed;
     ran2(&seed_negative);
-
+/* this should not be here
     for (i = 0; i < NUMBER_ORGANISMS; i++) {
         for (ii = 0; ii < NUMBER_GENES; ii++) {
             if (next_generation[i * NUMBER_GENES + ii] > right_border[ii] ||
@@ -30,7 +30,7 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
             }
         }
     }
-
+*/
     for (i = 0; i < NUMBER_ORGANISMS / 2; i++) {
         num_1 = mpool[2 * i];
         num_2 = mpool[2 * i + 1];
