@@ -29,9 +29,8 @@ void scalar_multiplication(double *AP_control, double *AP_current, int length, d
 float SD_calculation(double *AP_control, double *AP_current, float *best_scaling_factor, float *best_scaling_shift,
                      int length) {
     double Variance;
-    double AP_control_scaled, sd;
-    double diff_between_potentials;
-    int s, ss, points_after;
+    double AP_control_scaled, sd = 0;
+    int s, points_after;
     double XY, X1, Y1, XX;
     int ones;
     double beta, alpha;
@@ -41,8 +40,7 @@ float SD_calculation(double *AP_control, double *AP_current, float *best_scaling
     int minimal_rest_potential = -60;   // mV
 
     int maximal_rest_potential = -90;   // mV
-    sd = 0;
-    ss = 0;
+
 
 //    scalar_multiplication(AP_control, AP_current, length, &XY, &X1, &Y1, &XX, &ones, voltage_border);
 
@@ -72,17 +70,17 @@ float SD_calculation(double *AP_control, double *AP_current, float *best_scaling
 //       		if ((AP_current[s] > voltage_border)||(points_after == 1)){
 //        		points_after = 1;
 //          		AP_control_scaled = AP_control[s] * alpha + beta;
-        diff_between_potentials = AP_control[s] - AP_current[s];
-        if ((AP_current[s]) == 0.0) {
+        const double diff_between_potentials = AP_control[s] - AP_current[s];
+        if (AP_current[s] == 0.0) { //?? this never equals True probably
             printf("AP_current[%d] is off\n", s);
             getc(stdin);
         }
         sd += diff_between_potentials * diff_between_potentials;
-        ss += 1;
+        
         //       	}
     }
 
-    Variance = sqrt(sd / (ss));
+    Variance = sqrt(sd / length);
 /*    }
     else
     {

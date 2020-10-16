@@ -163,7 +163,7 @@ float *best_scaling_factor, *best_scaling_shift;
     //open files and make sure it was successful
     int init_status = 0;
 
-    FILE *f, *owle, *best, *avr, *test, *ap_best, *text, *sd, *ctrl_point;
+    FILE *f = 0, *owle = 0, *best = 0, *avr = 0, *test = 0, *ap_best = 0, *text = 0, *sd = 0, *ctrl_point = 0;
 
     if (rank == 0) {
 		std::filesystem::create_directory("ga_output");
@@ -480,19 +480,6 @@ float *best_scaling_factor, *best_scaling_shift;
     
 
 
-    if (rank == 0) { //?? why only root got initial state in state_struct?
-        for (int j = 0; j < gs.number_organisms; j++)
-            for (int i = 0; i < gs.number_baselines; i++)
-                state_struct[i + j *
-                                 gs.number_baselines] = initial_state[i];
-            //use same structure for every organism initially
-    }
-
-
-
-
-
-
     //read baseline APs
     if (rank == 0) {
         for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
@@ -512,15 +499,20 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-    if (rank == 0) //?? initial population only at root?
+    //very first step of GA: random gen of initial parameters
+    if (rank == 0) {
+        
+        for (int j = 0; j < gs.number_organisms; j++)
+            for (int i = 0; i < gs.number_baselines; i++)
+                state_struct[i + j *
+                                 gs.number_baselines] = initial_state[i];
+            //use same structure for every organism initially
+
         initial_population(next_generation, left_border, right_border, initial_state, gs.number_organisms,
                            gs.number_genes, gs.number_baselines, gs.autosave);
 
 
-
-
-
-    if (rank == 0) {
+        
         for (int i = 1; i < size; i++) {
             MPI_Isend(&next_generation[gs.number_genes * gs.number_organisms / size * (i)],
                       gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, &reqs[0]);
@@ -569,7 +561,7 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-    //start GA?
+    //main GA cycle
     for (int cntr = 0; cntr < gs.generations; cntr++) {
         if (rank == 0) {
             printf("\nGeneration = %d\n", cntr);
@@ -725,6 +717,9 @@ float *best_scaling_factor, *best_scaling_shift;
 
             /*Elite AP recalculations to get closer to steady state. Note that we suppose number of cores to be more then the number of Elite organisms in this implementation.
              * 1 Elite per core.*/
+             
+             
+            //use MPI_Scatter
             for (int h = 1; h < gs.elites; h++) {
                 MPI_Isend(&elite_organisms[h * gs.number_genes], gs.number_genes, MPI_DOUBLE, h, 4, MPI_COMM_WORLD,
                           &reqs[0]);
@@ -741,6 +736,7 @@ float *best_scaling_factor, *best_scaling_shift;
                 t_current += TIME[baseline_counter];
             }
 
+            //use MPI_Gather
             for (int h = 1; h < gs.elites; h++) {
                 MPI_Recv(&AP_current[SD_index[gs.number_organisms - gs.elites + h] * (time_sum)], time_sum, MPI_DOUBLE,
                          h, 5, MPI_COMM_WORLD, &stats[1]);
@@ -780,8 +776,8 @@ float *best_scaling_factor, *best_scaling_shift;
             free(elite_organisms);
         } else {
             //slave
-           
 
+            //use MPI_Scatter
             MPI_Recv(after_mut, gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
                      &stats[0]);
 
@@ -798,10 +794,16 @@ float *best_scaling_factor, *best_scaling_shift;
                 }
             }
 
+            //use MPI_Gather
             MPI_Send(AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
             MPI_Send(state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI, 0, 3,
                      MPI_COMM_WORLD);
             MPI_Send(after_mut, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, 8, MPI_COMM_WORLD);
+
+
+
+
+
 
             if (rank < gs.elites) {
 
@@ -821,6 +823,11 @@ float *best_scaling_factor, *best_scaling_shift;
                 MPI_Send(elite_state, gs.number_baselines, StateVectorMPI, 0, 7, MPI_COMM_WORLD);
                 MPI_Send(after_mut, gs.number_genes, MPI_DOUBLE, 0, 9, MPI_COMM_WORLD);
             }
+            
+            
+            
+            
+            
         }
     }
 

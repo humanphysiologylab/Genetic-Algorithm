@@ -150,7 +150,7 @@ void initialize_constants_default(Constants *C, double CL, double *scaling_coeff
 }
 
 
-double calculate_ICaL(State *S, State *R, Algebraic *A, Constants *C, bool GHK_FLAG = false) {
+double calculate_ICaL(State *S, State *R, Algebraic *A, Constants *C, const bool GHK_FLAG = false) {
 
     if (GHK_FLAG) {
         A->d_L_infinity = (S->V <= 50.0) ? 1.9 * exp(-2.47567057 * exp(-0.02690762 * S->V)) : 1.;
@@ -161,7 +161,7 @@ double calculate_ICaL(State *S, State *R, Algebraic *A, Constants *C, bool GHK_F
     R->d_L = (A->d_L_infinity - S->d_L) / A->tau_d_L;
 
     A->f_L_infinity = 1.0 / (1.0 + exp((S->V + 27.4) / 7.1));
-    A->tau_f_L1 = 0.161 * exp(-pow((S->V + 40.0) / 14.4, 2)) + 0.01;
+    A->tau_f_L1 = 0.161  * exp(-pow((S->V + 40.0) / 14.4, 2)) + 0.01;
     R->f_L1 = (A->f_L_infinity - S->f_L1) / A->tau_f_L1;
 
     A->tau_f_L2 = 1.3323 * exp(-pow((S->V + 40.0) / 14.2, 2)) + 0.0626;
@@ -273,7 +273,7 @@ double calculate_ICaL_ToR_ORd(State *S, State *R, Algebraic *A, Constants *C) {
 
 void compute_rates(double VOI, State *S, State *R, Algebraic *A, Constants *C, double dt, double stim_amplitude) {
 
-    bool IMPLICIT_FLAG = true;
+    const bool IMPLICIT_FLAG = true;
     // A->J_X = kon * C->Mg_ww * ((1.0 - S->Y) - S->X) - koff * S->X;
     // A->J_X = ((S->X + dt * (kon* C->Mg_ww * (1.0 - S->Y))) / (1 + dt * (kon* C->Mg_ww + koff)) - S->X) / dt;
 
@@ -443,8 +443,8 @@ void euler(double dt, State *S, State *R) {
 int action_potential(struct State *initial_state, double *scaling_coefficients, double *AP, float CL, float amp,
                      int AP_length, int iso, int baseline_index, int amount_of_baselines, int amount_of_genes) {
 
-    int chain_length = 1;
-    int target_cell_index = chain_length / 2;
+    const int chain_length = 1; //maybe it should not be hardcoded 
+    const int target_cell_index = chain_length / 2;
 
     const int number_of_stimuli = 1;
     const double ft = number_of_stimuli * CL; // ms
@@ -477,7 +477,7 @@ int action_potential(struct State *initial_state, double *scaling_coefficients, 
         if (t >= ft - CL && t < ft - CL + AP_length) {
             if (dt_counter % skip == 0) {
                 if (AP_length_current < AP_length) {
-                    AP[AP_length_current] = S[target_cell_index].V;
+                    AP[AP_length_current] = S[target_cell_index].V; //?? maybe rewrite because of lots of LL cache write misses
                 }
                 AP_length_current += 1;
             }
