@@ -15,7 +15,7 @@
 //     Redistribution and use of the code with or without modification
 //     are prohibited for any commercial purposes.
 
-
+#include <omp.h>
 #include <mpi.h>
 #include <cstring>
 #include <cstdio>
@@ -148,15 +148,14 @@ int main(int argc, char *argv[]) {
 
 
 
-    long t_current;
-
+   
     long time_sum;
-    long baseline_counter;
+    
 
 
-double *AP_control, *AP_current, *SD, *next_generation, *after_mut, *after_cross;//, *Na_conc;
-double  scaling_factor, scaling_shift;
-float *best_scaling_factor, *best_scaling_shift;
+    double *AP_control, *AP_current, *SD, *next_generation, *after_mut, *after_cross;//, *Na_conc;
+    double  scaling_factor, scaling_shift;
+    float *best_scaling_factor, *best_scaling_shift;
 
 
 
@@ -195,8 +194,7 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
     //timer
-    double start1, end;
-    start1 = MPI_Wtime();
+    const double start_time = MPI_Wtime();
 
 
 
@@ -334,8 +332,9 @@ float *best_scaling_factor, *best_scaling_shift;
     MPI_Bcast(CL, gs.number_baselines, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(ISO, gs.number_baselines, MPI_INT, 0, MPI_COMM_WORLD);
 
-    MPI_Bcast(baseline_file_names, gs.number_baselines * 256, MPI_CHAR, 0, MPI_COMM_WORLD);
-    MPI_Bcast(statedat_file_names, gs.number_baselines * 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+    //we will broadcast the content of these file from the root
+    //MPI_Bcast(baseline_file_names, gs.number_baselines * 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+    //MPI_Bcast(statedat_file_names, gs.number_baselines * 256, MPI_CHAR, 0, MPI_COMM_WORLD);
 
 
 
@@ -414,7 +413,7 @@ float *best_scaling_factor, *best_scaling_shift;
 
     if (rank == 0) {
         time_sum = 0;
-        for (baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+        for (int baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
             FILE *filename = fopen(baseline_file_names[baseline_counter], "r");
             if (filename == NULL) {
                 printf("Cannot open baseline file: %s\n", baseline_file_names[baseline_counter]);
@@ -447,7 +446,10 @@ float *best_scaling_factor, *best_scaling_shift;
 
     /*Read initial states for each BASELINE from the files in the directory.*/
     State initial_state[gs.number_baselines];
-    State *state_struct, *elite_state, *state_struct_rewrite;
+    State *state_struct, *state_struct_rewrite;
+
+    
+
 
     if (rank == 0) {
         state_struct = (struct State *) malloc(sizeof(struct State) * gs.number_organisms * (gs.number_baselines));
@@ -460,9 +462,11 @@ float *best_scaling_factor, *best_scaling_shift;
                 sizeof(struct State) * gs.number_organisms / size * (gs.number_baselines));
     }
 
-    elite_state = (struct State *) malloc(sizeof(struct State) * gs.elites * (gs.number_baselines));
-
-
+   
+   
+   
+   
+   
    
     if (rank == 0) {
         for (int i = 0; i < gs.number_baselines; i++) {
@@ -477,12 +481,10 @@ float *best_scaling_factor, *best_scaling_shift;
     }
     MPI_Bcast(initial_state, gs.number_baselines, StateVectorMPI, 0, MPI_COMM_WORLD);
     
-    
-
 
     //read baseline APs
     if (rank == 0) {
-        for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+        for (long t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
             FILE *file = fopen(baseline_file_names[baseline_counter], "r");
             if (!file) {
                 printf("Cannot open baseline file: %s\n", baseline_file_names[baseline_counter]);
@@ -499,82 +501,68 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-    //very first step of GA: random gen of initial parameters
+    //very first step of GA: random gen of initial parameters (or read from a file)
     if (rank == 0) {
-        
         for (int j = 0; j < gs.number_organisms; j++)
             for (int i = 0; i < gs.number_baselines; i++)
-                state_struct[i + j *
-                                 gs.number_baselines] = initial_state[i];
+                state_struct[i + j * gs.number_baselines] = initial_state[i];
             //use same structure for every organism initially
 
         initial_population(next_generation, left_border, right_border, initial_state, gs.number_organisms,
                            gs.number_genes, gs.number_baselines, gs.autosave);
-
-
-        
-        for (int i = 1; i < size; i++) {
-            MPI_Isend(&next_generation[gs.number_genes * gs.number_organisms / size * (i)],
-                      gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, i, 2, MPI_COMM_WORLD, &reqs[0]);
-            MPI_Isend(&state_struct[gs.number_baselines * gs.number_organisms / size * (i)],
-                      gs.number_organisms * gs.number_baselines / size, StateVectorMPI, i, 1, MPI_COMM_WORLD, &reqs[1]);
-        }
-
-        for (int i = 0; i < gs.number_organisms / size; i++) {
-            for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-                action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
-                                 &next_generation[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
-                                 CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
-                                 ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
-                t_current += TIME[baseline_counter];
-            }
-        }
-        for (int i = 1; i < size; i++) {
-            MPI_Recv(&AP_current[i * (time_sum) * gs.number_organisms / size], (time_sum) * gs.number_organisms / size,
-                     MPI_DOUBLE, i, 3, MPI_COMM_WORLD, &stats[1]);
-            MPI_Recv(&state_struct[i * gs.number_baselines * gs.number_organisms / size],
-                     gs.number_baselines * gs.number_organisms / size, StateVectorMPI, i, 4, MPI_COMM_WORLD, &stats[0]);
-            MPI_Recv(&next_generation[i * gs.number_genes * gs.number_organisms / size],
-                     gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, i, 8, MPI_COMM_WORLD, &stats[3]);
-        }
-
-    } else {
-        MPI_Recv(next_generation, gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD,
-                 &stats[0]);
-        MPI_Recv(state_struct, gs.number_organisms * gs.number_baselines / size, StateVectorMPI, 0, 1, MPI_COMM_WORLD,
-                 &stats[1]);
-        for (int i = 0; i < gs.number_organisms / size; i++) {
-            for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-                action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
-                                 &next_generation[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
-                                 CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
-                                 ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
-                t_current += TIME[baseline_counter];
-            }
-        }
-        MPI_Send(AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
-        MPI_Send(state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI, 0, 4, MPI_COMM_WORLD);
-        MPI_Send(next_generation, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, 8, MPI_COMM_WORLD);
     }
-
-
-
-
-
+    
     //main GA cycle
     for (int cntr = 0; cntr < gs.generations; cntr++) {
+
+        MPI_Scatter(next_generation, gs.number_organisms * gs.number_genes / size,
+            MPI_DOUBLE, next_generation, gs.number_organisms * gs.number_genes / size,
+            MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    
+        MPI_Scatter(state_struct, gs.number_baselines * gs.number_organisms / size,
+            StateVectorMPI, state_struct, gs.number_baselines * gs.number_organisms / size,
+            StateVectorMPI, 0, MPI_COMM_WORLD);
+
+        #pragma omp parallel for
+        for (int i = 0; i < gs.number_organisms / size; i++) {
+            for (long t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
+                action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
+                                 &next_generation[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
+                                 CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
+                                 ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
+                t_current += TIME[baseline_counter];
+            }
+        }
+
+        MPI_Gather(AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE,
+            AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        
+        MPI_Gather(state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI,
+            state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI, 0, MPI_COMM_WORLD);
+    
+        MPI_Gather(next_generation, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, next_generation,
+            gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+
+
         if (rank == 0) {
-            printf("\nGeneration = %d\n", cntr);
+            printf("\nGeneration %d\n", cntr);
+            
+            State *elite_state = state_struct;
+            State *mutant_state = state_struct + gs.elites;
+            const int mutant_number = gs.number_organisms - gs.elites;
 
             int SD_index[gs.number_organisms];
-
 
             //TODO fitness_function should be eval at each node
             fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, SD, SD_index,
                              gs.number_organisms, gs.number_baselines, time_sum);
 
+            assert(SD[0] < SD[gs.number_organisms]);
+            
 
-
+/////////////
+            
             /*Save final state of best organism to state.dat to get closer to steady state in the next run.*/
             double elite_array_SD[gs.elites];
             int elite_index_array[gs.elites];
@@ -604,19 +592,24 @@ float *best_scaling_factor, *best_scaling_shift;
                     }
                 }
             }
-            
+
             
             
 
             double *elite_organisms;
             elite_organisms = (double *) malloc(sizeof(double) * gs.elites * gs.number_genes);
+
+            
             for (int i = 0; i < gs.elites; i++)
                 for (int j = 0; j < gs.number_genes; j++)
                     elite_organisms[i * gs.number_genes + j] = next_generation[elite_index_array[i] * gs.number_genes +
                                                                                j];
+///////////////////
+
 
             double average = 0;
-            for (int c = 0; c < gs.number_organisms; c++) average += SD[c];
+            for (int i = 0; i < gs.number_organisms; i++)
+                average += SD[i];
             average = average / gs.number_organisms;
 
 
@@ -650,26 +643,32 @@ float *best_scaling_factor, *best_scaling_shift;
             //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
             //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
 
+/*turn it off for a while
             writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average,
                                     &next_generation[elite_index_array[0] * gs.number_genes], gs.number_genes,
                                     gs.number_organisms, next_generation, cntr, gs.recording_frequency,
                                     gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor,
                                     best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0] * (time_sum));
-
+*/
 
 
 
             /*Genetic Operators*/
-            int mpool[gs.number_organisms];
+            int mpool[mutant_number];
+
             tournament_selection(mpool, SD, state_struct, state_struct_rewrite, gs.number_organisms,
                                  gs.number_baselines);
+
+
             sbx_crossover(next_generation, after_cross, mpool, left_border, right_border, gs.number_organisms,
                           gs.number_genes);
 
 
 
             double after_cross_normalized[gs.number_organisms * gs.number_genes];
+
             double left_border_normalized[gs.number_genes], right_border_normalized[gs.number_genes];
+
             const int number_conductancies = 15;
 
             normalize_genes(/*in*/ after_cross, left_border, right_border,
@@ -685,86 +684,8 @@ float *best_scaling_factor, *best_scaling_shift;
                                    gs.number_organisms, gs.number_genes, number_conductancies,
                               /*out*/ after_mut);
 
-
-            /*SLOWEST: AP calculations*/
-            
-            for (int i = 1; i < size; i++) {
-                MPI_Isend(&after_mut[gs.number_organisms * gs.number_genes / size * (i)],
-                          gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &reqs[0]);
-                MPI_Isend(&state_struct[gs.number_baselines * gs.number_organisms / size * (i)],
-                          gs.number_organisms * gs.number_baselines / size, StateVectorMPI, i, 2, MPI_COMM_WORLD,
-                          &reqs[1]);
-            }
-            for (int i = 0; i < gs.number_organisms / size; i++) {
-                for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-                    action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
-                                     &after_mut[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
-                                     CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
-                                     ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
-                    t_current += TIME[baseline_counter];
-
-                }
-            }
-
-            for (int i = 1; i < size; i++) {
-                MPI_Recv(&AP_current[i * (time_sum) * gs.number_organisms / size],
-                         (time_sum) * gs.number_organisms / size, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, &stats[1]);
-                MPI_Recv(&state_struct[i * gs.number_baselines * gs.number_organisms / size],
-                         gs.number_baselines * gs.number_organisms / size, StateVectorMPI, i, 3, MPI_COMM_WORLD,
-                         &stats[0]);
-                MPI_Recv(&after_mut[i * gs.number_genes * gs.number_organisms / size],
-                         gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, i, 8, MPI_COMM_WORLD, &stats[3]);
-            }
-
-
-            //TODO fitness function again
-            fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, SD, SD_index,
-                             gs.number_organisms, gs.number_baselines, time_sum);
-
-            fflush(stdout);
-
-
-
-
-
-
-            /*Elite AP recalculations to get closer to steady state. Note that we suppose number of cores to be more then the number of Elite organisms in this implementation.
-             * 1 Elite per core.*/
-             
-             
-            //use MPI_Scatter
-            for (int h = 1; h < gs.elites; h++) {
-                MPI_Isend(&elite_organisms[h * gs.number_genes], gs.number_genes, MPI_DOUBLE, h, 4, MPI_COMM_WORLD,
-                          &reqs[0]);
-                MPI_Isend(&elite_state[gs.number_baselines * h], gs.number_baselines, StateVectorMPI, h, 6,
-                          MPI_COMM_WORLD, &reqs[1]);
-            }
-
-          
-            for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-                action_potential(&elite_state[baseline_counter], &elite_organisms[0],
-                                 &AP_current[SD_index[gs.number_organisms - gs.elites] * (time_sum) + t_current],//!!
-                                 CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
-                                 ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
-                t_current += TIME[baseline_counter];
-            }
-
-            //use MPI_Gather
-            for (int h = 1; h < gs.elites; h++) {
-                MPI_Recv(&AP_current[SD_index[gs.number_organisms - gs.elites + h] * (time_sum)], time_sum, MPI_DOUBLE,
-                         h, 5, MPI_COMM_WORLD, &stats[1]);
-                MPI_Recv(&elite_state[h * gs.number_baselines], gs.number_baselines, StateVectorMPI, h, 7,
-                         MPI_COMM_WORLD, &stats[2]);
-                MPI_Recv(&elite_organisms[h * gs.number_genes], gs.number_genes, MPI_DOUBLE, h, 9, MPI_COMM_WORLD,
-                         &stats[4]);
-            }
-
-
-
-
-
             /*Replace worst organisms to elite*/
-           
+
             for (int elite_array_index = 0, i = gs.number_organisms - gs.elites; i < gs.number_organisms; i++) {
                 if (SD[i] > elite_array_SD[elite_array_index]) {
                     for (int j = 0; j < gs.number_genes; j++)
@@ -784,55 +705,6 @@ float *best_scaling_factor, *best_scaling_shift;
 
             free(elite_organisms);
             
-            
-            
-            
-            
-        } else {
-///////////////////////////slave
-
-            //use MPI_Scatter
-            MPI_Recv(after_mut, gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
-                     &stats[0]);
-
-            MPI_Recv(state_struct, gs.number_organisms * gs.number_baselines / size, StateVectorMPI, 0, 2,
-                     MPI_COMM_WORLD, &stats[1]);
-
-            for (int i = 0; i < gs.number_organisms / size; i++) {
-                for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-                    action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
-                                     &after_mut[i * gs.number_genes], &AP_current[t_current + i * (time_sum)],
-                                     CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
-                                     ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
-                    t_current += TIME[baseline_counter];
-                }
-            }
-
-            //use MPI_Gather
-            MPI_Send(AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
-            MPI_Send(state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI, 0, 3,
-                     MPI_COMM_WORLD);
-            MPI_Send(after_mut, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, 8, MPI_COMM_WORLD);
-
-
-
-            if (rank < gs.elites) {
-                //deal with elites
-                MPI_Recv(after_mut, gs.number_genes, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, &stats[0]);
-                MPI_Recv(elite_state, gs.number_baselines, StateVectorMPI, 0, 6, MPI_COMM_WORLD, &stats[1]);
-              
-                for (t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
-                    action_potential(&elite_state[baseline_counter], &after_mut[0], &AP_current[t_current],
-                                     CL[baseline_counter], IA[baseline_counter], TIME[baseline_counter],
-                                     ISO[baseline_counter], baseline_counter, gs.number_baselines, gs.number_genes);
-                    t_current += TIME[baseline_counter];
-                }
-
-
-                MPI_Send(AP_current, time_sum, MPI_DOUBLE, 0, 5, MPI_COMM_WORLD);
-                MPI_Send(elite_state, gs.number_baselines, StateVectorMPI, 0, 7, MPI_COMM_WORLD);
-                MPI_Send(after_mut, gs.number_genes, MPI_DOUBLE, 0, 9, MPI_COMM_WORLD);
-            }
         }
     }
 
@@ -847,9 +719,9 @@ float *best_scaling_factor, *best_scaling_shift;
         fclose(sd);
     }
 
-    end = MPI_Wtime();
+    const double end_time = MPI_Wtime();
     if (rank == 0)
-		printf("Time: %f sec\n", end - start1);
+		printf("Time: %f sec\n", end_time - start_time);
 
     MPI_Type_free(&GlobalSetupMPI);
     MPI_Type_free(&StateVectorMPI);
@@ -870,7 +742,7 @@ float *best_scaling_factor, *best_scaling_shift;
     free(AP_current);
     free(state_struct);
     free(state_struct_rewrite);
-    free(elite_state);
+    //free(elite_state);
 
     
     MPI_Finalize();
