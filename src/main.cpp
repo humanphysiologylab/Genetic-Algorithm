@@ -568,18 +568,23 @@ float *best_scaling_factor, *best_scaling_shift;
 
             int SD_index[gs.number_organisms];
 
+
+            //TODO fitness_function should be eval at each node
             fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, SD, SD_index,
                              gs.number_organisms, gs.number_baselines, time_sum);
 
-            /*Save final state of best organism to state.dat to get closer to steady state in the next run.*/
-            double elite_array[gs.elites];
-            int elite_index_array[gs.elites];
-            int cc = 0;
-            int c = 0;
 
-            while (c < gs.elites) {
+
+            /*Save final state of best organism to state.dat to get closer to steady state in the next run.*/
+            double elite_array_SD[gs.elites];
+            int elite_index_array[gs.elites];
+
+
+
+            //unreadable code
+            for (int c = 0, cc = 00; c < gs.elites; ) {
                 if ((cc == 0) || ((cc != 0) && (SD[cc] != SD[cc - 1]))) {
-                    elite_array[c] = SD[cc];
+                    elite_array_SD[c] = SD[cc];
                     elite_index_array[c] = SD_index[cc];
                     for (int i = 0; i < gs.number_baselines; i++)
                         elite_state[c * gs.number_baselines + i] = state_struct[
@@ -589,7 +594,7 @@ float *best_scaling_factor, *best_scaling_shift;
                 cc += 1;
                 if (cc == gs.number_organisms - 1) {
                     while (c < gs.elites) {
-                        elite_array[c] = SD[cc];
+                        elite_array_SD[c] = SD[cc];
                         elite_index_array[c] = SD_index[cc];
                         for (int i = 0; i < gs.number_baselines; i++)
                             elite_state[c * gs.number_baselines + i] = state_struct[
@@ -599,6 +604,9 @@ float *best_scaling_factor, *best_scaling_shift;
                     }
                 }
             }
+            
+            
+            
 
             double *elite_organisms;
             elite_organisms = (double *) malloc(sizeof(double) * gs.elites * gs.number_genes);
@@ -647,6 +655,9 @@ float *best_scaling_factor, *best_scaling_shift;
                                     gs.number_organisms, next_generation, cntr, gs.recording_frequency,
                                     gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor,
                                     best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0] * (time_sum));
+
+
+
 
             /*Genetic Operators*/
             int mpool[gs.number_organisms];
@@ -705,6 +716,8 @@ float *best_scaling_factor, *best_scaling_shift;
                          gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, i, 8, MPI_COMM_WORLD, &stats[3]);
             }
 
+
+            //TODO fitness function again
             fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, SD, SD_index,
                              gs.number_organisms, gs.number_baselines, time_sum);
 
@@ -750,22 +763,18 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-
-
-
-
-
-
             /*Replace worst organisms to elite*/
-            int num = 0;
-            for (int i = gs.number_organisms - gs.elites; i < gs.number_organisms; i++) {
-                if (SD[i] > elite_array[num]) {
+           
+            for (int elite_array_index = 0, i = gs.number_organisms - gs.elites; i < gs.number_organisms; i++) {
+                if (SD[i] > elite_array_SD[elite_array_index]) {
                     for (int j = 0; j < gs.number_genes; j++)
-                        after_mut[SD_index[i] * gs.number_genes + j] = elite_organisms[num * gs.number_genes + j];
+                        after_mut[SD_index[i] * gs.number_genes + j] = elite_organisms[elite_array_index * gs.number_genes + j];
                     for (int j = 0; j < gs.number_baselines; j++)
-                        state_struct[SD_index[i] * gs.number_baselines + j] = elite_state[num * gs.number_baselines +
+                        state_struct[SD_index[i] * gs.number_baselines + j] = elite_state[elite_array_index * gs.number_baselines +
                                                                                           j];
-                    num += 1;
+                                                                                          
+                    //how about AP_current??????
+                    elite_array_index += 1;
                 }
             }
 
@@ -774,8 +783,13 @@ float *best_scaling_factor, *best_scaling_shift;
                     next_generation[i * gs.number_genes + j] = after_mut[i * gs.number_genes + j];
 
             free(elite_organisms);
+            
+            
+            
+            
+            
         } else {
-            //slave
+///////////////////////////slave
 
             //use MPI_Scatter
             MPI_Recv(after_mut, gs.number_organisms * gs.number_genes / size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
@@ -802,12 +816,8 @@ float *best_scaling_factor, *best_scaling_shift;
 
 
 
-
-
-
             if (rank < gs.elites) {
-
-
+                //deal with elites
                 MPI_Recv(after_mut, gs.number_genes, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, &stats[0]);
                 MPI_Recv(elite_state, gs.number_baselines, StateVectorMPI, 0, 6, MPI_COMM_WORLD, &stats[1]);
               
@@ -823,20 +833,8 @@ float *best_scaling_factor, *best_scaling_shift;
                 MPI_Send(elite_state, gs.number_baselines, StateVectorMPI, 0, 7, MPI_COMM_WORLD);
                 MPI_Send(after_mut, gs.number_genes, MPI_DOUBLE, 0, 9, MPI_COMM_WORLD);
             }
-            
-            
-            
-            
-            
         }
     }
-
-
-
-
-
-
-
 
 
     //finalize
