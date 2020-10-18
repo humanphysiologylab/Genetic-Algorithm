@@ -110,7 +110,7 @@ void box_muller_transform(double *uniform_vector, int NUMBER_GENES, long seed) {
 }
 
 void
-cauchy_mutation(double *after_mut, double *after_cross, double *left_border, double *right_border, int NUMBER_ORGANISMS,
+cauchy_mutation(double *input, double *output, double *left_border, double *right_border, int NUMBER_ORGANISMS,
                 int NUMBER_GENES) {
 
     double gamma = 0.05;
@@ -127,7 +127,7 @@ cauchy_mutation(double *after_mut, double *after_cross, double *left_border, dou
 
         if (mut_prob <= 1 - MUTRATE) {
             for (int j = 0; j < NUMBER_GENES; j++) {
-                after_mut[i * NUMBER_GENES + j] = after_cross[i * NUMBER_GENES + j];
+                output[i * NUMBER_GENES + j] = input[i * NUMBER_GENES + j];
             }
 
         } else {
@@ -142,9 +142,9 @@ cauchy_mutation(double *after_mut, double *after_cross, double *left_border, dou
             /* right border */
             for (int j = 0; j < NUMBER_GENES; j++) {
                 if (uniform_vector[j] > 0) {
-                    distance = (right_border[j] - after_cross[i * NUMBER_GENES + j]) / uniform_vector[j];
+                    distance = (right_border[j] - input[i * NUMBER_GENES + j]) / uniform_vector[j];
                 } else {
-                    distance = (left_border[j] - after_cross[i * NUMBER_GENES + j]) / uniform_vector[j];
+                    distance = (left_border[j] - input[i * NUMBER_GENES + j]) / uniform_vector[j];
                 }
                 if (distance < distance_min1) {
                     distance_min1 = distance;
@@ -154,9 +154,9 @@ cauchy_mutation(double *after_mut, double *after_cross, double *left_border, dou
             /* left border*/
             for (int j = 0; j < NUMBER_GENES; j++) {
                 if (uniform_vector[j] > 0) {
-                    distance = (after_cross[i * NUMBER_GENES + j] - left_border[j]) / uniform_vector[j];
+                    distance = (input[i * NUMBER_GENES + j] - left_border[j]) / uniform_vector[j];
                 } else {
-                    distance = (after_cross[i * NUMBER_GENES + j] - right_border[j]) / uniform_vector[j];
+                    distance = (input[i * NUMBER_GENES + j] - right_border[j]) / uniform_vector[j];
                 }
                 if (distance < distance_min2) {
                     distance_min2 = distance;
@@ -173,8 +173,8 @@ cauchy_mutation(double *after_mut, double *after_cross, double *left_border, dou
             double shift = mu + gamma * tan(pi * (rnd - 1. / 2));
 
             for (int j = 0; j < NUMBER_GENES; j++) {
-                after_mut[i * NUMBER_GENES + j] =
-                        after_cross[i * NUMBER_GENES + j] + shift * uniform_vector[j];
+                output[i * NUMBER_GENES + j] =
+                        input[i * NUMBER_GENES + j] + shift * uniform_vector[j];
 
             }
         }

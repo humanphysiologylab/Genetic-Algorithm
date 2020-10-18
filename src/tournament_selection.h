@@ -8,9 +8,11 @@
 #include <cstdlib>
 
 #include <ctime>
+#include <vector>
+#include <cassert>
 #include "maleckar.h"
 
-void tournament_selection(int *mpool, double *SD, struct State *state_struct, struct State *state_struct_rewrite, int NUMBER_ORGANISMS, int NUMBER_BASELINES);
+void tournament_selection(int *mpool, int mutant_number, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers);
 
 #define GA_TOURNAMENT_SELECTION_H
 

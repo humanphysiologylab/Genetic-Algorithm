@@ -26,6 +26,7 @@
 #include <cassert>
 #include <filesystem>
 
+
 #include "cauchy_mutation.h"
 #include "fitness_function.h"
 #include "initial_population.h"
@@ -115,7 +116,8 @@ const int GlobalSetupItemsNumber = 7;
 int main(int argc, char *argv[]) {
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
     MPI_Init(&argc, &argv);
-
+    srand(time(NULL));
+    
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -196,14 +198,6 @@ int main(int argc, char *argv[]) {
     //timer
     const double start_time = MPI_Wtime();
 
-
-
-
-
-
-    //??
-    MPI_Request reqs[6];
-    MPI_Status stats[12];
 
 
 
@@ -304,9 +298,14 @@ int main(int argc, char *argv[]) {
         printf("Number of generations: %d\n", gs.generations);
         printf("Number of input baselines: %d\n", gs.number_baselines);
         printf("Number of elite organisms: %d\n", gs.elites);
-        printf("Number of CPUs: %d\n", size);
+        printf("Number of MPI nodes: %d\n", size);
+        printf("Number of cores at root: %d\n", omp_get_num_threads());
 
-
+        if ((gs.number_organisms - gs.elites) % 2 != 0) {
+            printf("Even number of mutants required!\nAbort");
+            return -1;
+        }
+        
         MPI_Bcast(&gs, 1, GlobalSetupMPI, 0, MPI_COMM_WORLD);
         //end master
     } else {
@@ -552,70 +551,52 @@ int main(int argc, char *argv[]) {
             State *mutant_state = state_struct + gs.elites;
             const int mutant_number = gs.number_organisms - gs.elites;
 
-            int SD_index[gs.number_organisms];
 
-            //TODO fitness_function should be eval at each node
-            fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, SD, SD_index,
+            //store pairs of (error, index in state_struct) sorted by error in increasing order
+            //thus, first elements are for elite organisms
+            std::vector<std::pair<double, int>> sd_n_index(gs.number_organisms);
+            
+
+            //TODO fitness_function should be evaluated at each node
+            //And there is not need to send AP to the root
+            fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, sd_n_index,
                              gs.number_organisms, gs.number_baselines, time_sum);
 
-            assert(SD[0] < SD[gs.number_organisms]);
+            assert(sd_n_index[0].first < sd_n_index.back().first);
             
-
-/////////////
-            
-            /*Save final state of best organism to state.dat to get closer to steady state in the next run.*/
-            double elite_array_SD[gs.elites];
-            int elite_index_array[gs.elites];
-
-
-
-            //unreadable code
-            for (int c = 0, cc = 00; c < gs.elites; ) {
-                if ((cc == 0) || ((cc != 0) && (SD[cc] != SD[cc - 1]))) {
-                    elite_array_SD[c] = SD[cc];
-                    elite_index_array[c] = SD_index[cc];
-                    for (int i = 0; i < gs.number_baselines; i++)
-                        elite_state[c * gs.number_baselines + i] = state_struct[
-                                elite_index_array[c] * gs.number_baselines + i];
-                    c += 1;
-                }
-                cc += 1;
-                if (cc == gs.number_organisms - 1) {
-                    while (c < gs.elites) {
-                        elite_array_SD[c] = SD[cc];
-                        elite_index_array[c] = SD_index[cc];
-                        for (int i = 0; i < gs.number_baselines; i++)
-                            elite_state[c * gs.number_baselines + i] = state_struct[
-                                    elite_index_array[c] * gs.number_baselines + i];
-                        c += 1;
-                        cc -= 1;
-                    }
-                }
-            }
-
-            
-            
-
-            double *elite_organisms;
-            elite_organisms = (double *) malloc(sizeof(double) * gs.elites * gs.number_genes);
-
-            
-            for (int i = 0; i < gs.elites; i++)
+            //save elites in elite buffer and later copy it to main array
+            State buf_elite_state[gs.elites * gs.number_baselines];
+            double * buf_elite_genes = (double *) malloc(sizeof(double) * gs.elites * gs.number_genes);
+            for (int i = 0; i < gs.elites; i++) {
+                const int elite_index = sd_n_index[i].second;
+                for (int j = 0; j < gs.number_baselines; j++)
+                    buf_elite_state[i * gs.number_baselines + j] = 
+                        state_struct[elite_index * gs.number_baselines + j];
+                        
                 for (int j = 0; j < gs.number_genes; j++)
-                    elite_organisms[i * gs.number_genes + j] = next_generation[elite_index_array[i] * gs.number_genes +
-                                                                               j];
-///////////////////
+                    buf_elite_genes[i * gs.number_genes + j] =
+                        next_generation[elite_index * gs.number_genes + j];
+            }
+            
 
-
-            double average = 0;
+            //print some output to see that the algo converges
+            double average_error = 0;
             for (int i = 0; i < gs.number_organisms; i++)
-                average += SD[i];
-            average = average / gs.number_organisms;
-
-
+                average_error += sd_n_index[i].first;
+            average_error /= gs.number_organisms;
+            
             fflush(stdout);
-            printf("Best SD: %.4f mV\n", SD[0]);
-            printf("Average SD: %.4f mV\n", average);
+            printf("Best SD: %.4f mV\n", sd_n_index[0].first);
+            printf("Worst SD: %.4f mV\n", sd_n_index.back().first);
+            printf("Average SD: %.4f mV\n", average_error);
+            
+            
+
+            
+            /*turn it off for a while
+            //Save final state of best organism to state.dat to get closer to steady state in the next run.
+
+            
             printf("The fittest organism:\n");
             for (int i = 0; i < gs.number_genes - 3 * gs.number_baselines; i++) {
                 printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
@@ -643,7 +624,7 @@ int main(int argc, char *argv[]) {
             //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
             //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
 
-/*turn it off for a while
+
             writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average,
                                     &next_generation[elite_index_array[0] * gs.number_genes], gs.number_genes,
                                     gs.number_organisms, next_generation, cntr, gs.recording_frequency,
@@ -652,59 +633,84 @@ int main(int argc, char *argv[]) {
 */
 
 
+            
+            //create mating pool
+            
+            /*Genetic Operators for mutants*/
+            State buf_mutant_state[mutant_number * gs.number_baselines];
+            double * buf_mutant_genes = (double *) malloc(sizeof(double) * mutant_number * gs.number_genes);
+            
+            int mpool[mutant_number]; //mpool: mutant_index -> next_generation_index
+            //so let's find it
+            tournament_selection(mpool, mutant_number, sd_n_index, gs.elites);
 
-            /*Genetic Operators*/
-            int mpool[mutant_number];
+            //we also need to shuffle mpool because it is sorted!
+            for (int i = 0; i < mutant_number; i++) {
+                int j = i + rand() % (mutant_number - i);
+                std::swap(mpool[i], mpool[j]);
+            }
+            
+            //only now copy states from next_generation to buf_mutant_state according to the shuffled mpool!
+            for (int i = 0; i < mutant_number; i++) {            
+                for (int j = 0; j < gs.number_baselines; j++)
+                    buf_mutant_state[i * gs.number_baselines + j] = state_struct[mpool[i] * gs.number_baselines + j];
 
-            tournament_selection(mpool, SD, state_struct, state_struct_rewrite, gs.number_organisms,
-                                 gs.number_baselines);
+            }
 
-
-            sbx_crossover(next_generation, after_cross, mpool, left_border, right_border, gs.number_organisms,
+            //ATTENTION!!!! after_cross is a buffer of size gs.number_organisms!!!! But we use it only for mutants
+            sbx_crossover(next_generation, after_cross, mpool, left_border, right_border, mutant_number,
                           gs.number_genes);
 
+            //no need of mpool anymore
+            
+            
 
-
-            double after_cross_normalized[gs.number_organisms * gs.number_genes];
+            
+            double mutants_after_cross_normalized[mutant_number * gs.number_genes];
 
             double left_border_normalized[gs.number_genes], right_border_normalized[gs.number_genes];
 
             const int number_conductancies = 15;
 
             normalize_genes(/*in*/ after_cross, left_border, right_border,
-                                   gs.number_organisms, gs.number_genes, number_conductancies,
-                            /*out*/ after_cross_normalized, left_border_normalized, right_border_normalized);
+                                   mutant_number, gs.number_genes, number_conductancies,
+                            /*out*/ mutants_after_cross_normalized, left_border_normalized, right_border_normalized);
 
-            double after_mut_normalized[gs.number_organisms * gs.number_genes];
-            cauchy_mutation(after_mut_normalized, after_cross_normalized,
+            double after_mut_normalized[mutant_number * gs.number_genes];
+            cauchy_mutation(mutants_after_cross_normalized, after_mut_normalized,
                             left_border_normalized, right_border_normalized,
-                            gs.number_organisms, gs.number_genes);
+                            mutant_number, gs.number_genes);
 
             denormalize_genes(/*in*/ after_mut_normalized, left_border, right_border,
-                                   gs.number_organisms, gs.number_genes, number_conductancies,
-                              /*out*/ after_mut);
+                                   mutant_number, gs.number_genes, number_conductancies,
+                              /*out*/ buf_mutant_genes);
+                              
+            /*Genetic Operators for mutants DONE*/
 
-            /*Replace worst organisms to elite*/
-
-            for (int elite_array_index = 0, i = gs.number_organisms - gs.elites; i < gs.number_organisms; i++) {
-                if (SD[i] > elite_array_SD[elite_array_index]) {
-                    for (int j = 0; j < gs.number_genes; j++)
-                        after_mut[SD_index[i] * gs.number_genes + j] = elite_organisms[elite_array_index * gs.number_genes + j];
-                    for (int j = 0; j < gs.number_baselines; j++)
-                        state_struct[SD_index[i] * gs.number_baselines + j] = elite_state[elite_array_index * gs.number_baselines +
-                                                                                          j];
-                                                                                          
-                    //how about AP_current??????
-                    elite_array_index += 1;
-                }
+            //now copy elite to main arrays
+            for (int i = 0; i < gs.elites; i++) {
+                for (int j = 0; j < gs.number_baselines; j++)
+                        state_struct[i * gs.number_baselines + j] =
+                            buf_elite_state[i * gs.number_baselines + j];
+                        
+                for (int j = 0; j < gs.number_genes; j++)
+                        next_generation[i * gs.number_genes + j] = 
+                            buf_elite_genes[i * gs.number_genes + j];
+            }
+            //and copy mutants to main arrays
+            for (int i = 0; i < mutant_number; i++) {
+                const int index = i + gs.elites;
+                for (int j = 0; j < gs.number_baselines; j++)
+                        state_struct[index * gs.number_baselines + j] =
+                            buf_mutant_state[i * gs.number_baselines + j];
+                        
+                for (int j = 0; j < gs.number_genes; j++)
+                        next_generation[index * gs.number_genes + j] = 
+                            buf_mutant_genes[i * gs.number_genes + j];
             }
 
-            for (int i = 0; i < gs.number_organisms; i++)
-                for (int j = 0; j < gs.number_genes; j++)
-                    next_generation[i * gs.number_genes + j] = after_mut[i * gs.number_genes + j];
-
-            free(elite_organisms);
-            
+            free(buf_elite_genes);
+            free(buf_mutant_genes);
         }
     }
 

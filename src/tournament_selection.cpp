@@ -1,72 +1,38 @@
 #include "tournament_selection.h"
+#include <forward_list>
 
-void tournament_selection(int *mpool, double *SD, struct State *state_struct, struct State *state_struct_rewrite, int NUMBER_ORGANISMS, int NUMBER_BASELINES)
+void tournament_basic(int *mpool, int mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
 {
-    int index_1, index_2;
-    int c = 0;
-    double copy_1[NUMBER_ORGANISMS];
-    double copy_2[NUMBER_ORGANISMS];
-
-    for (int tt = 0; tt < NUMBER_ORGANISMS; tt++)
-    {
-        copy_1[tt]= SD[tt];
-        copy_2[tt]= SD[tt];
+    int list_size = sd_n_index.size() - number_of_ignored_losers;
+    std::forward_list<int> list_of_indices(list_size);
+    
+    auto a = list_of_indices.begin();
+    for (int i = 0; i < list_size; i++) {
+        *a = sd_n_index[i].second;
+        a++;
     }
-
-    srand(time(NULL));
-    while (c < NUMBER_ORGANISMS/2)
-    {
-        //first half of the mating pool
-        index_1 = rand()%NUMBER_ORGANISMS;
-        index_2 = rand()%NUMBER_ORGANISMS;
-        if ((index_1!=index_2)&&(copy_1[index_1]!=0)&&(copy_1[index_2]!=0))
-        {
-            if (copy_1[index_1]<=copy_1[index_2])
-            {
-                mpool[2*c] = index_1;
-                for (int i = 0; i < NUMBER_BASELINES; i++)
-                    state_struct_rewrite[i + 2 * c * NUMBER_BASELINES] = state_struct[i + index_1 * NUMBER_BASELINES];
-                //printf("Winner in the first group: %d\t\n", mpool[2*c]);
-            }
-            else
-            {
-                mpool[2*c] = index_2;
-                for (int i = 0; i < NUMBER_BASELINES; i++)
-                    state_struct_rewrite[i + 2 * c * NUMBER_BASELINES] = state_struct[i + index_2 * NUMBER_BASELINES];
-                //printf("Winner in the first group: %d\t\n", mpool[2*c]);
-            }
-            copy_1[index_1] = 0;
-            copy_1[index_2] = 0;
-            c+=1;
-        }
+    
+    a = list_of_indices.begin();
+    for (int i = 0; i < mpool_size; i++) {
+        assert(a != list_of_indices.end());
+        mpool[i] = *a;
+        
+        auto eraser = a;
+        const int eraser_index = rand() % (list_size - 1 - i); //it works but needs explanation
+        for (int j = 0; j < eraser_index; j++)
+            eraser++;
+    
+        list_of_indices.erase_after(eraser);
+        list_size--;
+        a++;
     }
-    c = 0;
-    while (c < NUMBER_ORGANISMS/2) {
-        //second half of the mating pool
-        index_1 = rand()%NUMBER_ORGANISMS;
-        index_2 = rand()%NUMBER_ORGANISMS;
-        if ((index_1!=index_2)&&(copy_2[index_1]!=0)&&(copy_2[index_2]!=0))
-        {
-            if (copy_2[index_1]<=copy_2[index_2])
-            {
-                mpool[2*c+1] = index_1;
-                for (int i = 0; i < NUMBER_BASELINES; i++)
-                    state_struct_rewrite[i + (2 * c + 1) * NUMBER_BASELINES] = state_struct[i + index_1 * NUMBER_BASELINES];
-            }
-            else
-            {
-                mpool[2*c+1] = index_2;
-                for (int i = 0; i < NUMBER_BASELINES; i++)
-                    state_struct_rewrite[i + (2 * c + 1) * NUMBER_BASELINES] = state_struct[i + index_1 * NUMBER_BASELINES];
-            }
-            copy_2[index_1] = 0;
-            copy_2[index_2] = 0;
-            c+=1;
-        }
-    }
+    
+}
 
-    for (int i = 0; i < NUMBER_ORGANISMS; i++)
-        for (int j = 0; j < NUMBER_BASELINES; j++)
-            state_struct[j + i * NUMBER_BASELINES] = state_struct_rewrite[j + i * NUMBER_BASELINES];
 
+void tournament_selection(int *mpool, int mutant_number, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
+{
+    assert(mutant_number % 2 == 0);
+    tournament_basic(mpool                    , mutant_number / 2, sd_n_index, number_of_ignored_losers);
+    tournament_basic(mpool + mutant_number / 2, mutant_number / 2, sd_n_index, number_of_ignored_losers);
 }
