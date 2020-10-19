@@ -110,8 +110,9 @@ struct GlobalSetup{
     int elites;
     int autosave;
     int recording_frequency;
+    int mutants;
 };
-const int GlobalSetupItemsNumber = 7;
+const int GlobalSetupItemsNumber = 8;
 
 int main(int argc, char *argv[]) {
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
@@ -123,8 +124,8 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     /* create an MPI type for struct GlobalSetup */
-    int          blocklengths[GlobalSetupItemsNumber] = {1, 1, 1, 1, 1, 1, 1};
-    MPI_Datatype types[GlobalSetupItemsNumber] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+    int          blocklengths[GlobalSetupItemsNumber] = {1, 1, 1, 1, 1, 1, 1, 1};
+    MPI_Datatype types[GlobalSetupItemsNumber] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
     MPI_Datatype GlobalSetupMPI;
     MPI_Aint     displacements[GlobalSetupItemsNumber];
 
@@ -135,6 +136,7 @@ int main(int argc, char *argv[]) {
     displacements[4] = offsetof(GlobalSetup, elites);
     displacements[5] = offsetof(GlobalSetup, autosave);
     displacements[6] = offsetof(GlobalSetup, recording_frequency);
+    displacements[7] = offsetof(GlobalSetup, mutants);
 
     MPI_Type_create_struct(GlobalSetupItemsNumber, blocklengths, displacements, types, &GlobalSetupMPI);
     MPI_Type_commit(&GlobalSetupMPI);
@@ -209,9 +211,10 @@ int main(int argc, char *argv[]) {
     //0 - without ISO model
     int *ISO = 0;
     
-    char baseline_file_names[256][256], statedat_file_names[256][256];
 
     GlobalSetup gs;
+    
+    char baseline_file_names[256][256], statedat_file_names[256][256];
 
     if (rank == 0) {
         const int ciBufSize = 1024;
@@ -293,18 +296,34 @@ int main(int argc, char *argv[]) {
         gs.autosave = atoi(read_line(caBuf, ciBufSize, fInput));
         gs.recording_frequency = atoi(read_line(caBuf, ciBufSize, fInput));
 
+
+        gs.mutants = gs.number_organisms - gs.elites;
+        if (gs.mutants % 2 != 0) {
+            printf("Even number of mutants required!\nWe will try to add one more\n");
+            gs.mutants++;
+            gs.number_organisms++;
+        }
+        if (gs.number_organisms % size != 0) {
+            printf("Number of nodes should divide number of organisms completely\n");
+            printf("We will add more mutants and elites for that\n");
+            int additional_organisms = size - gs.number_organisms % size;
+            gs.number_organisms += additional_organisms;
+            gs.mutants += additional_organisms;
+            if (gs.mutants % 2 != 0) {
+                gs.mutants--;
+                gs.elites++;
+            }
+        }
+
         printf("Number of organisms: %d\n", gs.number_organisms);
         printf("Number of optimized parameters: %d\n", gs.number_genes);
         printf("Number of generations: %d\n", gs.generations);
         printf("Number of input baselines: %d\n", gs.number_baselines);
         printf("Number of elite organisms: %d\n", gs.elites);
         printf("Number of MPI nodes: %d\n", size);
-        printf("Number of cores at root: %d\n", omp_get_num_threads());
+        printf("Number of cores at root: %d\n",  omp_get_max_threads());
 
-        if ((gs.number_organisms - gs.elites) % 2 != 0) {
-            printf("Even number of mutants required!\nAbort");
-            return -1;
-        }
+   
         
         MPI_Bcast(&gs, 1, GlobalSetupMPI, 0, MPI_COMM_WORLD);
         //end master
@@ -515,11 +534,11 @@ int main(int argc, char *argv[]) {
     for (int cntr = 0; cntr < gs.generations; cntr++) {
 
         MPI_Scatter(next_generation, gs.number_organisms * gs.number_genes / size,
-            MPI_DOUBLE, next_generation, gs.number_organisms * gs.number_genes / size,
+            MPI_DOUBLE, (rank == 0)? MPI_IN_PLACE: next_generation, gs.number_organisms * gs.number_genes / size,
             MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
         MPI_Scatter(state_struct, gs.number_baselines * gs.number_organisms / size,
-            StateVectorMPI, state_struct, gs.number_baselines * gs.number_organisms / size,
+            StateVectorMPI, (rank == 0)? MPI_IN_PLACE: state_struct, gs.number_baselines * gs.number_organisms / size,
             StateVectorMPI, 0, MPI_COMM_WORLD);
 
         #pragma omp parallel for
@@ -533,13 +552,13 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        MPI_Gather(AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE,
+        MPI_Gather((rank == 0)? MPI_IN_PLACE: AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE,
             AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         
-        MPI_Gather(state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI,
+        MPI_Gather((rank == 0)? MPI_IN_PLACE: state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI,
             state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI, 0, MPI_COMM_WORLD);
     
-        MPI_Gather(next_generation, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, next_generation,
+        MPI_Gather((rank == 0)? MPI_IN_PLACE: next_generation, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, next_generation,
             gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
 
