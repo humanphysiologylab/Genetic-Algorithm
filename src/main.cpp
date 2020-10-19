@@ -102,7 +102,8 @@ static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
 
 
 
-struct GlobalSetup{
+struct GlobalSetup
+{
     int number_organisms;
     int number_genes;
     int generations;
@@ -541,7 +542,7 @@ int main(int argc, char *argv[]) {
             StateVectorMPI, (rank == 0)? MPI_IN_PLACE: state_struct, gs.number_baselines * gs.number_organisms / size,
             StateVectorMPI, 0, MPI_COMM_WORLD);
 
-        #pragma omp parallel for
+        #pragma omp parallel for 
         for (int i = 0; i < gs.number_organisms / size; i++) {
             for (long t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
                 action_potential(&state_struct[baseline_counter + i * gs.number_baselines],
@@ -653,7 +654,7 @@ int main(int argc, char *argv[]) {
 
 
             
-            //create mating pool
+        
             
             /*Genetic Operators for mutants*/
             State buf_mutant_state[mutant_number * gs.number_baselines];

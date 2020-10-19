@@ -4,6 +4,8 @@
 #include <string>
 
 #include "maleckar.h"
+
+
 void initialize_states_default(State *S) {
 	S->V = -74.031982;
 	S->Na_c = 130.022096;
@@ -443,14 +445,16 @@ void euler(double dt, State *S, State *R) {
 int action_potential(struct State *initial_state, double *scaling_coefficients, double *AP, float CL, float amp,
                      int AP_length, int iso, int baseline_index, int amount_of_baselines, int amount_of_genes) {
 
-    const int chain_length = 1; //maybe it should not be hardcoded 
+    const int chain_length = 1; //?? maybe it should not be hardcoded 
     const int target_cell_index = chain_length / 2;
 
-    const int number_of_stimuli = 1;
+    const int number_of_stimuli = 1; //?? maybe it should not be hardcoded 
     const double ft = number_of_stimuli * CL; // ms
 
-    const double dt = 1e-2; // ms
-    const int skip = 0.1 / dt; // number of timesetps to skip in sampling of data in output file
+    const double dt = 1e-2; // ms //?? maybe it should not be hardcoded
+    const double baseline_step = 0.1; //?? maybe it should not be hardcoded
+     
+    const int skip = baseline_step / dt; // number of timesetps to skip in sampling of data in output file
 
     const int genes_without_concentrations = amount_of_genes - 3 * amount_of_baselines;
 

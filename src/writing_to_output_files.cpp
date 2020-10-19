@@ -1,4 +1,6 @@
 #include "writing_to_output_files.h"
+#include <cstdio>
+#include <cstdlib>
 
 void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point, FILE *text, FILE *sd, FILE *ap_best,
                              double *SD, int *SD_index, double average, double *best_parameters, int NUMBER_GENES,

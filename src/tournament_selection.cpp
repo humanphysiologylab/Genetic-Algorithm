@@ -1,5 +1,6 @@
 #include "tournament_selection.h"
 #include <forward_list>
+#include <cstdlib>
 
 void tournament_basic(int *mpool, int mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
 {

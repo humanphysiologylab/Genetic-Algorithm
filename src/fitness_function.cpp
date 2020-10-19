@@ -1,9 +1,10 @@
 /* Fitness function calculation.
 Date: 21.05.2019
 */
-
-#include "fitness_function.h"
 #include <algorithm>
+#include <math.h> 
+#include "fitness_function.h"
+
 
 void scalar_multiplication(double *AP_control, double *AP_current, int length, double *XY, double *X1, double *Y1,
                            double *XX, int *ones, int voltage_border)
@@ -72,10 +73,6 @@ float SD_calculation(double *AP_control, double *AP_current, float *best_scaling
 //        		points_after = 1;
 //          		AP_control_scaled = AP_control[s] * alpha + beta;
         const double diff_between_potentials = AP_control[s] - AP_current[s];
-        if (AP_current[s] == 0.0) { //?? this never equals True probably
-            printf("AP_current[%d] is off\n", s);
-            getc(stdin);
-        }
         sd += diff_between_potentials * diff_between_potentials;
         
         //       	}

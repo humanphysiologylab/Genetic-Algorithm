@@ -1,4 +1,8 @@
+#include <cstdio>
+#include <iostream>
+#include <cmath>
 #include "initial_population.h"
+#include "random_number_generator.h"
 
 void initial_population(double *next_generation, double *left_border, double *right_border, struct State *initial_state,
                         int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_BASELINES, int READ_POPULATION) {

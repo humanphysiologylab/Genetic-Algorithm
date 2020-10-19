@@ -1,4 +1,8 @@
+#include <ctime>
+#include <math.h>
 #include "sbx_crossover.h"
+#include "random_number_generator.h"
+
 const double CROSSRATE = 0.9; //probability of crossover
 
 void sbx_crossover(double *next_generation, double *after_cross, int *mpool, double *left_border, double *right_border,
@@ -9,8 +13,6 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
      * 
      */
     const int etaC = 10; //The order of the polynomial for the SBX crossover
-    double sw_prob;
-    double cr_prob;
     double p1, p2, c1, c2, random;
     double beta, alpha, beta_q;
     long seed, seed_negative;
@@ -37,11 +39,11 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
     for (int i = 0; i < NUMBER_ORGANISMS / 2; i++) {
         const int num_1 = mpool[2 * i];
         const int num_2 = mpool[2 * i + 1];
-        cr_prob = ran2(&seed);
+        const double cr_prob = ran2(&seed);
 
         if (cr_prob <= CROSSRATE) {
             for (int ii = 0; ii < NUMBER_GENES; ii++) {
-                sw_prob = ran2(&seed);
+                const double sw_prob = ran2(&seed);
 
 
                 if (sw_prob < 0.5) // "NO"

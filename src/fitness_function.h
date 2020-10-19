@@ -3,11 +3,8 @@
 //
 
 #ifndef GA_FITNESS_FUNCTION_H
+#define GA_FITNESS_FUNCTION_H
 
-#include <cstdio>
-#include <cstdlib>
-#include <math.h>
-#include <ctime>
 #include <utility>
 #include <vector>
 
@@ -21,6 +18,6 @@ void fitness_function(double *AP_control, double *AP_current, float *best_scalin
                       int *TIME, std::vector<std::pair<double, int>> & sd_n_index, int NUMBER_ORGANISMS, int NUMBER_BASELINES, int time_sum);
 
 
-#define GA_FITNESS_FUNCTION_H
+
 
 #endif //GA_FITNESS_FUNCTION_H

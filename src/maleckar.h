@@ -3,9 +3,7 @@
 //
 
 #ifndef GA_MALECKAR_H
-
-#include <cmath>
-#include <iostream>
+#define GA_MALECKAR_H
 
 const int STATE_ARRAY_SIZE = 39;
 
@@ -184,7 +182,5 @@ struct Constants {
 
 int action_potential(struct State *initial_state, double *scaling_coefficients, double *AP, float CL, float amp,
                      int current_time, int iso, int baseline_index, int amount_of_baselines, int amount_of_genes);
-
-#define GA_MALECKAR_H
 
 #endif //GA_MALECKAR_H
