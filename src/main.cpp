@@ -534,6 +534,9 @@ int main(int argc, char *argv[]) {
     //main GA cycle
     for (int cntr = 0; cntr < gs.generations; cntr++) {
 
+        double total_time = MPI_Wtime();
+        double scatter_time = total_time;
+        
         MPI_Scatter(next_generation, gs.number_organisms * gs.number_genes / size,
             MPI_DOUBLE, (rank == 0)? MPI_IN_PLACE: next_generation, gs.number_organisms * gs.number_genes / size,
             MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -541,7 +544,11 @@ int main(int argc, char *argv[]) {
         MPI_Scatter(state_struct, gs.number_baselines * gs.number_organisms / size,
             StateVectorMPI, (rank == 0)? MPI_IN_PLACE: state_struct, gs.number_baselines * gs.number_organisms / size,
             StateVectorMPI, 0, MPI_COMM_WORLD);
+            
+        scatter_time = MPI_Wtime() - scatter_time;
 
+
+        double ap_eval_time = MPI_Wtime();
         #pragma omp parallel for 
         for (int i = 0; i < gs.number_organisms / size; i++) {
             for (long t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
@@ -552,16 +559,22 @@ int main(int argc, char *argv[]) {
                 t_current += TIME[baseline_counter];
             }
         }
-
+        ap_eval_time = MPI_Wtime() - ap_eval_time;
+        
+        
+        double ap_gather_time = MPI_Wtime();
         MPI_Gather((rank == 0)? MPI_IN_PLACE: AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE,
             AP_current, (time_sum) * gs.number_organisms / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        ap_gather_time = MPI_Wtime() - ap_gather_time;
         
+        
+        double gather_state_genes = MPI_Wtime();
         MPI_Gather((rank == 0)? MPI_IN_PLACE: state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI,
             state_struct, gs.number_baselines * gs.number_organisms / size, StateVectorMPI, 0, MPI_COMM_WORLD);
     
         MPI_Gather((rank == 0)? MPI_IN_PLACE: next_generation, gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, next_generation,
             gs.number_genes * gs.number_organisms / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
+        gather_state_genes = MPI_Wtime() - gather_state_genes;
 
 
         if (rank == 0) {
@@ -579,8 +592,11 @@ int main(int argc, char *argv[]) {
 
             //TODO fitness_function should be evaluated at each node
             //And there is not need to send AP to the root
+            
+            double fitness_time = MPI_Wtime();
             fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, sd_n_index,
                              gs.number_organisms, gs.number_baselines, time_sum);
+            fitness_time = MPI_Wtime() - fitness_time;
 
             assert(sd_n_index[0].first < sd_n_index.back().first);
             
@@ -613,38 +629,38 @@ int main(int argc, char *argv[]) {
             
 
             
-            /*turn it off for a while
             //Save final state of best organism to state.dat to get closer to steady state in the next run.
 
             
             printf("The fittest organism:\n");
             for (int i = 0; i < gs.number_genes - 3 * gs.number_baselines; i++) {
-                printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
+                printf("%g ", buf_elite_genes[i]);
             }
             printf("\n");
             printf("Na_i: ");
             for (int i = gs.number_genes - 3 * gs.number_baselines; i < gs.number_genes - 2 * gs.number_baselines; i++) {
-                printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
+                printf("%g ", buf_elite_genes[i]);
             }
             printf("\n");
             printf("Ca_sr: ");
             for (int i = gs.number_genes - 2 * gs.number_baselines; i < gs.number_genes - 1 * gs.number_baselines; i++) {
-                printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
+                printf("%g ", buf_elite_genes[i]);
             }
             printf("\n");
             printf("K_i: ");
             for (int i = gs.number_genes - 1 * gs.number_baselines; i < gs.number_genes - 0 * gs.number_baselines; i++) {
-                printf("%g ", next_generation[elite_index_array[0] * gs.number_genes + i]);
+                printf("%g ", buf_elite_genes[i]);
             }
-            printf("\n");
-
             printf("\n\n");
-            fflush(stdout);
+
+           
+
+           
 
             //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
             //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
 
-
+            /*turn it off for a while
             writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average,
                                     &next_generation[elite_index_array[0] * gs.number_genes], gs.number_genes,
                                     gs.number_organisms, next_generation, cntr, gs.recording_frequency,
@@ -660,15 +676,18 @@ int main(int argc, char *argv[]) {
             State buf_mutant_state[mutant_number * gs.number_baselines];
             double * buf_mutant_genes = (double *) malloc(sizeof(double) * mutant_number * gs.number_genes);
             
+            
             int mpool[mutant_number]; //mpool: mutant_index -> next_generation_index
             //so let's find it
+            double tournament_time = MPI_Wtime();
             tournament_selection(mpool, mutant_number, sd_n_index, gs.elites);
-
+            
             //we also need to shuffle mpool because it is sorted!
             for (int i = 0; i < mutant_number; i++) {
                 int j = i + rand() % (mutant_number - i);
                 std::swap(mpool[i], mpool[j]);
             }
+            tournament_time = MPI_Wtime() - tournament_time;
             
             //only now copy states from next_generation to buf_mutant_state according to the shuffled mpool!
             for (int i = 0; i < mutant_number; i++) {            
@@ -676,16 +695,16 @@ int main(int argc, char *argv[]) {
                     buf_mutant_state[i * gs.number_baselines + j] = state_struct[mpool[i] * gs.number_baselines + j];
 
             }
-
+            double crossover_time = MPI_Wtime();
             //ATTENTION!!!! after_cross is a buffer of size gs.number_organisms!!!! But we use it only for mutants
             sbx_crossover(next_generation, after_cross, mpool, left_border, right_border, mutant_number,
                           gs.number_genes);
-
+            crossover_time = MPI_Wtime() - crossover_time;
             //no need of mpool anymore
             
             
 
-            
+            double mutation_time = MPI_Wtime();
             double mutants_after_cross_normalized[mutant_number * gs.number_genes];
 
             double left_border_normalized[gs.number_genes], right_border_normalized[gs.number_genes];
@@ -704,7 +723,9 @@ int main(int argc, char *argv[]) {
             denormalize_genes(/*in*/ after_mut_normalized, left_border, right_border,
                                    mutant_number, gs.number_genes, number_conductancies,
                               /*out*/ buf_mutant_genes);
-                              
+            
+            mutation_time = MPI_Wtime() - mutation_time;
+            
             /*Genetic Operators for mutants DONE*/
 
             //now copy elite to main arrays
@@ -731,6 +752,18 @@ int main(int argc, char *argv[]) {
 
             free(buf_elite_genes);
             free(buf_mutant_genes);
+            
+            
+            total_time = MPI_Wtime() - total_time;
+            printf("total_time         %9.3f %3d%\n", total_time, 100);
+            printf("scatter_time       %9.3f %3d%\n", scatter_time, (int) (scatter_time/total_time*100));
+            printf("ap_eval_time       %9.3f %3d%\n", ap_eval_time, (int) (ap_eval_time/total_time*100));
+            printf("ap_gather_time     %9.3f %3d%\n", ap_gather_time, (int) (ap_gather_time/total_time*100));
+            printf("gather_state_genes %9.3f %3d%\n", gather_state_genes, (int) (gather_state_genes/total_time*100));
+            printf("fitness_time       %9.3f %3d%\n", fitness_time, (int) (fitness_time/total_time*100));
+            printf("tournament_time    %9.3f %3d%\n", tournament_time, (int) (tournament_time/total_time*100));
+            printf("crossover_time     %9.3f %3d%\n", crossover_time, (int) (crossover_time/total_time*100));
+            printf("mutation_time      %9.3f %3d%\n", mutation_time, (int) (mutation_time/total_time*100));
         }
     }
 
