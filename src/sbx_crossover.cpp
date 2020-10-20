@@ -1,6 +1,7 @@
 #include <ctime>
 #include <math.h>
 #include <cassert>
+#include <algorithm>
 #include "sbx_crossover.h"
 #include "random_number_generator.h"
 
