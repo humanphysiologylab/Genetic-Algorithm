@@ -1,8 +1,8 @@
 /* Fitness function calculation.
 Date: 21.05.2019
 */
-#include <algorithm>
-#include <math.h> 
+#include <math.h>
+#include <cstdio> 
 #include "fitness_function.h"
 
 
@@ -118,10 +118,4 @@ void fitness_function(double *AP_control, double *AP_current, float *best_scalin
         sd_n_index[c].first = res;
         sd_n_index[c].second = c;
     }
-    
-    //now sort by error increasing
-    std::sort(sd_n_index.begin(), sd_n_index.end(),
-            [](const std::pair<double, int> &left_element, const std::pair<double, int> &right_element) {
-                return left_element.first < right_element.first;
-            });
 }

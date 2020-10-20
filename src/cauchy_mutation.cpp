@@ -11,7 +11,8 @@ const double MUTRATE = 0.9; //probability of mutation
 void normalize_genes(/*in*/    double *genes_input, double *left_border, double *right_border,
                                int number_organisms, int number_genes, int number_conductancies,
                      /*out*/   double *genes_output, double *left_border_normalized, double *right_border_normalized,
-                     /*other*/ double left_border_value, double right_border_value) {
+                     /*other*/ double left_border_value, double right_border_value)
+{
 
 
     for (int i = 0; i < number_organisms; ++i) {

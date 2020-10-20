@@ -25,7 +25,7 @@
 #include <iostream>
 #include <cassert>
 #include <filesystem>
-
+#include <algorithm>
 
 #include "cauchy_mutation.h"
 #include "fitness_function.h"
@@ -596,6 +596,14 @@ int main(int argc, char *argv[]) {
             double fitness_time = MPI_Wtime();
             fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, sd_n_index,
                              gs.number_organisms, gs.number_baselines, time_sum);
+            
+            //now sort by error increasing
+            std::sort(sd_n_index.begin(), sd_n_index.end(),
+                [](const std::pair<double, int> &left_element, const std::pair<double, int> &right_element) {
+                    return left_element.first < right_element.first;
+                });
+                             
+            
             fitness_time = MPI_Wtime() - fitness_time;
 
             assert(sd_n_index[0].first < sd_n_index.back().first);
@@ -755,15 +763,15 @@ int main(int argc, char *argv[]) {
             
             
             total_time = MPI_Wtime() - total_time;
-            printf("total_time         %9.3f %3d%\n", total_time, 100);
-            printf("scatter_time       %9.3f %3d%\n", scatter_time, (int) (scatter_time/total_time*100));
-            printf("ap_eval_time       %9.3f %3d%\n", ap_eval_time, (int) (ap_eval_time/total_time*100));
-            printf("ap_gather_time     %9.3f %3d%\n", ap_gather_time, (int) (ap_gather_time/total_time*100));
-            printf("gather_state_genes %9.3f %3d%\n", gather_state_genes, (int) (gather_state_genes/total_time*100));
-            printf("fitness_time       %9.3f %3d%\n", fitness_time, (int) (fitness_time/total_time*100));
-            printf("tournament_time    %9.3f %3d%\n", tournament_time, (int) (tournament_time/total_time*100));
-            printf("crossover_time     %9.3f %3d%\n", crossover_time, (int) (crossover_time/total_time*100));
-            printf("mutation_time      %9.3f %3d%\n", mutation_time, (int) (mutation_time/total_time*100));
+            printf("total_time         %9.3f %3d%%\n", total_time, 100);
+            printf("scatter_time       %9.3f %3d%%\n", scatter_time, (int) (scatter_time/total_time*100));
+            printf("ap_eval_time       %9.3f %3d%%\n", ap_eval_time, (int) (ap_eval_time/total_time*100));
+            printf("ap_gather_time     %9.3f %3d%%\n", ap_gather_time, (int) (ap_gather_time/total_time*100));
+            printf("gather_state_genes %9.3f %3d%%\n", gather_state_genes, (int) (gather_state_genes/total_time*100));
+            printf("fitness_time       %9.3f %3d%%\n", fitness_time, (int) (fitness_time/total_time*100));
+            printf("tournament_time    %9.3f %3d%%\n", tournament_time, (int) (tournament_time/total_time*100));
+            printf("crossover_time     %9.3f %3d%%\n", crossover_time, (int) (crossover_time/total_time*100));
+            printf("mutation_time      %9.3f %3d%%\n", mutation_time, (int) (mutation_time/total_time*100));
         }
     }
 
