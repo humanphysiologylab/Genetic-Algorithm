@@ -667,15 +667,14 @@ int main(int argc, char *argv[]) {
 
             //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
             //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
-
-            /*turn it off for a while
-            writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, SD, SD_index, average,
-                                    &next_generation[elite_index_array[0] * gs.number_genes], gs.number_genes,
+            double output_file_time = MPI_Wtime();
+            writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, sd_n_index, average_error,
+                                    buf_elite_genes, gs.number_genes,
                                     gs.number_organisms, next_generation, cntr, gs.recording_frequency,
-                                    gs.number_baselines, elite_state, CL, AP_current, AP_control, best_scaling_factor,
-                                    best_scaling_shift, elite_index_array[0], TIME, elite_index_array[0] * (time_sum));
-*/
+                                    gs.number_baselines, buf_elite_state, CL, AP_current, AP_control, best_scaling_factor,
+                                    best_scaling_shift, sd_n_index[0].second, TIME, sd_n_index[0].second * (time_sum));
 
+            output_file_time = MPI_Wtime() - output_file_time;
 
             
         
@@ -772,6 +771,7 @@ int main(int argc, char *argv[]) {
             printf("tournament_time    %9.3f %3d%%\n", tournament_time, (int) (tournament_time/total_time*100));
             printf("crossover_time     %9.3f %3d%%\n", crossover_time, (int) (crossover_time/total_time*100));
             printf("mutation_time      %9.3f %3d%%\n", mutation_time, (int) (mutation_time/total_time*100));
+            printf("output_file_time   %9.3f %3d%%\n", output_file_time, (int) (output_file_time/total_time*100));
         }
     }
 

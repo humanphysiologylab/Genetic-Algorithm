@@ -3,7 +3,8 @@
 #include <cstdlib>
 
 void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point, FILE *text, FILE *sd, FILE *ap_best,
-                             double *SD, int *SD_index, double average, double *best_parameters, int NUMBER_GENES,
+                             const std::vector<std::pair<double, int>> & sd_n_index,
+                             double average, double *best_parameters, int NUMBER_GENES,
                              int NUMBER_ORGANISMS, double *next_generation, int cntr, int recording_frequency,
                              int NUMBER_BASELINES, struct State *elite_state, int *CL, double *AP_current,
                              double *AP_control, float *best_scaling_factor, float *best_scaling_shift, int elite_index,
@@ -13,7 +14,7 @@ void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point
     double best_organism_ap;
 
     // 1. SD of best organism in population
-    fprintf(best, "%f\n", SD[0]);
+    fprintf(best, "%f\n", sd_n_index[0].first);
     fflush(best);
     // 2. Average SD in generation
     fprintf(avr, "%f\t\n", average);
@@ -33,7 +34,7 @@ void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point
     }
 
     // 5. SD values of each organism in population
-    for (i = 0; i < NUMBER_ORGANISMS; i++) fprintf(sd, "%lf\t %d\t %d\n", SD[i], SD_index[i], cntr);
+    for (i = 0; i < NUMBER_ORGANISMS; i++) fprintf(sd, "%lf\t %d\t %d\n", sd_n_index[i].first, sd_n_index[i].second, cntr);
 
     // 6. Autosave
     if ((cntr % recording_frequency == 0) && (cntr != 0)) {
