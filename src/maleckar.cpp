@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-
+#include <cassert>
 #include "maleckar.h"
 
 
@@ -450,7 +450,7 @@ void euler(double dt, State *S, State *R) {
 
 
 int action_potential(struct State *initial_state, double *scaling_coefficients, double *AP, float CL, float amp,
-                     int AP_length, int iso, int baseline_index, int amount_of_baselines, int amount_of_genes) {
+                     const int AP_length, int iso, int baseline_index, int amount_of_baselines, int amount_of_genes) {
 
     const int chain_length = 1; //?? maybe it should not be hardcoded 
     const int target_cell_index = chain_length / 2;
@@ -487,13 +487,10 @@ int action_potential(struct State *initial_state, double *scaling_coefficients, 
     const double stim_baseline = 0; // comes from scaling coefficients sometimes
 
     while (t <= ft) {
-
-        if (t >= ft - CL && t < ft - CL + AP_length) {
-            if (dt_counter % skip == 0) {
-                if (AP_length_current < AP_length) {
-                    AP[AP_length_current] = S[target_cell_index].V; //?? maybe rewrite because of lots of LL cache write misses
-                }
-                AP_length_current += 1;
+        if (t >= ft - CL) {
+            if (dt_counter % skip == 0 && AP_length_current < AP_length) {
+                AP[AP_length_current] = S[target_cell_index].V;
+                AP_length_current++;
             }
             dt_counter++;
         }
@@ -519,6 +516,7 @@ int action_potential(struct State *initial_state, double *scaling_coefficients, 
         }
         t += dt;
     }
+    assert(AP_length_current == AP_length);
 
     //Rewriting states!
     scaling_coefficients[genes_without_concentrations + baseline_index] = S[target_cell_index].Na_i;
