@@ -1,3 +1,5 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "openmp-use-default-none"
 // Main GA module
 //
 // Genetic Algorithm implementation
@@ -6,6 +8,7 @@
 //     Dmitrii Smirnov <dmitrii.smirnov@phystech.edu>
 //     Roman Syunyaev <roman.syunyaev@gmail.com>
 //     Alexander Timofeev <richardstallman42@gmail.com>
+//     Andrey Pikunov <pikunov@phystech.edu>
 //     Laboratory of Human Physiology, Moscow Institute of Physics and Technology, 2020
 //
 // License:
@@ -21,20 +24,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-#include <unistd.h>
-#include <iostream>
 #include <cassert>
 #include <filesystem>
 #include <algorithm>
+#include <iostream>
+#include <string>
 
 #include "cauchy_mutation.h"
 #include "fitness_function.h"
 #include "initial_population.h"
-//#include "ord_model/consts.h"
 #include "sbx_crossover.h"
 #include "tournament_selection.h"
 #include "writing_to_output_files.h"
-//#include "ord_model/atrium.h"
 #include "maleckar.h"
 
 void scanf_baseline(int j0, int j1, FILE *ff, double *AP_control) {
@@ -98,22 +99,56 @@ static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
     return p;
 }
 
-
-
-
-
 struct GlobalSetup
 {
     int number_organisms;
     int number_genes;
-    int generations;
+    int number_generations;
     int number_baselines;
-    int elites;
-    int autosave;
-    int recording_frequency;
-    int mutants;
+    int number_elites;
+    bool INIT_FROM_BACKUP_FILE;
+    int period_backup;
+    int number_mutants;
 };
 const int GlobalSetupItemsNumber = 8;
+
+void print_log_stdout(struct GlobalSetup gs, double *genes,
+        const std::vector<std::pair<double, int>> &sd_n_index) {
+
+    double average_error = 0;
+    for (int i = 0; i < gs.number_organisms; i++)
+        average_error += sd_n_index[i].first;
+    average_error /= gs.number_organisms;
+
+    std::cout << "Best SD: " << sd_n_index[0].first << " mV\n";
+    std::cout << "Worst SD: " << sd_n_index.back().first << " mV\n";
+    std::cout << "Average SD: " << average_error << " mV\n";
+    std::cout << "The fittest organism:\n";
+
+    const int index_best = sd_n_index[0].second;
+
+    const int number_conc_types = 3;
+    std::string conc[] = {"Na_i", "K_i", "Ca_rel"};
+    const int number_cond = gs.number_genes - number_conc_types * gs.number_baselines;
+    std::string mult[] = {"INa", "ICaL", "Ito", "IKur", "IK1",
+                          "IKs", "IKr", "IBNa", "IBCa", "INaK",
+                          "ICaP", "INaCa", "Iup", "Irel"};
+    const int stride = 4;
+
+    for (int i = 0; i < number_cond; ++i) {
+        std::cout << mult[i] << " " << genes[index_best * gs.number_genes + i] << "\t";
+        if (i % stride == stride - 1) std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    for (int i = 0; i < number_conc_types; ++i) {
+        std::cout << conc[i] << ": ";
+        for (int j = 0; j < gs.number_baselines; ++j) {
+            std::cout << genes[index_best * gs.number_genes + (number_cond + i)] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
 
 int main(int argc, char *argv[]) {
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
@@ -132,12 +167,12 @@ int main(int argc, char *argv[]) {
 
     displacements[0] = offsetof(GlobalSetup, number_organisms);
     displacements[1] = offsetof(GlobalSetup, number_genes);
-    displacements[2] = offsetof(GlobalSetup, generations);
+    displacements[2] = offsetof(GlobalSetup, number_generations);
     displacements[3] = offsetof(GlobalSetup, number_baselines);
-    displacements[4] = offsetof(GlobalSetup, elites);
-    displacements[5] = offsetof(GlobalSetup, autosave);
-    displacements[6] = offsetof(GlobalSetup, recording_frequency);
-    displacements[7] = offsetof(GlobalSetup, mutants);
+    displacements[4] = offsetof(GlobalSetup, number_elites);
+    displacements[5] = offsetof(GlobalSetup, INIT_FROM_BACKUP_FILE);
+    displacements[6] = offsetof(GlobalSetup, period_backup);
+    displacements[7] = offsetof(GlobalSetup, number_mutants);
 
     MPI_Type_create_struct(GlobalSetupItemsNumber, blocklengths, displacements, types, &GlobalSetupMPI);
     MPI_Type_commit(&GlobalSetupMPI);
@@ -167,18 +202,14 @@ int main(int argc, char *argv[]) {
     //open files and make sure it was successful
     int init_status = 0;
 
-    FILE *f = 0, *owle = 0, *best = 0, *avr = 0, *test = 0, *ap_best = 0, *text = 0, *sd = 0, *ctrl_point = 0;
+    FILE *file_ap_best = 0, *file_dump = 0;
 
     if (rank == 0) {
 		std::filesystem::create_directory("ga_output");
-		owle = fopen("./ga_output/low_err.txt", "w");
-		best = fopen("./ga_output/best.txt", "w");
-		avr = fopen("./ga_output/average.txt", "w");
-		ap_best = fopen("./ga_output/AP_best.txt", "w");
-		text = fopen("./ga_output/output1.txt", "w");
-		sd = fopen("./ga_output/SD.txt", "w");
+		file_ap_best = fopen("./ga_output/ap.bin", "wb");
+		file_dump = fopen("./ga_output/dump.bin", "wb");
 
-		if (!(owle && best && avr && ap_best && text && sd)) {
+		if (!(file_ap_best && file_dump)) {
 			printf("Cannot open files for output\n");
 			init_status = -1;
 		}
@@ -231,7 +262,7 @@ int main(int argc, char *argv[]) {
 
         gs.number_organisms = atoi(read_line(caBuf, ciBufSize, fInput));
         gs.number_genes = atoi(read_line(caBuf, ciBufSize, fInput));
-        gs.generations = atoi(read_line(caBuf, ciBufSize, fInput));
+        gs.number_generations = atoi(read_line(caBuf, ciBufSize, fInput));
 
         //Parameters ranges
         if ((left_border = (double *) malloc(sizeof(double) * gs.number_genes)) == NULL) {
@@ -293,15 +324,15 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < gs.number_baselines; i++)
             ISO[i] = atoi(read_line(caBuf, ciBufSize, fInput));
 
-        gs.elites = atoi(read_line(caBuf, ciBufSize, fInput));
-        gs.autosave = atoi(read_line(caBuf, ciBufSize, fInput));
-        gs.recording_frequency = atoi(read_line(caBuf, ciBufSize, fInput));
+        gs.number_elites = atoi(read_line(caBuf, ciBufSize, fInput));
+        gs.INIT_FROM_BACKUP_FILE = atoi(read_line(caBuf, ciBufSize, fInput));
+        gs.period_backup = atoi(read_line(caBuf, ciBufSize, fInput));
 
 
-        gs.mutants = gs.number_organisms - gs.elites;
-        if (gs.mutants % 2 != 0) {
+        gs.number_mutants = gs.number_organisms - gs.number_elites;
+        if (gs.number_mutants % 2 != 0) {
             printf("Even number of mutants required!\nWe will try to add one more\n");
-            gs.mutants++;
+            gs.number_mutants++;
             gs.number_organisms++;
         }
         if (gs.number_organisms % size != 0) {
@@ -309,18 +340,18 @@ int main(int argc, char *argv[]) {
             printf("We will add more mutants and elites for that\n");
             int additional_organisms = size - gs.number_organisms % size;
             gs.number_organisms += additional_organisms;
-            gs.mutants += additional_organisms;
-            if (gs.mutants % 2 != 0) {
-                gs.mutants--;
-                gs.elites++;
+            gs.number_mutants += additional_organisms;
+            if (gs.number_mutants % 2 != 0) {
+                gs.number_mutants--;
+                gs.number_elites++;
             }
         }
 
         printf("Number of organisms: %d\n", gs.number_organisms);
         printf("Number of optimized parameters: %d\n", gs.number_genes);
-        printf("Number of generations: %d\n", gs.generations);
+        printf("Number of generations: %d\n", gs.number_generations);
         printf("Number of input baselines: %d\n", gs.number_baselines);
-        printf("Number of elite organisms: %d\n", gs.elites);
+        printf("Number of elite organisms: %d\n", gs.number_elites);
         printf("Number of MPI nodes: %d\n", size);
         printf("Number of cores at root: %d\n",  omp_get_max_threads());
 
@@ -528,11 +559,11 @@ int main(int argc, char *argv[]) {
             //use same structure for every organism initially
 
         initial_population(next_generation, left_border, right_border, initial_state, gs.number_organisms,
-                           gs.number_genes, gs.number_baselines, gs.autosave);
+                           gs.number_genes, gs.number_baselines, gs.INIT_FROM_BACKUP_FILE);
     }
     
     //main GA cycle
-    for (int cntr = 0; cntr < gs.generations; cntr++) {
+    for (int index_generation = 0; index_generation < gs.number_generations; index_generation++) {
 
         double total_time = MPI_Wtime();
         double scatter_time = total_time;
@@ -578,11 +609,11 @@ int main(int argc, char *argv[]) {
 
 
         if (rank == 0) {
-            printf("\nGeneration %d\n", cntr);
+            printf("\nGeneration %d\n", index_generation);
             
             State *elite_state = state_struct;
-            State *mutant_state = state_struct + gs.elites;
-            const int mutant_number = gs.number_organisms - gs.elites;
+            State *mutant_state = state_struct + gs.number_elites;
+            const int mutant_number = gs.number_organisms - gs.number_elites;
 
 
             //store pairs of (error, index in state_struct) sorted by error in increasing order
@@ -609,9 +640,9 @@ int main(int argc, char *argv[]) {
             assert(sd_n_index[0].first < sd_n_index.back().first);
             
             //save elites in elite buffer and later copy it to main array
-            State buf_elite_state[gs.elites * gs.number_baselines];
-            double * buf_elite_genes = (double *) malloc(sizeof(double) * gs.elites * gs.number_genes);
-            for (int i = 0; i < gs.elites; i++) {
+            State buf_elite_state[gs.number_elites * gs.number_baselines];
+            double * buf_elite_genes = (double *) malloc(sizeof(double) * gs.number_elites * gs.number_genes);
+            for (int i = 0; i < gs.number_elites; i++) {
                 const int elite_index = sd_n_index[i].second;
                 for (int j = 0; j < gs.number_baselines; j++)
                     buf_elite_state[i * gs.number_baselines + j] = 
@@ -621,64 +652,22 @@ int main(int argc, char *argv[]) {
                     buf_elite_genes[i * gs.number_genes + j] =
                         next_generation[elite_index * gs.number_genes + j];
             }
-            
 
-            //print some output to see that the algo converges
-            double average_error = 0;
-            for (int i = 0; i < gs.number_organisms; i++)
-                average_error += sd_n_index[i].first;
-            average_error /= gs.number_organisms;
-            
-            fflush(stdout);
-            printf("Best SD: %.4f mV\n", sd_n_index[0].first);
-            printf("Worst SD: %.4f mV\n", sd_n_index.back().first);
-            printf("Average SD: %.4f mV\n", average_error);
-            
-            
-
-            
-            //Save final state of best organism to state.dat to get closer to steady state in the next run.
-
-            
-            printf("The fittest organism:\n");
-            for (int i = 0; i < gs.number_genes - 3 * gs.number_baselines; i++) {
-                printf("%g ", buf_elite_genes[i]);
-            }
-            printf("\n");
-            printf("Na_i: ");
-            for (int i = gs.number_genes - 3 * gs.number_baselines; i < gs.number_genes - 2 * gs.number_baselines; i++) {
-                printf("%g ", buf_elite_genes[i]);
-            }
-            printf("\n");
-            printf("Ca_sr: ");
-            for (int i = gs.number_genes - 2 * gs.number_baselines; i < gs.number_genes - 1 * gs.number_baselines; i++) {
-                printf("%g ", buf_elite_genes[i]);
-            }
-            printf("\n");
-            printf("K_i: ");
-            for (int i = gs.number_genes - 1 * gs.number_baselines; i < gs.number_genes - 0 * gs.number_baselines; i++) {
-                printf("%g ", buf_elite_genes[i]);
-            }
-            printf("\n\n");
-
-           
-
-           
-
-            //scaling_factor = best_scaling_factor[baseline_counter+gs.number_baselines*elite_index_array[0]];
-            //scaling_shift = best_scaling_shift[baseline_counter+gs.number_baselines*elite_index_array[0]];
             double output_file_time = MPI_Wtime();
-            writing_to_output_files(best, avr, owle, ctrl_point, text, sd, ap_best, sd_n_index, average_error,
-                                    buf_elite_genes, gs.number_genes,
-                                    gs.number_organisms, next_generation, cntr, gs.recording_frequency,
-                                    gs.number_baselines, buf_elite_state, CL, AP_current, AP_control, best_scaling_factor,
-                                    best_scaling_shift, sd_n_index[0].second, TIME, sd_n_index[0].second * (time_sum));
+
+            print_log_stdout(gs, next_generation, sd_n_index);
+
+            writing_to_output_files(gs.number_organisms, gs.number_genes, gs.number_baselines,
+                                    next_generation, buf_elite_state,
+                                    AP_control, AP_current,
+                                    best_scaling_factor, best_scaling_shift,
+                                    sd_n_index,
+                                    index_generation, gs.period_backup,
+                                    CL, TIME,
+                                    file_dump, file_ap_best);
 
             output_file_time = MPI_Wtime() - output_file_time;
 
-            
-        
-            
             /*Genetic Operators for mutants*/
             State buf_mutant_state[mutant_number * gs.number_baselines];
             double * buf_mutant_genes = (double *) malloc(sizeof(double) * mutant_number * gs.number_genes);
@@ -687,7 +676,7 @@ int main(int argc, char *argv[]) {
             int mpool[mutant_number]; //mpool: mutant_index -> next_generation_index
             //so let's find it
             double tournament_time = MPI_Wtime();
-            tournament_selection(mpool, mutant_number, sd_n_index, gs.elites);
+            tournament_selection(mpool, mutant_number, sd_n_index, gs.number_elites);
             
             //we also need to shuffle mpool because it is sorted!
             for (int i = 0; i < mutant_number; i++) {
@@ -736,7 +725,7 @@ int main(int argc, char *argv[]) {
             /*Genetic Operators for mutants DONE*/
 
             //now copy elite to main arrays
-            for (int i = 0; i < gs.elites; i++) {
+            for (int i = 0; i < gs.number_elites; i++) {
                 for (int j = 0; j < gs.number_baselines; j++)
                         state_struct[i * gs.number_baselines + j] =
                             buf_elite_state[i * gs.number_baselines + j];
@@ -747,7 +736,7 @@ int main(int argc, char *argv[]) {
             }
             //and copy mutants to main arrays
             for (int i = 0; i < mutant_number; i++) {
-                const int index = i + gs.elites;
+                const int index = i + gs.number_elites;
                 for (int j = 0; j < gs.number_baselines; j++)
                         state_struct[index * gs.number_baselines + j] =
                             buf_mutant_state[i * gs.number_baselines + j];
@@ -778,12 +767,8 @@ int main(int argc, char *argv[]) {
 
     //finalize
     if (rank == 0) {
-        fclose(text);
-        fclose(owle);
-        fclose(avr);
-        fclose(best);
-        fclose(ap_best);
-        fclose(sd);
+        fclose(file_dump);
+        fclose(file_ap_best);
     }
 
     const double end_time = MPI_Wtime();
@@ -815,3 +800,5 @@ int main(int argc, char *argv[]) {
     MPI_Finalize();
     return 0;
 }
+
+#pragma clang diagnostic pop

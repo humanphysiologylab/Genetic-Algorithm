@@ -1,86 +1,89 @@
 #include "writing_to_output_files.h"
-#include <cstdio>
-#include <cstdlib>
 
-void writing_to_output_files(FILE *best, FILE *avr, FILE *owle, FILE *ctrl_point, FILE *text, FILE *sd, FILE *ap_best,
-                             const std::vector<std::pair<double, int>> & sd_n_index,
-                             double average, double *best_parameters, int NUMBER_GENES,
-                             int NUMBER_ORGANISMS, double *next_generation, int cntr, int recording_frequency,
-                             int NUMBER_BASELINES, struct State *elite_state, int *CL, double *AP_current,
-                             double *AP_control, float *best_scaling_factor, float *best_scaling_shift, int elite_index,
-                             int *TIME, int time_index) {
+void writing_to_output_files(int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_BASELINES,
+                             const double *genes, struct State *states_elite,
+                             const double *AP_control, const double *AP_current,
+                             float *best_scaling_factor, float *best_scaling_shift,
+                             const std::vector<std::pair<double, int>> &sd_n_index,
+                             int index_generation, int period_backup,
+                             const int *CL, const int *TIME,
+                             FILE *file_dump, FILE *file_ap_best) {
 
-    int i, j, t, baseline_counter;
-    double best_organism_ap;
-
-    // 1. SD of best organism in population
-    fprintf(best, "%f\n", sd_n_index[0].first);
-    fflush(best);
-    // 2. Average SD in generation
-    fprintf(avr, "%f\t\n", average);
-
-    // 3. Parameters of the best organism
-    for (i = 0; i < NUMBER_GENES; i++) {
-        fprintf(owle, "%g\t", best_parameters[i]);
+    // Parameters dump
+    for (int i = 0; i < NUMBER_ORGANISMS; i++) {
+        const double sd = sd_n_index[i].first;
+        const int i_org = sd_n_index[i].second;
+        fwrite(genes + i_org * NUMBER_GENES, sizeof(double), NUMBER_GENES, file_dump);
+        fwrite(&sd, sizeof(double), 1, file_dump);
     }
-    fprintf(owle, "\n");
+    fflush(file_dump);
 
-    // 4. Parameters of each organism
-    for (i = 0; i < NUMBER_ORGANISMS; i++) {
-        for (j = 0; j < NUMBER_GENES; j++) {
-            fprintf(text, "%g\t", next_generation[i * NUMBER_GENES + j]);
-        }
-        fprintf(text, "%d\n", cntr);
-    }
 
-    // 5. SD values of each organism in population
-    for (i = 0; i < NUMBER_ORGANISMS; i++) fprintf(sd, "%lf\t %d\t %d\n", sd_n_index[i].first, sd_n_index[i].second, cntr);
-
-    // 6. Autosave
-    if ((cntr % recording_frequency == 0) && (cntr != 0)) {
-        ctrl_point = fopen("./ga_output/Autosave.txt", "w");
-        if (!ctrl_point) {
+    // Backup
+    if ((index_generation % period_backup == 0) && (index_generation != 0)) {
+        FILE *file_backup;
+        file_backup = fopen("./ga_output/backup.txt", "w");
+        if (!file_backup) {
             printf("No autosave file!\n");
             exit(-1);
         }
 
-        for (i = 0; i < NUMBER_ORGANISMS; i++) {
-            for (j = 0; j < NUMBER_GENES; j++) {
-                fprintf(ctrl_point, "%g\t", next_generation[i * NUMBER_GENES + j]);
+        for (int i = 0; i < NUMBER_ORGANISMS; i++) {
+            for (int j = 0; j < NUMBER_GENES; j++) {
+                fprintf(file_backup, "%g\t", genes[i * NUMBER_GENES + j]);
             }
-            fprintf(ctrl_point, "\n");
+            fprintf(file_backup, "\n");
         }
-        fclose(ctrl_point);
-        printf("\nThe last autosave recording was made at %d generation\n", cntr);
+
+        fclose(file_backup);
+        printf("\nThe last autosave recording was made at %d generation\n", index_generation);
     }
 
-    // 7. AP of the best organism
-    // Best organism is in first column, rescaled baseline is in the second.
-    t = 0;
-    double scaling_factor, scaling_shift;
-    for (baseline_counter = 0; baseline_counter < NUMBER_BASELINES; baseline_counter++) {
-        for (i = 0; i < TIME[baseline_counter]; i++) {
-            scaling_factor = best_scaling_factor[baseline_counter + NUMBER_BASELINES * elite_index];
-            scaling_shift = best_scaling_shift[baseline_counter + NUMBER_BASELINES * elite_index];
-            best_organism_ap = AP_current[time_index + t + i];
-            fprintf(ap_best, "%f\t%f\n", best_organism_ap, AP_control[i + t] * scaling_factor + scaling_shift);
-        }
-        t += TIME[baseline_counter];
+
+    // AP of the best organism, all generations -> binary, last generation -> txt
+    // Best organism is the first column, rescaled baseline is the second.
+    std::ofstream ap_best_last;
+    ap_best_last.open("./ga_output/ap_last.txt");
+
+    int time_sum = 0;
+    for (int i = 0; i < NUMBER_BASELINES; ++i) {
+        time_sum += TIME[i];
     }
-    fflush(ap_best);
+    const int index_elite = sd_n_index[0].second;
+    const int t_start = index_elite * time_sum;
+
+    int t = 0;
+
+    for (int i_baseline = 0; i_baseline < NUMBER_BASELINES; i_baseline++) {
+        for (int i_time = 0; i_time < TIME[i_baseline]; i_time++) {
+
+            const double scaling_factor = best_scaling_factor[i_baseline + NUMBER_BASELINES * index_elite];
+            const double scaling_shift = best_scaling_shift[i_baseline + NUMBER_BASELINES * index_elite];
+            const double ap_best_organism = AP_current[t_start + t + i_time];
+            const double ap_input_rescaled = AP_control[i_time + t] * scaling_factor + scaling_shift;
+
+            fwrite(&ap_best_organism, sizeof(double), 1, file_ap_best);
+            fwrite(&ap_input_rescaled, sizeof(double), 1, file_ap_best);
+
+            ap_best_last << ap_best_organism << " " << AP_control[i_time + t] * scaling_factor + scaling_shift << "\n";
+
+        }
+        t += TIME[i_baseline];
+    }
+    fflush(file_ap_best);
+    ap_best_last.close();
+
     // 8. Elite organisms states
     const char *path = "./states/State_elite_";
     const char *type = ".dat";
     char cl[512], full_path[512];
 
-    for (i = 0; i < NUMBER_BASELINES; i++) {
+    for (int i = 0; i < NUMBER_BASELINES; i++) {
         sprintf(cl, "%d", CL[i]);
         snprintf(full_path, sizeof full_path, "%s%s%s", path, cl, type);
 
         FILE *all_state = fopen(full_path, "wb");
-        fwrite(&elite_state[i], sizeof(struct State), 1, all_state);
+        fwrite(&states_elite[i], sizeof(struct State), 1, all_state);
         fclose(all_state);
     }
-
-
 }
