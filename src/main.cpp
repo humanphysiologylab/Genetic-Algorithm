@@ -472,8 +472,13 @@ int main(int argc, char *argv[]) {
                 printf("Cannot open IC file: %s\n", statedat_file_names[i]);
                 return -1;
             }
-            fread(&initial_state[i], sizeof(struct State), 1, fin); //?? NOT SAFE!
+
+            int sizeof_state = sizeof(struct State);
+            double a[sizeof_state];
+            fread(a, sizeof(double), sizeof_state, fin);
+            array2state(a, &initial_state[i]);
             fclose(fin);
+
         }
     }
     MPI_Bcast(initial_state, gs.number_baselines, StateVectorMPI, 0, MPI_COMM_WORLD);

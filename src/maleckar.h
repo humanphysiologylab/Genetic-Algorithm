@@ -183,6 +183,10 @@ struct Constants {
     double pca_ord; // for ical_ord()
 };
 
+
+void state2array(State *s, double *a);
+void array2state(double *a, State *s);
+
 int action_potential(struct State *initial_state, double *scaling_coefficients, double *AP, float CL, float amp,
                      int current_time, int iso, int baseline_index, int amount_of_baselines, int amount_of_genes);
 

@@ -82,8 +82,13 @@ void writing_to_output_files(int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_
         sprintf(cl, "%d", CL[i]);
         snprintf(full_path, sizeof full_path, "%s%s%s", path, cl, type);
 
-        FILE *all_state = fopen(full_path, "wb");
-        fwrite(&states_elite[i], sizeof(struct State), 1, all_state);
-        fclose(all_state);
+        FILE *file_state = fopen(full_path, "wb");
+
+        int sizeof_state = sizeof(struct State);
+        double a[sizeof_state];
+        state2array(&states_elite[i], a);
+
+        fwrite(a, sizeof(double), sizeof_state, file_state);
+        fclose(file_state);
     }
 }

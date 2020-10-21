@@ -40,3 +40,6 @@ cmake_install.cmake
 
 .idea/
 build*/
+ga
+ga.cbp
+ga_output

@@ -93,6 +93,92 @@ void initialize_states(State *S, State *initial_state) {
     S->nca = initial_state->nca;
 }
 
+
+void state2array(State *s, double *a) {
+    a[0]	= s->V;
+    a[1]	= s->Na_c;
+    a[2]	= s->Na_i;
+    a[3]	= s->m;
+    a[4]	= s->h1;
+    a[5]	= s->h2;
+    a[6]	= s->Ca_d;
+    a[7]	= s->d_L;
+    a[8]	= s->f_L1;
+    a[9]	= s->f_L2;
+    a[10]	= s->K_c;
+    a[11]	= s->K_i;
+    a[12]	= s->r;
+    a[13]	= s->s;
+    a[14]	= s->a_ur;
+    a[15]	= s->i_ur;
+    a[16]	= s->n;
+    a[17]	= s->pa;
+    a[18]	= s->Ca_c;
+    a[19]	= s->Ca_i;
+    a[20]	= s->O_C;
+    a[21]	= s->O_TC;
+    a[22]	= s->O_TMgC;
+    a[23]	= s->O_TMgMg;
+    a[24]	= s->O;
+    a[25]	= s->Ca_rel;
+    a[26]	= s->Ca_up;
+    a[27]	= s->O_Calse;
+    a[28]	= s->F1;
+    a[29]	= s->F2;
+    a[30]	= s->d_ord;
+    a[31]	= s->ff;
+    a[32]	= s->fs;
+    a[33]	= s->fcaf;
+    a[34]	= s->fcas;
+    a[35]	= s->jca;
+    a[36]	= s->ffp;
+    a[37]	= s->fcafp;
+    a[38]	= s->nca;
+}
+
+
+void array2state(double *a, State *s) {
+    s->V        = a[0];
+    s->Na_c     = a[1];
+    s->Na_i     = a[2];
+    s->m        = a[3];
+    s->h1       = a[4];
+    s->h2       = a[5];
+    s->Ca_d     = a[6];
+    s->d_L      = a[7];
+    s->f_L1     = a[8];
+    s->f_L2     = a[9];
+    s->K_c      = a[10];
+    s->K_i      = a[11];
+    s->r        = a[12];
+    s->s        = a[13];
+    s->a_ur     = a[14];
+    s->i_ur     = a[15];
+    s->n        = a[16];
+    s->pa       = a[17];
+    s->Ca_c     = a[18];
+    s->Ca_i     = a[19];
+    s->O_C      = a[20];
+    s->O_TC     = a[21];
+    s->O_TMgC   = a[22];
+    s->O_TMgMg  = a[23];
+    s->O        = a[24];
+    s->Ca_rel   = a[25];
+    s->Ca_up    = a[26];
+    s->O_Calse  = a[27];
+    s->F1       = a[28];
+    s->F2       = a[29];
+    s->d_ord    = a[30];
+    s->ff       = a[31];
+    s->fs       = a[32];
+    s->fcaf     = a[33];
+    s->fcas     = a[34];
+    s->jca      = a[35];
+    s->ffp      = a[36];
+    s->fcafp    = a[37];
+    s->nca      = a[38];
+}
+
 void initialize_constants_default(Constants *C, double CL, double amp, double *scaling_coefficients) {
 
     double *sc = scaling_coefficients;
