@@ -5,11 +5,11 @@
 #include "random_number_generator.h"
 
 void initial_population(double *next_generation, double *left_border, double *right_border, struct State *initial_state,
-                        int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_BASELINES, bool INIT_FROM_BACKUP_FILE) {
+                        int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_BASELINES, int INIT_FROM_BACKUP_FILE) {
 
     long seed, seed_negative;
     int j = 0;
-    if (INIT_FROM_BACKUP_FILE) {
+    if (INIT_FROM_BACKUP_FILE == 1) {
         FILE *autosave_file;
         autosave_file = fopen("./ga_output/backup.txt", "r");
         if (!autosave_file) {
