@@ -159,9 +159,12 @@ int main(int argc, char *argv[]) {
     /* create an MPI type for struct GlobalSetup */
     MPI_Datatype GlobalSetupMPI;
     {
-    int          blocklengths[GlobalSetupItemsNumber] = {1, 1, 1, 1, 1, 1, 1, 1};
-    MPI_Datatype types[GlobalSetupItemsNumber] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
-    MPI_Aint     displacements[GlobalSetupItemsNumber];
+    int blocklengths[GlobalSetupItemsNumber];
+    std::fill_n(blocklengths, GlobalSetupItemsNumber, 1);
+    MPI_Datatype types[GlobalSetupItemsNumber];
+    std::fill_n(types, GlobalSetupItemsNumber, MPI_INT);
+
+    MPI_Aint displacements[GlobalSetupItemsNumber];
 
     displacements[0] = offsetof(GlobalSetup, number_organisms);
     displacements[1] = offsetof(GlobalSetup, number_genes);
@@ -185,7 +188,7 @@ int main(int argc, char *argv[]) {
     MPI_Datatype types[STATE_ARRAY_SIZE];
     std::fill_n(types, STATE_ARRAY_SIZE, MPI_DOUBLE);
 
-    MPI_Aint     displacements[STATE_ARRAY_SIZE];
+    MPI_Aint displacements[STATE_ARRAY_SIZE];
 
     displacements[0] = offsetof(State, V);
     displacements[1] = offsetof(State, Na_c);
