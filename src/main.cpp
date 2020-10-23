@@ -678,15 +678,21 @@ int main(int argc, char *argv[]) {
             // if we want Q_90 of X to be equal some fixed value x
             // we should set gamma equal to 0.15 * x
 
-            double array_gamma[] = {0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, // Q_90 = 0.1 [log10_units], multipliers
-                                    0.15, 0.15, 0.15, 0.15, 0.15, // Q_90 = 1 mM, Na_i
-                                    0.015, 0.015, 0.015, 0.015, 0.015, // Q_90 = 0.1 mM, Ca_rel
-                                    0.15, 0.15, 0.15, 0.15, 0.15}; // Q_90 = 1 mM, K_i
+            const int number_conc_types = 3;
+            const int genes_without_concentrations = gs.number_genes - number_conc_types * gs.number_baselines;
+            double array_gamma[gs.number_genes];
+
+            for (int i = 0; i < genes_without_concentrations; ++i) {
+                array_gamma[i] = 0.015; // Q_90 = 0.1 [log10_units], multipliers
+            }
+            for (int i = 0; i < gs.number_baselines; ++i) {
+                array_gamma[genes_without_concentrations + i + 0 * gs.number_baselines] = 0.15; // Q_90 = 1 mM, Na_i
+                array_gamma[genes_without_concentrations + i + 1 * gs.number_baselines] = 0.015; // Q_90 = 0.1 mM, Ca_rel
+                array_gamma[genes_without_concentrations + i + 2 * gs.number_baselines] = 0.15; // Q_90 = 1 mM, K_i
+            }
 
             const double scaler_dimensional = 1 / sqrt(gs.number_genes);
             // is approximately mean projection length of the unit vector onto some direction in `gs.number_genes`-dimensional space
-
-            const int genes_without_concentrations = gs.number_genes - 3 * gs.number_baselines;
 
             double left_border_transformed[gs.number_genes];
             double right_border_transformed[gs.number_genes];
