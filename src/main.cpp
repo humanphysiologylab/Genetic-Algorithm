@@ -109,7 +109,7 @@ struct GlobalSetup {
 };
 const int GlobalSetupItemsNumber = 8;
 
-void print_log_stdout(struct GlobalSetup gs, double *genes,
+void print_log_stdout(struct GlobalSetup gs, const double *genes,
                       const std::vector<std::pair<double, int>> &sd_n_index) {
 
     double average_error = 0;
@@ -303,14 +303,14 @@ int main(int argc, char *argv[]) {
         gs.number_generations = atoi(read_line(caBuf, ciBufSize, fInput));
 
         //Parameters ranges
-        if ((left_border = (double *) malloc(sizeof(double) * gs.number_genes)) == NULL) {
-            puts("The 'left_border' array isn't created!");
+        try {
+            left_border = new double [gs.number_genes];
+            right_border = new double [gs.number_genes];
+        } catch (const std::bad_alloc & e) {
+            std::cerr << "Allocation failed: " << e.what() << '\n';
             exit(-1);
         }
-        if ((right_border = (double *) malloc(sizeof(double) * gs.number_genes)) == NULL) {
-            puts("The 'right_border' array isn't created!");
-            exit(-1);
-        }
+
 
         for (int i = 0; i < gs.number_genes; i++) {
             char *token, *ptoken;
@@ -333,18 +333,16 @@ int main(int argc, char *argv[]) {
 
         gs.number_baselines = atoi(read_line(caBuf, ciBufSize, fInput));
 
-        if ((CL = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
-            puts("The 'CL' array isn't created!");
+        try {
+            CL = new int [gs.number_baselines];
+            IA = new double [gs.number_baselines];
+            ISO = new int [gs.number_baselines];
+        } catch (const std::bad_alloc & e) {
+            std::cerr << "Allocation failed: " << e.what() << '\n';
             exit(-1);
         }
-        if ((IA = (double *) malloc(sizeof(double) * gs.number_baselines)) == NULL) {
-            puts("The 'IA' array isn't created!");
-            exit(-1);
-        }
-        if ((ISO = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
-            puts("The 'ISO' array isn't created!");
-            exit(-1);
-        }
+
+
 
         for (int i = 0; i < gs.number_baselines; i++)
             CL[i] = atoi(read_line(caBuf, ciBufSize, fInput));
@@ -400,16 +398,12 @@ int main(int argc, char *argv[]) {
 
         MPI_Bcast(&gs, 1, GlobalSetupMPI, 0, MPI_COMM_WORLD);
 
-        if ((CL = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
-            puts("The 'CL' array isn't created!");
-            exit(-1);
-        }
-        if ((IA = (double *) malloc(sizeof(double) * gs.number_baselines)) == NULL) {
-            puts("The 'IA' array isn't created!");
-            exit(-1);
-        }
-        if ((ISO = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
-            puts("The 'ISO' array isn't created!");
+        try {
+            CL = new int [gs.number_baselines];
+            IA = new double [gs.number_baselines];
+            ISO = new int [gs.number_baselines];
+        } catch (const std::bad_alloc & e) {
+            std::cerr << "Allocation failed: " << e.what() << '\n';
             exit(-1);
         }
     }//end slave
@@ -424,59 +418,52 @@ int main(int argc, char *argv[]) {
 
     int *TIME; //?? array of durations of each AP record?
 
-    if ((TIME = (int *) malloc(sizeof(int) * gs.number_baselines)) == NULL) {
-        puts("The 'TIME' array isn't created!");
+
+
+    State *initial_state, *state_struct, *state_struct_rewrite;
+
+    State * buf_elite_state = 0;
+
+    double * buf_elite_genes = 0;
+
+    State * buf_mutant_state = 0;
+
+    double *buf_mutant_genes = 0;
+
+    double * genes_mutant_after_cross_transformed = 0;
+    double * genes_mutant_after_mut_transformed = 0;
+
+    try {
+        genes_mutant_after_mut_transformed = new double [gs.number_mutants * gs.number_genes];
+        genes_mutant_after_cross_transformed = new double [gs.number_mutants * gs.number_genes];
+        buf_mutant_state = new State [gs.number_mutants * gs.number_baselines];
+        buf_mutant_genes = new double [gs.number_mutants * gs.number_genes];
+        buf_elite_state = new State [gs.number_elites * gs.number_baselines];
+        buf_elite_genes = new double [gs.number_elites * gs.number_genes];
+        TIME = new int [gs.number_baselines];
+        initial_state = new State [gs.number_baselines];
+        if (rank == 0) {
+            state_struct = new State [gs.number_organisms * gs.number_baselines];
+            state_struct_rewrite = new State [gs.number_organisms * gs.number_baselines];
+
+            SD = new double [gs.number_organisms];
+            best_scaling_factor = new float [gs.number_organisms * gs.number_baselines];
+            best_scaling_shift = new float [gs.number_organisms * gs.number_baselines];
+            next_generation = new double [gs.number_organisms * gs.number_genes];
+            after_cross = new double [gs.number_organisms * gs.number_genes];
+        } else {
+            state_struct = new State [gs.number_organisms * gs.number_baselines / size];
+            state_struct_rewrite = new State [gs.number_organisms * gs.number_baselines / size];
+
+            SD = new double [gs.number_organisms / size];
+            best_scaling_factor = new float [gs.number_organisms * gs.number_baselines / size];
+            best_scaling_shift = new float [gs.number_organisms * gs.number_baselines / size];
+            next_generation = new double [gs.number_organisms * gs.number_genes / size];
+            after_cross = new double [gs.number_organisms * gs.number_genes / size];
+        }
+    } catch (const std::bad_alloc & e) {
+        std::cerr << "Allocation failed: " << e.what() << '\n';
         exit(-1);
-    }
-
-    if (rank == 0) {
-        if ((SD = (double *) malloc(sizeof(double) * gs.number_organisms)) == NULL) {
-            puts("The 'SD' array isn't created!");
-            exit(-1);
-        }
-        if ((best_scaling_factor = (float *) malloc(sizeof(float) * gs.number_organisms * gs.number_baselines)) ==
-            NULL) {
-            puts("The 'best_scaling_factor' array isn't created!");
-            exit(-1);
-        }
-        if ((best_scaling_shift = (float *) malloc(sizeof(float) * gs.number_organisms * gs.number_baselines)) ==
-            NULL) {
-            puts("The 'best_scaling_shift' array isn't created!");
-            exit(-1);
-        }
-        if ((next_generation = (double *) malloc(sizeof(double) * gs.number_organisms * gs.number_genes)) == NULL) {
-            puts("The 'next_generation' array isn't created!");
-            exit(-1);
-        }
-        if ((after_cross = (double *) malloc(sizeof(double) * gs.number_organisms * gs.number_genes)) == NULL) {
-            puts("The 'after_cross' array isn't created!");
-            exit(-1);
-        }
-
-    } else {//duplicating...
-        if ((SD = (double *) malloc(sizeof(double) * gs.number_organisms / size)) == NULL) {
-            puts("The 'SD' array isn't created!");
-            exit(-1);
-        }
-        if ((best_scaling_factor = (float *) malloc(
-                sizeof(float) * gs.number_organisms / size * gs.number_baselines)) == NULL) {
-            puts("The 'best_scaling_factor' array isn't created!");
-            exit(-1);
-        }
-        if ((best_scaling_shift = (float *) malloc(sizeof(float) * gs.number_organisms / size * gs.number_baselines)) ==
-            NULL) {
-            puts("The 'best_scaling_shift' array isn't created!");
-            exit(-1);
-        }
-        if ((next_generation = (double *) malloc(sizeof(double) * gs.number_organisms / size * gs.number_genes)) ==
-            NULL) {
-            puts("The 'next_generation' array isn't created!");
-            exit(-1);
-        }
-        if ((after_cross = (double *) malloc(sizeof(double) * gs.number_organisms / size * gs.number_genes)) == NULL) {
-            puts("The 'after_cross' array isn't created!");
-            exit(-1);
-        }
     }
 
     if (rank == 0) {
@@ -494,28 +481,12 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&time_sum, 1, MPI_LONG, 0, MPI_COMM_WORLD);
     MPI_Bcast(TIME, gs.number_baselines, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if ((AP_control = (double *) malloc(sizeof(double) * (time_sum))) == NULL) {
-        puts("The 'AP_control' array isn't created!");
+    try {
+        AP_control = new double [time_sum];
+        AP_current = new double [time_sum * gs.number_organisms];
+    } catch (const std::bad_alloc & e) {
+        std::cerr << "Allocation failed: " << e.what() << '\n';
         exit(-1);
-    }
-    if ((AP_current = (double *) malloc(sizeof(double) * gs.number_organisms * (time_sum))) == NULL) {
-        puts("The 'AP_current' array isn't created!");
-        exit(-1);
-    }
-
-    /*Read initial states for each BASELINE from the files in the directory.*/
-    State initial_state[gs.number_baselines];
-    State *state_struct, *state_struct_rewrite;
-
-    if (rank == 0) {
-        state_struct = (struct State *) malloc(sizeof(struct State) * gs.number_organisms * (gs.number_baselines));
-        state_struct_rewrite = (struct State *) malloc(
-                sizeof(struct State) * gs.number_organisms * (gs.number_baselines));
-    } else {
-        state_struct = (struct State *) malloc(
-                sizeof(struct State) * gs.number_organisms / size * (gs.number_baselines));
-        state_struct_rewrite = (struct State *) malloc(
-                sizeof(struct State) * gs.number_organisms / size * (gs.number_baselines));
     }
 
     if (rank == 0) {
@@ -530,10 +501,10 @@ int main(int argc, char *argv[]) {
             fread(a, sizeof(double), STATE_ARRAY_SIZE, fin);
             array2state(a, &initial_state[i]);
             fclose(fin);
-
         }
     }
     MPI_Bcast(initial_state, gs.number_baselines, StateVectorMPI, 0, MPI_COMM_WORLD);
+
 
     //read baseline APs
     if (rank == 0) {
@@ -550,6 +521,7 @@ int main(int argc, char *argv[]) {
         }
     }
     MPI_Bcast(AP_control, time_sum, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
 
     //very first step of GA: random gen of initial parameters (or read from a file)
     if (rank == 0) {
@@ -642,8 +614,7 @@ int main(int argc, char *argv[]) {
             assert(sd_n_index[0].first < sd_n_index.back().first);
 
             //save elites in elite buffer and later copy it to main array
-            State buf_elite_state[gs.number_elites * gs.number_baselines];
-            double *buf_elite_genes = (double *) malloc(sizeof(double) * gs.number_elites * gs.number_genes);
+
             for (int i = 0; i < gs.number_elites; i++) {
                 const int elite_index = sd_n_index[i].second;
                 for (int j = 0; j < gs.number_baselines; j++)
@@ -671,9 +642,6 @@ int main(int argc, char *argv[]) {
             output_file_time = MPI_Wtime() - output_file_time;
 
             /*Genetic Operators for mutants*/
-            State buf_mutant_state[gs.number_mutants * gs.number_baselines];
-            double *buf_mutant_genes = (double *) malloc(sizeof(double) * gs.number_mutants * gs.number_genes);
-
 
             int mpool[gs.number_mutants]; //mpool: mutant_index -> next_generation_index
             //so let's find it
@@ -715,7 +683,7 @@ int main(int argc, char *argv[]) {
                                     0.015, 0.015, 0.015, 0.015, 0.015, // Q_90 = 0.1 mM, Ca_rel
                                     0.15, 0.15, 0.15, 0.15, 0.15}; // Q_90 = 1 mM, K_i
 
-            double scaler_dimensional = 1 / sqrt(gs.number_genes);
+            const double scaler_dimensional = 1 / sqrt(gs.number_genes);
             // is approximately mean projection length of the unit vector onto some direction in `gs.number_genes`-dimensional space
 
             const int genes_without_concentrations = gs.number_genes - 3 * gs.number_baselines;
@@ -735,13 +703,11 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            double genes_mutant_after_cross_transformed[gs.number_mutants * gs.number_genes];
             transform_genes(/*in*/ after_cross, left_border, right_border,
                                    gs.number_mutants, gs.number_genes, genes_without_concentrations,
                                    left_border_transformed, right_border_transformed,
                     /*out*/ genes_mutant_after_cross_transformed);
 
-            double genes_mutant_after_mut_transformed[gs.number_organisms * gs.number_genes];
             cauchy_mutation(genes_mutant_after_mut_transformed, genes_mutant_after_cross_transformed,
                             left_border_transformed, right_border_transformed,
                             gs.number_mutants, gs.number_genes, gamma);
@@ -778,9 +744,6 @@ int main(int argc, char *argv[]) {
                             buf_mutant_genes[i * gs.number_genes + j];
             }
 
-            free(buf_elite_genes);
-            free(buf_mutant_genes);
-
 
             total_time = MPI_Wtime() - total_time;
             printf("total_time         %9.3f %3d%%\n", total_time, 100);
@@ -810,22 +773,28 @@ int main(int argc, char *argv[]) {
     MPI_Type_free(&GlobalSetupMPI);
     MPI_Type_free(&StateVectorMPI);
 
-    free(left_border);
-    free(right_border);
-    free(CL);
-    free(IA);
-    free(ISO);
-    free(SD);
-    free(TIME);
-    free(best_scaling_factor);
-    free(best_scaling_shift);
-    free(next_generation);
-    free(after_cross);
-    free(AP_control);
-    free(AP_current);
-    free(state_struct);
-    free(state_struct_rewrite);
-    //free(elite_state);
+    delete [] left_border;
+    delete [] right_border;
+    delete [] CL;
+    delete [] IA;
+    delete [] ISO;
+    delete [] SD;
+    delete [] TIME;
+    delete [] best_scaling_factor;
+    delete [] best_scaling_shift;
+    delete [] next_generation;
+    delete [] after_cross;
+    delete [] AP_control;
+    delete [] AP_current;
+    delete [] state_struct;
+    delete [] state_struct_rewrite;
+    delete [] initial_state;
+    delete [] buf_elite_genes;
+    delete [] buf_elite_state;
+    delete [] buf_mutant_genes;
+    delete [] buf_mutant_state;
+    delete [] genes_mutant_after_cross_transformed;
+    delete [] genes_mutant_after_mut_transformed;
 
     MPI_Finalize();
     return 0;
