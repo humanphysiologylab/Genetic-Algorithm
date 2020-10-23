@@ -1,5 +1,8 @@
+#include <sys/time.h>
+#include <cstdlib>
+#include <math.h>
 #include "cauchy_mutation.h"
-
+#include "random_number_generator.h"
 
 const double pi = 3.141592653589793238462643;
 const double MUTRATE = 0.9; //probability of mutation

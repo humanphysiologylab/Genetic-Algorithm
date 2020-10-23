@@ -541,7 +541,7 @@ int action_potential(struct State *initial_state, double *scaling_coefficients, 
     const int chain_length = 1; //?? maybe it should not be hardcoded 
     const int target_cell_index = chain_length / 2;
 
-    const int number_of_stimuli = 9; //?? maybe it should not be hardcoded
+    const int number_of_stimuli = 1; //?? maybe it should not be hardcoded
     const double ft = number_of_stimuli * CL; // ms
 
     const double dt = 1e-2; // ms //?? maybe it should not be hardcoded

@@ -5,12 +5,6 @@
 #ifndef GA_CAUCHY_MUTATION_H
 #define GA_CAUCHY_MUTATION_H
 
-#include <sys/time.h>
-#include <cstdlib>
-#include <math.h>
-#include <iostream>
-#include "random_number_generator.h"
-
 void normalize_genes(/*in*/    double *genes_input, double *left_border, double *right_border,
                                int number_organisms, int number_genes, int number_logscale_params,
         /*out*/   double *genes_output, double *left_border_normalized, double *right_border_normalized,

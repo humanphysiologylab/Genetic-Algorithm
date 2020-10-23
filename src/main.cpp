@@ -157,11 +157,11 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     /* create an MPI type for struct GlobalSetup */
-    int blocklengths[GlobalSetupItemsNumber] = {1, 1, 1, 1, 1, 1, 1, 1};
-    MPI_Datatype types[GlobalSetupItemsNumber] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
-                                                  MPI_INT};
     MPI_Datatype GlobalSetupMPI;
-    MPI_Aint displacements[GlobalSetupItemsNumber];
+    {
+    int          blocklengths[GlobalSetupItemsNumber] = {1, 1, 1, 1, 1, 1, 1, 1};
+    MPI_Datatype types[GlobalSetupItemsNumber] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+    MPI_Aint     displacements[GlobalSetupItemsNumber];
 
     displacements[0] = offsetof(GlobalSetup, number_organisms);
     displacements[1] = offsetof(GlobalSetup, number_genes);
@@ -174,12 +174,64 @@ int main(int argc, char *argv[]) {
 
     MPI_Type_create_struct(GlobalSetupItemsNumber, blocklengths, displacements, types, &GlobalSetupMPI);
     MPI_Type_commit(&GlobalSetupMPI);
+    }
     /* done */
 
-    /* Create MPI structure for initial state */
+    /* Create MPI structure for State */
     MPI_Datatype StateVectorMPI;
-    MPI_Type_contiguous(STATE_ARRAY_SIZE, MPI_DOUBLE, &StateVectorMPI);
+    {
+    int blocklengths[STATE_ARRAY_SIZE];
+    std::fill_n(blocklengths, STATE_ARRAY_SIZE, 1);
+    MPI_Datatype types[STATE_ARRAY_SIZE];
+    std::fill_n(types, STATE_ARRAY_SIZE, MPI_DOUBLE);
+
+    MPI_Aint     displacements[STATE_ARRAY_SIZE];
+
+    displacements[0] = offsetof(State, V);
+    displacements[1] = offsetof(State, Na_c);
+    displacements[2] = offsetof(State, Na_i);
+    displacements[3] = offsetof(State, m);
+    displacements[4] = offsetof(State, h1);
+    displacements[5] = offsetof(State, h2);
+    displacements[6] = offsetof(State, Ca_d);
+    displacements[7] = offsetof(State, d_L);
+    displacements[8] = offsetof(State, f_L1);
+    displacements[9] = offsetof(State, f_L2);
+    displacements[10] = offsetof(State, K_c);
+    displacements[11] = offsetof(State, K_i);
+    displacements[12] = offsetof(State, r);
+    displacements[13] = offsetof(State, s);
+    displacements[14] = offsetof(State, a_ur);
+    displacements[15] = offsetof(State, i_ur);
+    displacements[16] = offsetof(State, n);
+    displacements[17] = offsetof(State, pa);
+    displacements[18] = offsetof(State, Ca_c);
+    displacements[19] = offsetof(State, Ca_i);
+    displacements[20] = offsetof(State, O_C);
+    displacements[21] = offsetof(State, O_TC);
+    displacements[22] = offsetof(State, O_TMgC);
+    displacements[23] = offsetof(State, O_TMgMg);
+    displacements[24] = offsetof(State, O);
+    displacements[25] = offsetof(State, Ca_rel);
+    displacements[26] = offsetof(State, Ca_up);
+    displacements[27] = offsetof(State, O_Calse);
+    displacements[28] = offsetof(State, F1);
+    displacements[29] = offsetof(State, F2);
+    displacements[30] = offsetof(State, d_ord);
+    displacements[31] = offsetof(State, ff);
+    displacements[32] = offsetof(State, fs);
+    displacements[33] = offsetof(State, fcaf);
+    displacements[34] = offsetof(State, fcas);
+    displacements[35] = offsetof(State, jca);
+    displacements[36] = offsetof(State, ffp);
+    displacements[37] = offsetof(State, fcafp);
+    displacements[38] = offsetof(State, nca);
+
+    MPI_Type_create_struct(STATE_ARRAY_SIZE, blocklengths, displacements, types, &StateVectorMPI);
     MPI_Type_commit(&StateVectorMPI);
+    }
+    //MPI_Type_contiguous(STATE_ARRAY_SIZE, MPI_DOUBLE, &StateVectorMPI);
+    //MPI_Type_commit(&StateVectorMPI);
     /* done */
 
     long time_sum;
