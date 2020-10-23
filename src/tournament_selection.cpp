@@ -2,7 +2,7 @@
 #include <forward_list>
 #include <cstdlib>
 
-void tournament_basic_half(int *mpool, int mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
+void tournament_basic_half(int *mpool, int mpool_size, const std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
 {
     /* sd_n_index is expected to be sorted by sd in increasing order.
      * tournament_basic_half fills in mpool with indices of organisms in mating pool according to the tournament selection without replacement.
@@ -55,7 +55,7 @@ void tournament_basic_half(int *mpool, int mpool_size, std::vector<std::pair<dou
 }
 
 
-void tournament_selection(int *mpool, int mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
+void tournament_selection(int *mpool, int mpool_size, const std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
 {
     /* sd_n_index is expected to be sorted by sd in increasing order.
      * tournament_selection fills in mpool with indices of organisms in mating pool.

@@ -9,7 +9,7 @@
 #include <cassert>
 #include "maleckar.h"
 
-void tournament_selection(int *mpool, int mutant_number, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers);
+void tournament_selection(int *mpool, int mutant_number, const std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers);
 
 
 
