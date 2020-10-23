@@ -7,8 +7,7 @@
 #include <cmath>
 #include <iostream>
 
-#define STATE_ARRAY_SIZE 39
-
+#define STATE_ARRAY_SIZE 39 // keep consistent!!!
 struct State {
     double V; // in component membrane (millivolt).
     double Na_c; // in component cleft_space_ion_concentrations (millimolar).

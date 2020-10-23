@@ -1,5 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "openmp-use-default-none"
 // Main GA module
 //
 // Genetic Algorithm implementation
@@ -473,9 +471,8 @@ int main(int argc, char *argv[]) {
                 return -1;
             }
 
-            int sizeof_state = sizeof(struct State);
-            double a[sizeof_state];
-            fread(a, sizeof(double), sizeof_state, fin);
+            double a[STATE_ARRAY_SIZE];
+            fread(a, sizeof(double), STATE_ARRAY_SIZE, fin);
             array2state(a, &initial_state[i]);
             fclose(fin);
 
@@ -778,5 +775,3 @@ int main(int argc, char *argv[]) {
     MPI_Finalize();
     return 0;
 }
-
-#pragma clang diagnostic pop

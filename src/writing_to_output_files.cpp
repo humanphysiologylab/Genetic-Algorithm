@@ -84,11 +84,9 @@ void writing_to_output_files(int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_
 
         FILE *file_state = fopen(full_path, "wb");
 
-        int sizeof_state = sizeof(struct State);
-        double a[sizeof_state];
+        double a[STATE_ARRAY_SIZE];
         state2array(&states_elite[i], a);
-
-        fwrite(a, sizeof(double), sizeof_state, file_state);
+        fwrite(a, sizeof(double), STATE_ARRAY_SIZE, file_state);
         fclose(file_state);
     }
 }

@@ -26,7 +26,6 @@ void initial_population(double *next_generation, double *left_border, double *ri
         seed = (long) time(NULL);
         seed_negative = -seed;
         ran2(&seed_negative);
-        double rand_num = 0.;//?????
         for (organism = 0; organism < NUMBER_ORGANISMS; organism++) {
 
             /* Conductivities random generation */
