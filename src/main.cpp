@@ -705,7 +705,7 @@ int main(int argc, char *argv[]) {
             double mutation_time = MPI_Wtime();
 
             /* Genes transformation */
-            double gamma = 1.; // must be consistent with cauchy_mutation()
+            const double gamma = 1.;
             // Suppose we have X distributed according to cauchy distribution with given gamma and zero mu
             // if we want Q_90 of X to be equal some fixed value x
             // we should set gamma equal to 0.15 * x
@@ -744,7 +744,7 @@ int main(int argc, char *argv[]) {
             double genes_mutant_after_mut_transformed[gs.number_organisms * gs.number_genes];
             cauchy_mutation(genes_mutant_after_mut_transformed, genes_mutant_after_cross_transformed,
                             left_border_transformed, right_border_transformed,
-                            gs.number_mutants, gs.number_genes);
+                            gs.number_mutants, gs.number_genes, gamma);
 
             transform_genes_back(/*in*/ genes_mutant_after_mut_transformed, left_border_transformed,
                                         right_border_transformed,

@@ -176,7 +176,7 @@ void box_muller_transform(double *uniform_vector, int NUMBER_GENES, long seed) {
 
 
 void cauchy_mutation(double *genes_output, double *genes_input, double *left_border, double *right_border,
-                     int NUMBER_ORGANISMS, int NUMBER_GENES) {
+                     int NUMBER_ORGANISMS, int NUMBER_GENES, double gamma) {
     // borders are mirrors, bounce-bounce
 
     struct timeval tv;
@@ -186,8 +186,6 @@ void cauchy_mutation(double *genes_output, double *genes_input, double *left_bor
     ran2(&seed_negative);
 
     double uniform_vector[NUMBER_GENES];
-
-    double gamma = 1.; // mast be consistent with main()
 
     for (int i = 0; i < NUMBER_ORGANISMS; i++) {
 

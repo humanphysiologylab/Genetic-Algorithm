@@ -26,7 +26,7 @@ void transform_genes_back(/*in*/    double *genes_input, double *left_border_inp
         /*out*/   double *genes_output);
 
 void cauchy_mutation(double *genes_output, double *genes_input, double *left_border, double *right_border,
-                     int NUMBER_ORGANISMS, int NUMBER_GENES);
+                     int NUMBER_ORGANISMS, int NUMBER_GENES, double gamma);
 
 
 #endif //GA_CAUCHY_MUTATION_H
