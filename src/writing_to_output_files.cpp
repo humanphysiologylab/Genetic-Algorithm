@@ -24,7 +24,7 @@ void writing_to_output_files(int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_
         FILE *file_backup;
         file_backup = fopen("./ga_output/backup.txt", "w");
         if (!file_backup) {
-            printf("No autosave file!\n");
+            std::cerr << "Cannot open backup.txt!" << std::endl;
             exit(-1);
         }
 

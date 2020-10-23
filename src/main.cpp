@@ -86,7 +86,7 @@ static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream) {
         *pcBuf = '\0';
 
         if (fgets(pcBuf, iMaxSize, fStream) == NULL) {
-            printf("Error! Unable to read line!\n");
+            std::cerr << "Error! Unable to read line!" << std::endl;
             exit(-1);
         }
 
@@ -318,14 +318,14 @@ int main(int argc, char *argv[]) {
 
             if ((ptoken = strtok(token, " \t\n\r")) == NULL) {
                 fclose(fInput);
-                printf("Error in the input file!\n");
+                std::cerr << "Error in the input file!" << std::endl;
                 exit(-1);
             }
             left_border[i] = atof(ptoken);
 
             if ((ptoken = strtok(NULL, " \t\n\r")) == NULL) {
                 fclose(fInput);
-                printf("Error in the input file!\n");
+                std::cerr << "Error in the input file!\n" << std::endl;
                 exit(-1);
             }
             right_border[i] = atof(ptoken);
@@ -511,7 +511,7 @@ int main(int argc, char *argv[]) {
         for (long t_current = 0, baseline_counter = 0; baseline_counter < gs.number_baselines; baseline_counter++) {
             FILE *file = fopen(baseline_file_names[baseline_counter], "r");
             if (!file) {
-                printf("Cannot open baseline file: %s\n", baseline_file_names[baseline_counter]);
+                std::cerr << std::string("Cannot open baseline file:") + baseline_file_names[baseline_counter] << std::endl;
                 exit(-1);
             }
             scanf_baseline(0, TIME[baseline_counter], file, &AP_control[t_current]);

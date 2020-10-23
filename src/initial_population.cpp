@@ -13,7 +13,7 @@ void initial_population(double *next_generation, double *left_border, double *ri
         FILE *autosave_file;
         autosave_file = fopen("./ga_output/backup.txt", "r");
         if (!autosave_file) {
-            printf("No autosave file!\n");
+            std::cerr << "Cannot open backup.txt" << std::endl;
             exit(-1);
         }
 
@@ -32,8 +32,8 @@ void initial_population(double *next_generation, double *left_border, double *ri
             for (j = 0; j < NUMBER_GENES - 3 * NUMBER_BASELINES; j++) {
 
                 if (left_border[j] >= right_border[j]) {
-                    std::cout << "Error in input file!\n";
-                    std::cout << "Range for parameter № " << j << " is invalid: [" << left_border[j] << ", " << right_border[j] << "]\n";
+                    std::cerr << "Error in input file!\n";
+                    std::cerr << "Range for parameter № " << j << " is invalid: [" << left_border[j] << ", " << right_border[j] << "]\n";
                     exit(-1);
                 }
 
