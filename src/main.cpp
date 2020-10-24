@@ -154,7 +154,7 @@ void find_elite_penalty(double * weight, const double * AP_control, const double
     if ((generation + 1) % 10 != 0)
         return;
     for (int i = 0; i < time_sum; i++) {
-        weight[i] = 1 + std::fabs((AP_control[i] - AP_elite[i]) / AP_control[i]);
+        weight[i] = 1 + 100*std::fabs((AP_control[i] - AP_elite[i]) / AP_control[i]);
     }
 }
 

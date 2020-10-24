@@ -73,7 +73,7 @@ float SD_calculation(double *AP_control, double *AP_current, float *best_scaling
 //        		points_after = 1;
 //          		AP_control_scaled = AP_control[s] * alpha + beta;
         const double diff_between_potentials = AP_control[s] - AP_current[s];
-        sd += weight[s] * diff_between_potentials * diff_between_potentials;
+        sd += diff_between_potentials * diff_between_potentials + length * (weight[s]-1) * diff_between_potentials * diff_between_potentials;
         
         //       	}
     }
