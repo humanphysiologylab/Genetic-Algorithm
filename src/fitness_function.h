@@ -15,7 +15,7 @@ float SD_calculation(double* AP_control, double* AP_current, float* best_scaling
 
 
 void fitness_function(double *AP_control, double *AP_current, float *best_scaling_factor, float *best_scaling_shift,
-                      int *TIME, std::vector<std::pair<double, int>> & sd_n_index, int NUMBER_ORGANISMS, int NUMBER_BASELINES, int time_sum);
+                      int *TIME, std::vector<std::pair<double, int>> & sd_n_index, int NUMBER_ORGANISMS, int NUMBER_BASELINES, int time_sum, const double *weight);
 
 
 

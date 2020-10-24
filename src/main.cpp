@@ -147,6 +147,20 @@ void print_log_stdout(struct GlobalSetup gs, const double *genes,
     }
 }
 
+
+
+void find_elite_penalty(double * weight, const double * AP_control, const double * AP_elite, int time_sum, int generation)
+{
+    if ((generation + 1) % 10 != 0)
+        return;
+    for (int i = 0; i < time_sum; i++) {
+        weight[i] = 1 + std::fabs((AP_control[i] - AP_elite[i]) / AP_control[i]);
+    }
+}
+
+
+
+
 int main(int argc, char *argv[]) {
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
     MPI_Init(&argc, &argv);
@@ -481,13 +495,21 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&time_sum, 1, MPI_LONG, 0, MPI_COMM_WORLD);
     MPI_Bcast(TIME, gs.number_baselines, MPI_INT, 0, MPI_COMM_WORLD);
 
+    double *weight = 0;
+
     try {
+        weight = new double [time_sum];
+        //init weight with 1
+        std::fill_n(weight, time_sum, 1);
+        
         AP_control = new double [time_sum];
         AP_current = new double [time_sum * gs.number_organisms];
     } catch (const std::bad_alloc & e) {
         std::cerr << "Allocation failed: " << e.what() << '\n';
         exit(-1);
     }
+
+
 
     if (rank == 0) {
         for (int i = 0; i < gs.number_baselines; i++) {
@@ -599,8 +621,9 @@ int main(int argc, char *argv[]) {
             //And there is not need to send AP to the root
 
             double fitness_time = MPI_Wtime();
+                        
             fitness_function(AP_control, AP_current, best_scaling_factor, best_scaling_shift, TIME, sd_n_index,
-                             gs.number_organisms, gs.number_baselines, time_sum);
+                             gs.number_organisms, gs.number_baselines, time_sum, weight);
 
             //now sort by error increasing
             std::sort(sd_n_index.begin(), sd_n_index.end(),
@@ -625,6 +648,8 @@ int main(int argc, char *argv[]) {
                     buf_elite_genes[i * gs.number_genes + j] =
                             next_generation[elite_index * gs.number_genes + j];
             }
+
+            find_elite_penalty(weight, AP_control, &AP_current[sd_n_index[0].second * time_sum], time_sum, index_generation);
 
             double output_file_time = MPI_Wtime();
 
@@ -801,7 +826,8 @@ int main(int argc, char *argv[]) {
     delete [] buf_mutant_state;
     delete [] genes_mutant_after_cross_transformed;
     delete [] genes_mutant_after_mut_transformed;
-
+    delete [] weight;
+    
     MPI_Finalize();
     return 0;
 }

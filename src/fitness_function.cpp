@@ -28,7 +28,7 @@ void scalar_multiplication(double *AP_control, double *AP_current, int length, d
 }
 
 float SD_calculation(double *AP_control, double *AP_current, float *best_scaling_factor, float *best_scaling_shift,
-                     int length)
+                     int length, const double *weight)
 {
     double Variance;
     double AP_control_scaled, sd = 0;
@@ -73,7 +73,7 @@ float SD_calculation(double *AP_control, double *AP_current, float *best_scaling
 //        		points_after = 1;
 //          		AP_control_scaled = AP_control[s] * alpha + beta;
         const double diff_between_potentials = AP_control[s] - AP_current[s];
-        sd += diff_between_potentials * diff_between_potentials;
+        sd += weight[s] * diff_between_potentials * diff_between_potentials;
         
         //       	}
     }
@@ -99,7 +99,7 @@ float SD_calculation(double *AP_control, double *AP_current, float *best_scaling
 
 
 void fitness_function(double *AP_control, double *AP_current, float *best_scaling_factor, float *best_scaling_shift,
-                      int *TIME, std::vector<std::pair<double, int>> & sd_n_index, int NUMBER_ORGANISMS, int NUMBER_BASELINES, int time_sum)
+                      int *TIME, std::vector<std::pair<double, int>> & sd_n_index, int NUMBER_ORGANISMS, int NUMBER_BASELINES, int time_sum, const double *weight)
 {
     for (int c = 0; c < NUMBER_ORGANISMS; c++) {
         double res = 0;
@@ -107,7 +107,7 @@ void fitness_function(double *AP_control, double *AP_current, float *best_scalin
             res += SD_calculation(&AP_control[t_current], &AP_current[t_current + c * (time_sum)],
                                     &best_scaling_factor[baseline_counter + NUMBER_BASELINES * c],
                                     &best_scaling_shift[baseline_counter + NUMBER_BASELINES * c],
-                                    TIME[baseline_counter]); //Authomatic baseline scaling is implemented.
+                                    TIME[baseline_counter], &weight[t_current]); //Authomatic baseline scaling is implemented.
             t_current += TIME[baseline_counter];
         }
         if (isnan(res)) {
