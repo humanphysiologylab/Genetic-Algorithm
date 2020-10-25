@@ -56,7 +56,6 @@ endif()
 
 
 set(SOURCE_FILES
-        src/main.cpp
         src/initial_population.cpp
         src/fitness_function.cpp
         src/tournament_selection.cpp
@@ -66,17 +65,23 @@ set(SOURCE_FILES
         src/random_number_generator.cpp
         src/maleckar.cpp)
 
-add_executable(ga ${SOURCE_FILES})
+add_executable(ga src/main.cpp ${SOURCE_FILES})
 target_link_libraries(ga ${MPI_LIBRARIES})
+
+
+set(libname ${CMAKE_PROJECT_NAME}_lib)
+add_library(${libname} STATIC ${SOURCE_FILES})
+target_link_libraries(${libname} ${MPI_LIBRARIES})
 
 enable_testing()
 file(GLOB_RECURSE test_cases tests/*.cpp)
 foreach(case_file ${test_cases})
     get_filename_component( case_name ${case_file} NAME_WE )
-    set (case_name test_${case_name})
+    #set (case_name test_${case_name})
     add_executable(${case_name} ${case_file})
+    target_include_directories(${case_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(${case_name}
-                          ${LINK_LIBS} gtest gmock_main)
+        ${libname} gtest gmock_main)
     add_test(NAME ${case_name}
              COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${case_name}
              WORKING_DIRECTORY
