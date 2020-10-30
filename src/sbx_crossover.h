@@ -6,7 +6,7 @@
 #define GA_SBX_CROSSOVER_H
 
 
-void sbx_crossover(double *next_generation, double *after_cross, int *mpool, double *left_border, double *right_border,
+void sbx_crossover(double *next_generation, double *left_border, double *right_border,
                    int NUMBER_ORGANISMS, int NUMBER_GENES);
 
 

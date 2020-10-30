@@ -7,37 +7,19 @@
 
 const double CROSSRATE = 0.9; //probability of crossover
 
-#ifdef OLD_CROSS
+/*
 void sbx_crossover(double *next_generation, double *after_cross, int *mpool, double *left_border, double *right_border,
                    int NUMBER_ORGANISMS, int NUMBER_GENES)
 {
-    /* mpool should be already random!
-     * 
-     * 
-     * 
-     */
+    // mpool should be already random!
+
     const int etaC = 10; //The order of the polynomial for the SBX crossover
     long seed, seed_negative;
 
     seed = (long) time(NULL);
     seed_negative = -seed;
     ran2(&seed_negative);
-/* this should not be here
-    for (i = 0; i < NUMBER_ORGANISMS; i++) {
-        for (ii = 0; ii < NUMBER_GENES; ii++) {
-            if (next_generation[i * NUMBER_GENES + ii] > right_border[ii] ||
-                next_generation[i * NUMBER_GENES + ii] < left_border[ii]) {
-                next_generation[i * NUMBER_GENES + ii] =
-                        left_border[ii] + (right_border[ii] - left_border[ii]) * ran2(&seed);
-            }
-            if (next_generation[i * NUMBER_GENES + ii] > right_border[ii] ||
-                next_generation[i * NUMBER_GENES + ii] < left_border[ii]) {
-                next_generation[i * NUMBER_GENES + ii] =
-                        left_border[ii] + (right_border[ii] - left_border[ii]) * ran2(&seed);
-            }
-        }
-    }
-*/
+
     for (int i = 0; i < NUMBER_ORGANISMS / 2; i++) {
         const int num_1 = mpool[2 * i];
         const int num_2 = mpool[2 * i + 1];
@@ -93,7 +75,8 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
     }
 }
 
-#else
+*/
+
 /*
 adopted realcross from NSGA-II: Non-dominated Sorting Genetic Algorithm - II
 
@@ -106,7 +89,7 @@ Number: 2
 Pages: 182-197
 */
 
-void sbx_crossover(double *next_generation, double *after_cross, int *mpool, double *left_border, double *right_border,
+void sbx_crossover(double *next_generation, double *left_border, double *right_border,
                    int NUMBER_ORGANISMS, int NUMBER_GENES)
 {
     const int eta_c = 10; //The order of the polynomial for the SBX crossover
@@ -116,81 +99,63 @@ void sbx_crossover(double *next_generation, double *after_cross, int *mpool, dou
     seed_negative = -seed;
     ran2(&seed_negative);
     
-for (int i = 0; i < NUMBER_ORGANISMS / 2; i++) {
-    const int num_1 = mpool[2 * i];
-    const int num_2 = mpool[2 * i + 1];    
-    
-    if (ran2(&seed) <= CROSSRATE) {
-        for (int j = 0; j < NUMBER_GENES; j++) {
-            if (ran2(&seed) <= 0.5) {
-                double y1 = next_generation[num_1 * NUMBER_GENES + j],
-                       y2 = next_generation[num_2 * NUMBER_GENES + j];
-                       
-                if (fabs(y1 - y2) > 1e-14) {
-                    
-                    if (y1 > y2)
-                        std::swap(y1, y2);
-                    
-                    const double yl = left_border[j];
-                    const double yu = right_border[j];
-                    const double rand = ran2(&seed);
-                    double beta = 1.0 + (2.0*(y1-yl)/(y2-y1));
-                    double alpha = 2.0 - pow(beta,-(eta_c+1.0));
-                    double betaq;
-                    if (rand <= (1.0/alpha))
-                    {
-                        betaq = pow ((rand*alpha),(1.0/(eta_c+1.0)));
+    for (int i = 0; i < NUMBER_ORGANISMS / 2; i++) {
+        if (ran2(&seed) <= CROSSRATE) {
+            for (int j = 0; j < NUMBER_GENES; j++) {
+                if (ran2(&seed) <= 0.5) {
+                    double y1 = next_generation[2 * i * NUMBER_GENES + j],
+                           y2 = next_generation[(2 * i + 1) * NUMBER_GENES + j];
+
+                    if (fabs(y1 - y2) > 1e-14) {
+
+                        if (y1 > y2)
+                            std::swap(y1, y2);
+
+                        const double yl = left_border[j];
+                        const double yu = right_border[j];
+                        const double rand = ran2(&seed);
+                        double beta = 1.0 + (2.0*(y1-yl)/(y2-y1));
+                        double alpha = 2.0 - pow(beta,-(eta_c+1.0));
+                        double betaq;
+                        if (rand <= (1.0/alpha))
+                        {
+                            betaq = pow ((rand*alpha),(1.0/(eta_c+1.0)));
+                        }
+                        else
+                        {
+                            betaq = pow ((1.0/(2.0 - rand*alpha)),(1.0/(eta_c+1.0)));
+                        }
+                        double c1 = 0.5*((y1+y2)-betaq*(y2-y1));
+                        beta = 1.0 + (2.0*(yu-y2)/(y2-y1));
+                        alpha = 2.0 - pow(beta,-(eta_c+1.0));
+                        if (rand <= (1.0/alpha))
+                        {
+                            betaq = pow ((rand*alpha),(1.0/(eta_c+1.0)));
+                        }
+                        else
+                        {
+                            betaq = pow ((1.0/(2.0 - rand*alpha)),(1.0/(eta_c+1.0)));
+                        }
+                        double c2 = 0.5*((y1+y2)+betaq*(y2-y1));
+                        if (c1<yl)
+                            c1=yl;
+                        if (c2<yl)
+                            c2=yl;
+                        if (c1>yu)
+                            c1=yu;
+                        if (c2>yu)
+                            c2=yu;
+
+                        if (ran2(&seed)<=0.5) {
+                            next_generation[2 * i * NUMBER_GENES + j] = c2;
+                            next_generation[(2 * i + 1) * NUMBER_GENES + j] = c1;
+                        } else {
+                            next_generation[2 * i * NUMBER_GENES + j] = c1;
+                            next_generation[(2 * i + 1) * NUMBER_GENES + j] = c2;
+                        }
                     }
-                    else
-                    {
-                        betaq = pow ((1.0/(2.0 - rand*alpha)),(1.0/(eta_c+1.0)));
-                    }
-                    double c1 = 0.5*((y1+y2)-betaq*(y2-y1));
-                    beta = 1.0 + (2.0*(yu-y2)/(y2-y1));
-                    alpha = 2.0 - pow(beta,-(eta_c+1.0));
-                    if (rand <= (1.0/alpha))
-                    {
-                        betaq = pow ((rand*alpha),(1.0/(eta_c+1.0)));
-                    }
-                    else
-                    {
-                        betaq = pow ((1.0/(2.0 - rand*alpha)),(1.0/(eta_c+1.0)));
-                    }
-                    double c2 = 0.5*((y1+y2)+betaq*(y2-y1));
-                    if (c1<yl)
-                        c1=yl;
-                    if (c2<yl)
-                        c2=yl;
-                    if (c1>yu)
-                        c1=yu;
-                    if (c2>yu)
-                        c2=yu;
-                    if (ran2(&seed)<=0.5)
-                    {
-                        after_cross[2 * i * NUMBER_GENES + j] = c2;
-                        after_cross[(2 * i + 1) * NUMBER_GENES + j] = c1;
-                    }
-                    else
-                    {
-                        after_cross[2 * i * NUMBER_GENES + j] = c1;
-                        after_cross[(2 * i + 1) * NUMBER_GENES + j] = c2;
-                    }
-                } else {
-                    after_cross[2 * i * NUMBER_GENES + j] = y1;
-                    after_cross[(2 * i + 1) * NUMBER_GENES + j] = y2;
                 }
-            } else {
-                after_cross[2 * i * NUMBER_GENES + j] = next_generation[num_1 * NUMBER_GENES + j];
-                after_cross[(2 * i + 1) * NUMBER_GENES + j] = next_generation[num_2 * NUMBER_GENES + j];
             }
         }
-    } else {
-        for (int j = 0; j < NUMBER_GENES; j++) {
-            after_cross[2 * i       * NUMBER_GENES + j] = next_generation[num_1 * NUMBER_GENES + j];
-            after_cross[(2 * i + 1) * NUMBER_GENES + j] = next_generation[num_2 * NUMBER_GENES + j];
-        }
     }
-    
 }
-}
-#endif
