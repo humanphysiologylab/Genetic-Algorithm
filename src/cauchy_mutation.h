@@ -1,7 +1,3 @@
-//
-// Created by andrey on 1/21/20.
-//
-
 #ifndef GA_CAUCHY_MUTATION_H
 #define GA_CAUCHY_MUTATION_H
 

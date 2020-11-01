@@ -1,7 +1,3 @@
-//
-// Created by andrey on 1/22/20.
-//
-
 #ifndef GA_WRITING_TO_OUTPUT_FILES_H
 #define GA_WRITING_TO_OUTPUT_FILES_H
 #include <vector>

@@ -63,15 +63,18 @@ set(SOURCE_FILES
         src/cauchy_mutation.cpp
         src/writing_to_output_files.cpp
         src/random_number_generator.cpp
-        src/maleckar.cpp)
-
-add_executable(ga src/main.cpp ${SOURCE_FILES})
-target_link_libraries(ga ${MPI_LIBRARIES})
-
+        src/maleckar.cpp
+        src/basic_population.cpp
+        src/polynomial_mutation.cpp)
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)
 add_library(${libname} STATIC ${SOURCE_FILES})
 target_link_libraries(${libname} ${MPI_LIBRARIES})
+
+
+add_executable(ga src/main.cpp)
+target_link_libraries(ga ${libname})
+
 
 enable_testing()
 file(GLOB_RECURSE test_cases tests/*.cpp)

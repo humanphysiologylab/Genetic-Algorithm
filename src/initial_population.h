@@ -1,7 +1,3 @@
-//
-// Created by andrey on 1/22/20.
-//
-
 #ifndef GA_INITIAL_POPULATION_H
 #define GA_INITIAL_POPULATION_H
 

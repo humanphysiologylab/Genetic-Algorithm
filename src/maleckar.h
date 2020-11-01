@@ -1,7 +1,3 @@
-//
-// Created by andrey on 16/03/20.
-//
-
 #ifndef GA_MALECKAR_H
 
 #include <cmath>

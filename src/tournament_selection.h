@@ -1,7 +1,3 @@
-//
-// Created by andrey on 1/22/20.
-//
-
 #ifndef GA_TOURNAMENT_SELECTION_H
 #define GA_TOURNAMENT_SELECTION_H
 

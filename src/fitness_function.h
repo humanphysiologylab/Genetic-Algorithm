@@ -1,7 +1,3 @@
-//
-// Created by andrey on 1/22/20.
-//
-
 #ifndef GA_FITNESS_FUNCTION_H
 #define GA_FITNESS_FUNCTION_H
 
