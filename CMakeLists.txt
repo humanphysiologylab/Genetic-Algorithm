@@ -65,7 +65,10 @@ set(SOURCE_FILES
         src/random_number_generator.cpp
         src/maleckar.cpp
         src/basic_population.cpp
-        src/polynomial_mutation.cpp)
+        src/polynomial_mutation.cpp
+        src/basic_function_functor.cpp
+        src/fitness_functors.cpp
+        src/test_functions.cpp)
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)
 add_library(${libname} STATIC ${SOURCE_FILES})

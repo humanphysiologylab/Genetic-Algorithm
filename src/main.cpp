@@ -22,6 +22,8 @@
 
 #include "basic_population.h"
 #include "genetic_algorithm.h"
+#include "test_functions.h"
+#include "fitness_functors.h"
 
 #ifdef HIDE_CODE
 
@@ -794,7 +796,7 @@ int main(int argc, char *argv[])
 
     //old_code(int argc, char *argv[]);
 
-    BasicPopulation pop(RastriginFunction(30), ScalarFunctionMinFitnessFunctor(), 10, 1000);
+    BasicPopulation pop(RastriginFunction(30), ScalarFunctionMinFitnessFunctor(), 10, 10000);
     pop.init();
 
     genetic_algorithm(pop, 1000);
