@@ -69,3 +69,26 @@ std::vector<double> RastriginFunction::solution()
 {
     return std::vector<double>(xdim, 0);
 }
+
+
+StyblinskiTangFunction::StyblinskiTangFunction(int xdim_)
+{
+    xdim = xdim_;
+    ydim = 1;
+
+    min_x = std::vector<double>(xdim, -5);
+    max_x = std::vector<double>(xdim, 5);
+}
+
+void StyblinskiTangFunction::operator()(double * x, double *y)
+{
+    double res = 0;
+    for (int i = 0; i < xdim; i++)
+        res += pow(x[i], 4) - 16 * pow(x[i], 2) + 5 * x[i];
+    y[0] = res / 2;
+}
+
+std::vector<double> StyblinskiTangFunction::solution()
+{
+    return std::vector<double>(xdim, -2.903534);
+}

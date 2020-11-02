@@ -36,4 +36,14 @@ public:
     virtual std::vector<double> solution() override;
 };
 
+class StyblinskiTangFunction:
+    public BasicFunctionFunctor
+{
+public:
+    
+    StyblinskiTangFunction(int xdim_);
+
+    virtual void operator()(double * x, double *y) override;
+    virtual std::vector<double> solution() override;
+};
 #endif
