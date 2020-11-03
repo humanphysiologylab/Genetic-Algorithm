@@ -3,15 +3,10 @@
 
 #include <mpi.h>
 #include <iostream>
-#include <algorithm>
-
-#include "polynomial_mutation.h"
-#include "sbx_crossover.h"
-#include "tournament_selection.h"
 
 
-template <typename Pop>
-void genetic_algorithm(Pop & pop, const int generations)
+template <typename Pop, typename Selection, typename Crossover, typename Mutation>
+void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mutation  mutation, const int generations)
 {
     /* Initialize population before calling genetic algorithm
      * 
@@ -54,12 +49,9 @@ void genetic_algorithm(Pop & pop, const int generations)
 
             pop.fitness_function(sd_n_index);
 
-            //now sort by error increasing
-            std::sort(sd_n_index.begin(), sd_n_index.end(),
-                      [](const std::pair<double, int> &left_element, const std::pair<double, int> &right_element) {
-                          return left_element.first < right_element.first;
-                      });
-
+            //just find best somewhere else lol if you want at all
+            TODO
+            
             fitness_time = MPI_Wtime() - fitness_time;
 
             if (!(sd_n_index[0].first <= sd_n_index.back().first)) {
@@ -71,15 +63,9 @@ void genetic_algorithm(Pop & pop, const int generations)
 
             int mpool[pop.number_mutants]; //mpool: mutant_index -> next_generation_index
             //so let's find it
-            double tournament_time = MPI_Wtime();
-            tournament_selection(mpool, pop.number_mutants, sd_n_index, pop.number_elites);
-
-            //we also need to shuffle mpool because it is sorted!
-            for (int i = 0; i < pop.number_mutants; i++) {
-                int j = i + rand() % (pop.number_mutants - i);
-                std::swap(mpool[i], mpool[j]);
-            }
-            tournament_time = MPI_Wtime() - tournament_time;
+            double selection_time = MPI_Wtime();
+            selection(mpool, pop.number_mutants, sd_n_index, pop.number_elites);
+            selection_time = MPI_Wtime() - selection_time;
 
 
             //save elites to elite buffer and later copy it to main array
@@ -100,13 +86,13 @@ void genetic_algorithm(Pop & pop, const int generations)
 
 
             double crossover_time = MPI_Wtime();
-            sbx_crossover(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants,
+            crossover(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants,
                           pop.get_number_genes());
             crossover_time = MPI_Wtime() - crossover_time;
 
 
             double mutation_time = MPI_Wtime();
-            polynomial_mutation(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants, pop.get_number_genes());
+            mutation(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants, pop.get_number_genes());
             mutation_time = MPI_Wtime() - mutation_time;
 
             /*Genetic Operators for mutants DONE*/
@@ -119,18 +105,18 @@ void genetic_algorithm(Pop & pop, const int generations)
 
 
             total_time = MPI_Wtime() - total_time;
-/*
+
             printf("\nGeneration %d\n", index_generation);
             printf("total_time         %9.3f %3d%%\n", total_time, 100);
             printf("scatter_time       %9.3f %3d%%\n", scatter_time, (int) (scatter_time / total_time * 100));
             printf("run_gen_time       %9.3f %3d%%\n", run_generation_time, (int) (run_generation_time / total_time * 100));
             printf("gather_time        %9.3f %3d%%\n", gather_time, (int) (gather_time / total_time * 100));
             printf("fitness_time       %9.3f %3d%%\n", fitness_time, (int) (fitness_time / total_time * 100));
-            printf("tournament_time    %9.3f %3d%%\n", tournament_time, (int) (tournament_time / total_time * 100));
+            printf("selection_time     %9.3f %3d%%\n", selection_time, (int) (selection_time / total_time * 100));
             printf("crossover_time     %9.3f %3d%%\n", crossover_time, (int) (crossover_time / total_time * 100));
             printf("mutation_time      %9.3f %3d%%\n", mutation_time, (int) (mutation_time / total_time * 100));
             printf("log_time           %9.3f %3d%%\n", log_time, (int) (log_time / total_time * 100));
-*/
+
         }
     }
 
