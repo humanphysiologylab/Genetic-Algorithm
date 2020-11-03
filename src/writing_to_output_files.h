@@ -1,10 +1,6 @@
 #ifndef GA_WRITING_TO_OUTPUT_FILES_H
 #define GA_WRITING_TO_OUTPUT_FILES_H
 #include <vector>
-#include <utility>
-#include <cstdio>
-#include <cstdlib>
-#include <fstream>
 #include "maleckar.h"
 
 void writing_to_output_files(int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_BASELINES,

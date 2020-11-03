@@ -6,10 +6,7 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
-#include "random_number_generator.h"
-
-
-
+#include <random>
 
 
 template <typename FunctionFunctor, typename FitnessFunctor>
@@ -111,19 +108,16 @@ public:
         delete [] all_y;
     }
 
-    void init()
+    template<typename InitializedRandomGenerator>
+    void init(InitializedRandomGenerator rg)
     {
         /* Basic initialization:
          * all genes are random
          * 
          */
-        long seed = (long) time(NULL);
-        long seed_negative = -seed;
-        ran2(&seed_negative);
-
         for (int i = 0; i < number_organisms; i++)
             for (int j = 0; j < genes_per_organism; j++)
-            all_genes[j + i * genes_per_organism] = min_gene[j] + (max_gene[j] - min_gene[j]) * ran2(&seed);
+                all_genes[j + i * genes_per_organism] = std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
 
     }
 

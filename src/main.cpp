@@ -19,11 +19,15 @@
 
 #include <mpi.h>
 #include <iostream>
+#include "pcg_random.hpp"
 
 #include "basic_population.h"
 #include "genetic_algorithm.h"
 #include "test_functions.h"
 #include "fitness_functors.h"
+#include "polynomial_mutation.h"
+#include "tournament_selection.h"
+#include "sbx_crossover.h"
 
 #ifdef HIDE_CODE
 
@@ -788,18 +792,22 @@ int main(int argc, char *argv[])
 {
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
     MPI_Init(&argc, &argv);
-    srand(time(NULL));
+
+    pcg_extras::seed_seq_from<std::random_device> seed_source;
 
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    //old_code(int argc, char *argv[]);
+    BasicPopulation pop(RosenbrockFunction(30),
+                        ScalarFunctionMinFitnessFunctor(), 100, 10000);
 
-    BasicPopulation pop(RastriginFunction(30), ScalarFunctionMinFitnessFunctor(), 10, 10000);
-    pop.init();
+    pop.init(pcg64(seed_source));
 
-    genetic_algorithm(pop, 1000);
+    genetic_algorithm(pop,
+                    TournamentSelection(pcg64(seed_source)),
+                    SBXcrossover(pcg64(seed_source)),
+                    PolynomialMutation(pcg64(seed_source)), 1000);
 
     if (rank == 0) {
         auto best = pop.best();

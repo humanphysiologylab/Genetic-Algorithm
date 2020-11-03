@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <math.h>
 #include "cauchy_mutation.h"
-#include "random_number_generator.h"
+
 
 const double pi = 3.141592653589793238462643;
 const double MUTRATE = 0.9; //probability of mutation
@@ -150,7 +150,9 @@ void box_muller_transform(double *uniform_vector, int NUMBER_GENES, long seed) {
     double u = 0, v = 0, s = 0;
     //double mu = 0, epsilon = 1.;
     double vector_len = 0.;
+#pragma message "rewrite ran2"
 
+/*
     for (int i = 0; i < NUMBER_GENES; i++) {
 
         do {
@@ -172,6 +174,7 @@ void box_muller_transform(double *uniform_vector, int NUMBER_GENES, long seed) {
     for (int i = 0; i < NUMBER_GENES; i++) {
         uniform_vector[i] = uniform_vector[i] / vector_len;
     }
+    */
 }
 
 
@@ -179,6 +182,9 @@ void cauchy_mutation(double *genes_output, double *genes_input, double *left_bor
                      int NUMBER_ORGANISMS, int NUMBER_GENES, double gamma) {
     // borders are mirrors, bounce-bounce
 
+#pragma message "rewrite ran2"
+
+/*
     struct timeval tv;
     gettimeofday(&tv, NULL);
     long seed = long(tv.tv_usec);
@@ -214,5 +220,5 @@ void cauchy_mutation(double *genes_output, double *genes_input, double *left_bor
             }
 
         }
-    }
+    }*/
 }

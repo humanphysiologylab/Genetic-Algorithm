@@ -21,7 +21,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 find_package(MPI REQUIRED)
 
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
-
+include_directories("./pcg-cpp-0.98")
 
 
 
@@ -62,7 +62,6 @@ set(SOURCE_FILES
         src/sbx_crossover.cpp
         src/cauchy_mutation.cpp
         src/writing_to_output_files.cpp
-        src/random_number_generator.cpp
         src/maleckar.cpp
         src/basic_population.cpp
         src/polynomial_mutation.cpp

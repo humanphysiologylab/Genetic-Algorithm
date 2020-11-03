@@ -1,3 +1,8 @@
+#include <utility>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
 #include "writing_to_output_files.h"
 
 void writing_to_output_files(int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_BASELINES,

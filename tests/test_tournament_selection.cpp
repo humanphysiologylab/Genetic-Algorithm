@@ -1,17 +1,20 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "tournament_selection.h"
+#include "pcg_random.hpp"
 
 
 
 TEST(tournament_tests, nullInput)
 {
+    TournamentSelection tournament_selection{pcg64()};
     std::vector<std::pair<double, int>> sd_n_index;
     tournament_selection(0, 0, sd_n_index, 0);
 }
 
 TEST(tournament_tests, pool_is_complete)
 {
+    TournamentSelection tournament_selection{pcg64()};
     const int pool_size = 10;
     int mpool[pool_size];
     std::vector<std::pair<double, int>> sd_n_index(pool_size);
@@ -30,6 +33,7 @@ TEST(tournament_tests, pool_is_complete)
 
 TEST(tournament_tests, pool_is_random)
 {
+    TournamentSelection tournament_selection{pcg64()};
     const int pool_size = 50;
     int mpool[pool_size];
     std::vector<std::pair<double, int>> sd_n_index(pool_size);

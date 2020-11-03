@@ -1,6 +1,0 @@
-#ifndef GA_RANDOM_NUMBER_GENERATOR_H
-#define GA_RANDOM_NUMBER_GENERATOR_H
-
-double ran2(long *idum);
-
-#endif //GA_RANDOM_NUMBER_GENERATOR_H

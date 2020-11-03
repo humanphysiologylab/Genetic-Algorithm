@@ -2,7 +2,7 @@
 #include <iostream>
 #include <cmath>
 #include "initial_population.h"
-#include "random_number_generator.h"
+
 
 void initial_population(double *next_generation, double *left_border, double *right_border, struct State *initial_state,
                         int NUMBER_ORGANISMS, int NUMBER_GENES, int NUMBER_BASELINES, int INIT_FROM_BACKUP_FILE) {
@@ -21,14 +21,15 @@ void initial_population(double *next_generation, double *left_border, double *ri
             fscanf(autosave_file, "%lf\n", &next_generation[j]);
         }
         fclose(autosave_file);
-    } else {
+    }
+    /* else {
         int organism;
         seed = (long) time(NULL);
         seed_negative = -seed;
         ran2(&seed_negative);
         for (organism = 0; organism < NUMBER_ORGANISMS; organism++) {
 
-            /* Conductivities random generation */
+            // Conductivities random generation
             for (j = 0; j < NUMBER_GENES - 3 * NUMBER_BASELINES; j++) {
 
                 if (left_border[j] >= right_border[j]) {
@@ -49,13 +50,13 @@ void initial_population(double *next_generation, double *left_border, double *ri
                 }
             }
 
-            /* Concentrations */
+            // Concentrations 
             for (j = 0; j < NUMBER_BASELINES; j++) {
                 next_generation[(organism + 1) * NUMBER_GENES - 3 * NUMBER_BASELINES + j] = initial_state[j].Na_i;
                 next_generation[(organism + 1) * NUMBER_GENES - 2 * NUMBER_BASELINES + j] = initial_state[j].Ca_rel;
                 next_generation[(organism + 1) * NUMBER_GENES - 1 * NUMBER_BASELINES + j] = initial_state[j].K_i;
             }
         }
-    }
+    }*/
 
 }

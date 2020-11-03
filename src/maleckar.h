@@ -1,7 +1,5 @@
 #ifndef GA_MALECKAR_H
 
-#include <cmath>
-#include <iostream>
 
 const int STATE_ARRAY_SIZE = 39; // keep consistent!!!
 struct State {
