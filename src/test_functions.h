@@ -3,47 +3,56 @@
 
 #include "basic_function_functor.h"
 
-class SphereFunction:
+class Basic1dFunctionFunctor:
     public BasicFunctionFunctor
 {
 public:
-    
-    SphereFunction(int xdim_);
+    virtual void operator()(double * x, double *y) const = 0;
 
-    virtual void operator()(double * x, double *y) override;
-    virtual std::vector<double> solution() override;
+    double operator()(const std::vector<double> & x) const;
+};
+
+class SphereFunction:
+    public Basic1dFunctionFunctor
+{
+public:
+    using Basic1dFunctionFunctor::operator ();
+    SphereFunction(int xdim_);
+    double ymin() const;
+    virtual void operator()(double * x, double *y) const override;
+    virtual std::vector<double> solution() const override;
 };
 
 class RosenbrockFunction:
-    public BasicFunctionFunctor
+    public Basic1dFunctionFunctor
 {
 public:
-    
+    using Basic1dFunctionFunctor::operator ();
     RosenbrockFunction(int xdim_);
-
-    virtual void operator()(double * x, double *y) override;
-    virtual std::vector<double> solution() override;
+    double ymin() const;
+    virtual void operator()(double * x, double *y) const override;
+    virtual std::vector<double> solution() const override;
 };
 
 class RastriginFunction:
-    public BasicFunctionFunctor
+    public Basic1dFunctionFunctor
 {
 public:
-    
+    using Basic1dFunctionFunctor::operator ();
     RastriginFunction(int xdim_);
-
-    virtual void operator()(double * x, double *y) override;
-    virtual std::vector<double> solution() override;
+    double ymin() const;
+    virtual void operator()(double * x, double *y) const override;
+    virtual std::vector<double> solution() const override;
 };
 
 class StyblinskiTangFunction:
-    public BasicFunctionFunctor
+    public Basic1dFunctionFunctor
 {
 public:
-    
+    using Basic1dFunctionFunctor::operator ();
     StyblinskiTangFunction(int xdim_);
-
-    virtual void operator()(double * x, double *y) override;
-    virtual std::vector<double> solution() override;
+    double ymin() const;
+    virtual void operator()(double * x, double *y) const override;
+    virtual std::vector<double> solution() const override;
 };
 #endif

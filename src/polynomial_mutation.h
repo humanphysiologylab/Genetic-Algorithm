@@ -3,15 +3,17 @@
 
 #include <cmath>
 #include <random>
+#include <omp.h>
+#include <vector>
 
-template <typename InitializedRandomGenerator>
+template <typename RandomGenerator, typename Seed>
 class PolynomialMutation
 {
-    InitializedRandomGenerator rg;
+    std::vector<RandomGenerator> random_generators;
     const int eta_m = 20;//i dk is it good
     const double pmut_real = 0.1;//i dk is it good
     
-    void real_mutate_ind (double *genes, double * min_realvar, double * max_realvar, int genes_number)
+    void real_mutate_ind(double * genes, const double * min_realvar, const double * max_realvar, int genes_number)
     {
         /* Routine for real polynomial mutation of an individual
          * 
@@ -27,45 +29,51 @@ class PolynomialMutation
          */
 
         std::uniform_real_distribution<double> ran(0, 1);
-
+        
+        RandomGenerator & rg = random_generators[omp_get_thread_num()];
+        
         for (int j = 0; j < genes_number; j++) {
             if (ran(rg) <= pmut_real) {
                 double y = genes[j];
-                double  deltaq;
+                double deltaq;
                 const double yl = min_realvar[j];
                 const double yu = max_realvar[j];
-                const double delta1 = (y-yl)/(yu-yl);
-                const double delta2 = (yu-y)/(yu-yl);
                 const double rnd = ran(rg);
-                const double mut_pow = 1.0/(eta_m+1.0);
+                const double mut_pow = 1.0 / (eta_m + 1.0);
                 if (rnd <= 0.5) {
-                    const double xy = 1.0-delta1;
-                    const double val = 2.0*rnd+(1.0-2.0*rnd)*(pow(xy,(eta_m+1.0)));
-                    deltaq =  pow(val,mut_pow) - 1.0;
+                    const double delta1 = (y - yl) / (yu - yl);
+                    const double xy = 1.0 - delta1;
+                    const double val = 2.0 * rnd + (1.0 - 2.0 * rnd) * pow(xy, (eta_m + 1.0));
+                    deltaq = pow(val, mut_pow) - 1.0;
                 } else {
-                    const double xy = 1.0-delta2;
-                    const double val = 2.0*(1.0-rnd)+2.0*(rnd-0.5)*(pow(xy,(eta_m+1.0)));
-                    deltaq = 1.0 - (pow(val,mut_pow));
+                    const double delta2 = (yu - y) / (yu - yl);
+                    const double xy = 1.0 - delta2;
+                    const double val = 2.0 * (1.0 - rnd) + (2.0 * rnd - 1.0) * pow(xy, (eta_m + 1.0));
+                    deltaq = 1.0 - pow(val, mut_pow);
                 }
-                y = y + deltaq*(yu-yl);
-                if (y<yl)
+                y = y + deltaq * (yu - yl);
+                if (y < yl)
                     y = yl;
-                if (y>yu)
+                else if (y > yu)
                     y = yu;
                 genes[j] = y;
             }
         }
     }
 public:
-    PolynomialMutation(InitializedRandomGenerator rg)
-    : rg(rg)
-    {}
-
-    void operator()(double *population_genes, double * min_value, double * max_value, int population_size, int genes_number)
+    PolynomialMutation(Seed & seed)
     {
+        const int openmp_threads = omp_get_max_threads();
+        for (int i = 0; i < openmp_threads; i++)
+            random_generators.push_back(RandomGenerator(seed));
+        
+    }
+
+    void operator()(double *population_genes, const double * min_value, const double * max_value, int population_size, int genes_number)
+    {
+        #pragma omp parallel for
         for (int i = 0; i < population_size; i++) {
-            real_mutate_ind (population_genes, min_value, max_value, genes_number);
-            population_genes += genes_number;
+            real_mutate_ind(population_genes + i * genes_number, min_value, max_value, genes_number);
         }   
     }
     

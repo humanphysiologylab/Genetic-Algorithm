@@ -2,6 +2,15 @@
 #include <cassert>
 #include <cmath>
 
+
+double Basic1dFunctionFunctor::operator()(const std::vector<double> & x) const
+{
+    double y;
+    std::vector<double> xx = x;
+    operator()(xx.data(), &y);
+    return y;
+}
+
 SphereFunction::SphereFunction(int xdim_)
 {
     xdim = xdim_;
@@ -11,17 +20,22 @@ SphereFunction::SphereFunction(int xdim_)
     max_x = std::vector<double>(xdim, 5);
 }
 
-void SphereFunction::operator()(double * x, double *y)
+void SphereFunction::operator()(double * x, double *y) const
 {
     double res = 0;
     for (int i = 0; i < xdim; i++)
         res += x[i] * x[i];
-    y[0] = res - 3.14;
+    y[0] = res;
 }
 
-std::vector<double> SphereFunction::solution()
+std::vector<double> SphereFunction::solution() const
 {
     return std::vector<double>(xdim, 0);
+}
+
+double SphereFunction::ymin() const
+{
+    return 0;
 }
 
 RosenbrockFunction::RosenbrockFunction(int xdim_)
@@ -34,7 +48,7 @@ RosenbrockFunction::RosenbrockFunction(int xdim_)
     max_x = std::vector<double>(xdim, 5);
 }
 
-void RosenbrockFunction::operator()(double * x, double *y)
+void RosenbrockFunction::operator()(double * x, double *y) const
 {
     double res = 0;
     for (int i = 0; i < xdim - 1; i++)
@@ -42,9 +56,13 @@ void RosenbrockFunction::operator()(double * x, double *y)
     y[0] = res;
 }
 
-std::vector<double> RosenbrockFunction::solution()
+std::vector<double> RosenbrockFunction::solution() const
 {
     return std::vector<double>(xdim, 1);
+}
+double RosenbrockFunction::ymin() const
+{
+    return 0;
 }
 
 RastriginFunction::RastriginFunction(int xdim_)
@@ -56,7 +74,7 @@ RastriginFunction::RastriginFunction(int xdim_)
     max_x = std::vector<double>(xdim, 5.12);
 }
 
-void RastriginFunction::operator()(double * x, double *y)
+void RastriginFunction::operator()(double * x, double *y) const
 {
     const double A = 10;
     double res = A * xdim;
@@ -65,9 +83,14 @@ void RastriginFunction::operator()(double * x, double *y)
     y[0] = res;
 }
 
-std::vector<double> RastriginFunction::solution()
+std::vector<double> RastriginFunction::solution() const
 {
     return std::vector<double>(xdim, 0);
+}
+
+double RastriginFunction::ymin() const
+{
+    return 0;
 }
 
 
@@ -80,7 +103,7 @@ StyblinskiTangFunction::StyblinskiTangFunction(int xdim_)
     max_x = std::vector<double>(xdim, 5);
 }
 
-void StyblinskiTangFunction::operator()(double * x, double *y)
+void StyblinskiTangFunction::operator()(double * x, double *y) const
 {
     double res = 0;
     for (int i = 0; i < xdim; i++)
@@ -88,7 +111,12 @@ void StyblinskiTangFunction::operator()(double * x, double *y)
     y[0] = res / 2;
 }
 
-std::vector<double> StyblinskiTangFunction::solution()
+std::vector<double> StyblinskiTangFunction::solution() const
 {
     return std::vector<double>(xdim, -2.903534);
+}
+
+double StyblinskiTangFunction::ymin() const
+{
+    return -39.16599 * xdim;
 }

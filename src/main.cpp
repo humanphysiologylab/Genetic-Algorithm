@@ -799,22 +799,18 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    BasicPopulation pop(RosenbrockFunction(30),
-                        ScalarFunctionMinFitnessFunctor(), 100, 10000);
+    RastriginFunction func(20);
+    BasicPopulation pop(func, ScalarFunctionMinFitnessFunctor(), 1000, 100000);
 
     pop.init(pcg64(seed_source));
 
     genetic_algorithm(pop,
-                    TournamentSelection(pcg64(seed_source)),
+                    TournamentSelectionFast(pcg64(seed_source)),
                     SBXcrossover(pcg64(seed_source)),
-                    PolynomialMutation(pcg64(seed_source)), 1000);
+                    PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source), 1000);
 
     if (rank == 0) {
-        auto best = pop.best();
-        std::cout << "Result:";
-        for (auto &g: best)
-            std::cout << " " << g;
-        std::cout << std::endl;
+        std::cout << "Error: " << func.solution_error_l2(pop.best()) << std::endl;
     }
     MPI_Finalize();
     return 0;

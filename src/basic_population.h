@@ -192,7 +192,7 @@ public:
         return std::vector<double>(all_genes, all_genes + genes_per_organism);
     }
     
-    void log(std::vector<std::pair<double, int>> & sd_n_index, int gen)
+    void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
     {
         if (gen % 10 != 0) return ;
         std::cout << "Generation: " << gen << std::endl

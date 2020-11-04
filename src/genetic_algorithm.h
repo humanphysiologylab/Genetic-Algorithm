@@ -3,7 +3,7 @@
 
 #include <mpi.h>
 #include <iostream>
-
+#include <algorithm>
 
 template <typename Pop, typename Selection, typename Crossover, typename Mutation>
 void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mutation  mutation, const int generations)
@@ -46,19 +46,35 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             //And there is not need to send AP to the root
 
             double fitness_time = MPI_Wtime();
-
             pop.fitness_function(sd_n_index);
-
-            //just find best somewhere else lol if you want at all
-            TODO
-            
             fitness_time = MPI_Wtime() - fitness_time;
 
+            double sort_time = MPI_Wtime();
+            //sort by error increasing
+            std::sort(sd_n_index.begin(), sd_n_index.end(),
+                      [](const std::pair<double, int> &left_element, const std::pair<double, int> &right_element) {
+                          return left_element.first < right_element.first;
+                      });
+            sort_time = MPI_Wtime() - sort_time;
+            
             if (!(sd_n_index[0].first <= sd_n_index.back().first)) {
                 std::cout << sd_n_index[0].first << " " << sd_n_index.back().first << std::endl;
             }
             assert(sd_n_index[0].first <= sd_n_index.back().first);
 
+            double save_elite_time = MPI_Wtime();
+            //save elites to elite buffer and later copy it to main array
+            for (int i = 0; i < pop.number_elites; i++) {
+                const int elite_index = sd_n_index[i].second;
+                pop.save_elite_to_elite_buffer(elite_index, i); //from -> to
+            }
+            save_elite_time = MPI_Wtime() - save_elite_time;
+            
+            double log_time = MPI_Wtime();
+            pop.log(sd_n_index, index_generation);
+            log_time = MPI_Wtime() - log_time;
+            
+            
             /*Genetic Operators for mutants*/
 
             int mpool[pop.number_mutants]; //mpool: mutant_index -> next_generation_index
@@ -66,23 +82,18 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             double selection_time = MPI_Wtime();
             selection(mpool, pop.number_mutants, sd_n_index, pop.number_elites);
             selection_time = MPI_Wtime() - selection_time;
+            //Do not use sd_n_index anymore!
 
-
-            //save elites to elite buffer and later copy it to main array
-            for (int i = 0; i < pop.number_elites; i++) {
-                const int elite_index = sd_n_index[i].second;
-                pop.save_elite_to_elite_buffer(elite_index, i); //from -> to
-            }
+            double save_mutant_time = MPI_Wtime();
             //only now copy states from next_generation to buf_mutant_state according to the shuffled mpool!
             for (int i = 0; i < pop.number_mutants; i++) {
                 const int mutant_index = mpool[i];
                 pop.save_mutant_to_mutant_buffer(mutant_index, i); //from -> to
             }
+            save_mutant_time = MPI_Wtime() - save_mutant_time;
             //no need of mpool anymore
 
-            double log_time = MPI_Wtime();
-            pop.log(sd_n_index, index_generation);
-            log_time = MPI_Wtime() - log_time;
+
 
 
             double crossover_time = MPI_Wtime();
@@ -96,13 +107,13 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             mutation_time = MPI_Wtime() - mutation_time;
 
             /*Genetic Operators for mutants DONE*/
-
+            double restore_organisms_time = MPI_Wtime();
             //now copy elite to main arrays
             pop.restore_elites_to_main_array();
 
             //and copy mutants to main arrays
             pop.restore_mutants_to_main_array();
-
+            restore_organisms_time = MPI_Wtime() - restore_organisms_time;
 
             total_time = MPI_Wtime() - total_time;
 
@@ -116,6 +127,12 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             printf("crossover_time     %9.3f %3d%%\n", crossover_time, (int) (crossover_time / total_time * 100));
             printf("mutation_time      %9.3f %3d%%\n", mutation_time, (int) (mutation_time / total_time * 100));
             printf("log_time           %9.3f %3d%%\n", log_time, (int) (log_time / total_time * 100));
+            printf("restore_org_time   %9.3f %3d%%\n", restore_organisms_time, (int) (restore_organisms_time / total_time * 100));
+            printf("save_mutant_time   %9.3f %3d%%\n", save_mutant_time, (int) (save_mutant_time / total_time * 100));
+            printf("save_elite_time    %9.3f %3d%%\n", save_elite_time, (int) (save_elite_time / total_time * 100));
+            printf("sort_time          %9.3f %3d%%\n", sort_time, (int) (sort_time / total_time * 100));
+
+
 
         }
     }
