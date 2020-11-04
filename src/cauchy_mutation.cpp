@@ -4,10 +4,6 @@
 #include "cauchy_mutation.h"
 
 
-const double pi = 3.141592653589793238462643;
-const double MUTRATE = 0.9; //probability of mutation
-
-
 void normalize_genes(/*in*/    double *genes_input, double *left_border, double *right_border,
                                int number_organisms, int number_genes, int number_logscale_params,
         /*out*/   double *genes_output, double *left_border_normalized, double *right_border_normalized,
@@ -145,80 +141,4 @@ void transform_genes_back(/*in*/    double *genes_input, double *left_border_inp
 }
 
 
-void box_muller_transform(double *uniform_vector, int NUMBER_GENES, long seed) {
 
-    double u = 0, v = 0, s = 0;
-    //double mu = 0, epsilon = 1.;
-    double vector_len = 0.;
-#pragma message "rewrite ran2"
-
-/*
-    for (int i = 0; i < NUMBER_GENES; i++) {
-
-        do {
-            u = ran2(&seed) * 2 - 1;
-            v = ran2(&seed) * 2 - 1;
-            s = u * u + v * v;
-        } while ((s == 0) || (s >= 1));
-
-        double sq = sqrt(-2 * log(s) / s);
-        double z1 = u * sq;
-
-        uniform_vector[i] = z1; // mu + z1 * epsilon;
-        vector_len += uniform_vector[i] * uniform_vector[i];
-
-    }
-
-    vector_len = sqrt(vector_len);
-
-    for (int i = 0; i < NUMBER_GENES; i++) {
-        uniform_vector[i] = uniform_vector[i] / vector_len;
-    }
-    */
-}
-
-
-void cauchy_mutation(double *genes_output, double *genes_input, double *left_border, double *right_border,
-                     int NUMBER_ORGANISMS, int NUMBER_GENES, double gamma) {
-    // borders are mirrors, bounce-bounce
-
-#pragma message "rewrite ran2"
-
-/*
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    long seed = long(tv.tv_usec);
-    long seed_negative = -seed;
-    ran2(&seed_negative);
-
-    double uniform_vector[NUMBER_GENES];
-
-    for (int i = 0; i < NUMBER_ORGANISMS; i++) {
-
-        double mut_prob = ran2(&seed);
-
-        if (mut_prob <= 1 - MUTRATE) {
-            for (int j = 0; j < NUMBER_GENES; j++) {
-                genes_output[i * NUMBER_GENES + j] = genes_input[i * NUMBER_GENES + j];
-            }
-
-        } else {
-
-            box_muller_transform(uniform_vector, NUMBER_GENES, seed);
-            double shift = gamma * tan((pi / 2 * ran2(&seed)));
-
-            double a, b, x, y, L;
-            for (int j = 0; j < NUMBER_GENES; j++) {
-                L = right_border[j] - left_border[j];
-                a = genes_input[i * NUMBER_GENES + j] - left_border[j];
-                b = right_border[j] - genes_input[i * NUMBER_GENES + j];
-                x = shift * uniform_vector[j];
-                while (x < 0) x += 2 * L;
-                x = fmod(x, 2 * L);
-                y = fabs(fabs(x - b) - L) - a;
-                genes_output[i * NUMBER_GENES + j] = genes_input[i * NUMBER_GENES + j] + y;
-            }
-
-        }
-    }*/
-}
