@@ -10,8 +10,8 @@ template <typename RandomGenerator, typename Seed>
 class PolynomialMutation
 {
     std::vector<RandomGenerator> random_generators;
-    const int eta_m = 20;//i dk is it good
-    const double pmut_real = 0.1;//i dk is it good
+    const int eta_m;
+    const double pmut_real;
     
     void real_mutate_ind(double * genes, const double * min_realvar, const double * max_realvar, int genes_number)
     {
@@ -61,7 +61,8 @@ class PolynomialMutation
         }
     }
 public:
-    PolynomialMutation(Seed & seed)
+    PolynomialMutation(Seed & seed, double mutrate = 0.1, double eta_m = 20)
+    : eta_m(eta_m), pmut_real(mutrate)
     {
         const int openmp_threads = omp_get_max_threads();
         for (int i = 0; i < openmp_threads; i++)

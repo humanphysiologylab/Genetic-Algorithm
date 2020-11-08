@@ -10,8 +10,8 @@ template <typename RandomGenerator, typename Seed>
 class CauchyMutation
 {
     std::vector<RandomGenerator> random_generators;
-    const double mutrate = 0.1; //probability of mutation
-    const double gamma = 0.1;
+    double mutrate; //probability of mutation
+    double gamma;
     
     void box_muller_transform(double * uniform_vector, int number_genes)
     {
@@ -78,7 +78,8 @@ class CauchyMutation
         }
     }
 public:
-    CauchyMutation(Seed & seed)
+    CauchyMutation(Seed & seed, double mutrate = 0.1, double gamma = 1)
+    : mutrate(mutrate), gamma(gamma)
     {
         const int openmp_threads = omp_get_max_threads();
         for (int i = 0; i < openmp_threads; i++)

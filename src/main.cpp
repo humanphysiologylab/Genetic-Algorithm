@@ -28,6 +28,9 @@
 #include "polynomial_mutation.h"
 #include "tournament_selection.h"
 #include "sbx_crossover.h"
+#include "cauchy_mutation.h"
+
+
 
 #ifdef HIDE_CODE
 
@@ -756,34 +759,6 @@ void old_code(int argc, char *argv[])
         initial_population(next_generation, left_border, right_border, initial_state, gs.number_organisms,
                            gs.number_genes, gs.number_baselines, gs.INIT_FROM_BACKUP_FILE);
     }
-
-   
-
-
-
-
-    delete [] left_border;
-    delete [] right_border;
-    delete [] CL;
-    delete [] IA;
-    delete [] ISO;
-    delete [] SD;
-    delete [] TIME;
-    delete [] best_scaling_factor;
-    delete [] best_scaling_shift;
-    delete [] next_generation;
-    delete [] after_cross;
-    delete [] AP_control;
-    delete [] AP_current;
-    delete [] state_struct;
-    delete [] state_struct_rewrite;
-    delete [] initial_state;
-    delete [] buf_elite_genes;
-    delete [] buf_elite_state;
-    delete [] buf_mutant_genes;
-    delete [] buf_mutant_state;
-    delete [] genes_mutant_after_cross_transformed;
-    delete [] genes_mutant_after_mut_transformed;
 }
 
 #endif
@@ -799,15 +774,16 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    RastriginFunction func(20);
-    BasicPopulation pop(func, ScalarFunctionMinFitnessFunctor(), 1000, 100000);
+    RosenbrockFunction func(15);
+    BasicPopulation pop(func, ScalarFunctionMinFitnessFunctor(), 100, 10000);
 
     pop.init(pcg64(seed_source));
 
     genetic_algorithm(pop,
                     TournamentSelectionFast(pcg64(seed_source)),
                     SBXcrossover(pcg64(seed_source)),
-                    PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source), 1000);
+                    PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
+                    100000);
 
     if (rank == 0) {
         std::cout << "Error: " << func.solution_error_l2(pop.best()) << std::endl;
