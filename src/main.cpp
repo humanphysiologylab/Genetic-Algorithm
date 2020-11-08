@@ -30,6 +30,8 @@
 #include "sbx_crossover.h"
 #include "cauchy_mutation.h"
 
+#include "maleckar_model.h"
+#include "cellml_ode_solver.h"
 
 
 #ifdef HIDE_CODE
@@ -775,6 +777,7 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     RosenbrockFunction func(15);
+
     BasicPopulation pop(func, ScalarFunctionMinFitnessFunctor(), 100, 10000);
 
     pop.init(pcg64(seed_source));
@@ -783,10 +786,50 @@ int main(int argc, char *argv[])
                     TournamentSelectionFast(pcg64(seed_source)),
                     SBXcrossover(pcg64(seed_source)),
                     PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
-                    100000);
+                    100);
 
     if (rank == 0) {
         std::cout << "Error: " << func.solution_error_l2(pop.best()) << std::endl;
+        
+        
+        //try malecar on one node
+        MaleckarModel model;
+        std::vector<double> state(model.state_size());
+        double * constants = new double [model.constants_size()];
+        model.initConsts(constants);
+        model.set_constants(constants);
+        model.initState(state.data());
+        std::vector<double> orig_state = state;
+        int is_correct;
+        double t0 = 0, start_record = 999, tout = start_record + 1;
+        std::vector<double> ap(1000);
+        
+        double st = MPI_Wtime();
+        solve(model, state, is_correct, t0, start_record, tout, ap);
+        st = MPI_Wtime() - st;
+        std::cout << "TIME: " << st << std::endl;
+    
+        FILE *state_final = fopen("state_dump", "w");
+        fwrite(state.data(), sizeof(double), state.size(), state_final);
+        fclose(state_final);
+        
+        double err = 0;
+        std::cout << std::scientific;
+        for (int i = 0; i < model.state_size(); i++) {
+            std::cout << i << ": " << (state[i] - orig_state[i]) / orig_state[i] * 100 << "%\n";
+            err += pow(state[i] - orig_state[i], 2);
+        }
+        std::cout << "\nState error: " << sqrt(err) << std::endl;
+
+        
+        FILE *ap_file = fopen("ap", "w");
+        fwrite(ap.data(), sizeof(double), ap.size(), ap_file);
+        fclose(ap_file);
+        if (is_correct)
+            std::cout << "Good" << std::endl;
+        else
+            std::cout << "Incorrect integration" << std::endl;
+        delete [] constants; 
     }
     MPI_Finalize();
     return 0;
