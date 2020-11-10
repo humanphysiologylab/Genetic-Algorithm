@@ -70,6 +70,7 @@ set(SOURCE_FILES
         src/test_functions.cpp
         src/maleckar_model.cpp
         LSODA/LSODA.cpp
+        src/optimization_problem.h
         )
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)

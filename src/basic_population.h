@@ -9,13 +9,12 @@
 #include <random>
 
 
-template <typename FunctionFunctor, typename FitnessFunctor>
+template <typename OptimizationProblem>
 class BasicPopulation
 {
 
 public:
-    FunctionFunctor function;
-    FitnessFunctor fitness;
+    OptimizationProblem & problem;
 
     int number_organisms;
     int number_elites;
@@ -23,9 +22,9 @@ public:
 
     int mpi_rank;
     int mpi_size;
-
-    double *max_gene;
+    
     double *min_gene;
+    double *max_gene;
 
     double *all_genes;
     int genes_per_organism;
@@ -37,18 +36,12 @@ public:
     double *mutant_genes_buffer;
     int mutant_genes_buffer_size;
 
-    double *all_y;
-    int y_per_organism;
-    int all_y_size;
-
-    BasicPopulation(FunctionFunctor function, FitnessFunctor fitness, int number_elites_p, int number_mutants_p)
-    : function(function),
-      fitness(fitness),
+    BasicPopulation(OptimizationProblem & problem, int number_elites_p, int number_mutants_p)
+    : problem(problem),
       number_organisms(number_elites_p + number_mutants_p),
       number_elites(number_elites_p),
       number_mutants(number_mutants_p),
-      genes_per_organism(function.xdim),
-      y_per_organism(function.ydim)
+      genes_per_organism(problem.get_number_parameters())
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -70,12 +63,15 @@ public:
             }
         }
         
-        max_gene = new double [genes_per_organism];
+        
         min_gene = new double [genes_per_organism];
-
-        for (int i = 0; i < genes_per_organism; i++) {
-            max_gene[i] = function.max_x[i];
-            min_gene[i] = function.min_x[i];
+        max_gene = new double [genes_per_organism];
+        
+        int boundaries_status = problem.get_boundaries(min_gene, max_gene);
+        if (boundaries_status == -1) {
+            std::cerr << "non-constrained optimization problems are not supported"
+                << std::endl;
+            throw;
         }
         
         all_genes_size = number_organisms * genes_per_organism;
@@ -87,38 +83,41 @@ public:
         mutant_genes_buffer_size = number_mutants * genes_per_organism;
         mutant_genes_buffer = new double [mutant_genes_buffer_size];
         
-        all_y_size = number_organisms * y_per_organism;
-        all_y = new double [all_y_size];
-
         for (int i = 0; i < elite_genes_buffer_size; i++)
             elite_genes_buffer[i] = nan("");
         for (int i = 0; i < mutant_genes_buffer_size; i++)
             mutant_genes_buffer[i] = nan("");
-        for (int i = 0; i < all_y_size; i++)
-            all_y[i] = nan("");
     }
 
     ~BasicPopulation()
     {
-        delete [] max_gene;
         delete [] min_gene;
+        delete [] max_gene;
         delete [] all_genes;
         delete [] elite_genes_buffer;
         delete [] mutant_genes_buffer;
-        delete [] all_y;
     }
 
     template<typename InitializedRandomGenerator>
     void init(InitializedRandomGenerator rg)
     {
-        /* Basic initialization:
-         * all genes are random
-         * 
-         */
-        for (int i = 0; i < number_organisms; i++)
-            for (int j = 0; j < genes_per_organism; j++)
-                all_genes[j + i * genes_per_organism] = std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
-
+        std::vector<double> init_vector(genes_per_organism);
+        int init_status = problem.initial_guess(init_vector.begin());
+        if (init_status == -1) {
+            //no initial guess
+            //fill with random values
+            for (int i = 0; i < number_organisms; i++)
+                for (int j = 0; j < genes_per_organism; j++)
+                    all_genes[j + i * genes_per_organism] =
+                        std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
+        } else {
+            //initial guess
+            //maybe it is not really fine to assign the same initial values for
+            //the whole population
+            for (int i = 0; i < number_organisms; i++)
+                for (int j = 0; j < genes_per_organism; j++)
+                    all_genes[j + i * genes_per_organism] = init_vector[j];
+        }
     }
 
     void scatter()
@@ -131,8 +130,8 @@ public:
 
     void gather()
     {
-        MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : all_y, all_y_size / mpi_size, MPI_DOUBLE,
-                   all_y, all_y_size / mpi_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+//        MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : all_y, all_y_size / mpi_size, MPI_DOUBLE,
+  //                 all_y, all_y_size / mpi_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : all_genes, all_genes_size / mpi_size,
                    MPI_DOUBLE, all_genes,
@@ -141,16 +140,21 @@ public:
 
     void run_generation()
     {
+        //TODO
+        /*
         #pragma omp parallel for
         for (int i = 0; i < number_organisms / mpi_size; i++) {
             function(all_genes + i * genes_per_organism, all_y + i * y_per_organism);
         }
+        */
     }
 
     void fitness_function(std::vector<std::pair<double, int>> & sd_n_index)
     {
+        //TODO
+        #pragma omp parallel for
         for (int i = 0; i < number_organisms; i++) {
-            sd_n_index[i].first = fitness(all_genes + i * genes_per_organism, all_y + i * y_per_organism);
+            sd_n_index[i].first = problem.genetic_algorithm_calls(all_genes + i * genes_per_organism);
             sd_n_index[i].second = i;
         }
     }
@@ -223,7 +227,10 @@ public:
     {
         return genes_per_organism;
     }
-    
+    void done()
+    {
+        problem.genetic_algorithm_result(all_genes);
+    }
 };
 
 #endif

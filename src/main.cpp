@@ -32,7 +32,7 @@
 
 #include "maleckar_model.h"
 #include "cellml_ode_solver.h"
-
+#include "optimization_problem.h"
 
 #ifdef HIDE_CODE
 
@@ -776,9 +776,11 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    RosenbrockFunction func(15);
+    using FuncToOptimize = RosenbrockFunction<2>;
+    FuncToOptimize func;
+    FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
 
-    BasicPopulation pop(func, ScalarFunctionMinFitnessFunctor(), 100, 10000);
+    BasicPopulation pop(optim, 100, 10000);
 
     pop.init(pcg64(seed_source));
 
@@ -789,8 +791,11 @@ int main(int argc, char *argv[])
                     100);
 
     if (rank == 0) {
-        std::cout << "Error: " << func.solution_error_l2(pop.best()) << std::endl;
+        auto res = optim.get_result();
+        std::cout << "Parameter error: " << func.solution_error(res) << std::endl;
         
+        
+        //now try to simply solve ode model
         ODESolver solver;
         //try malecar on one node
         MaleckarModel model;
@@ -801,7 +806,7 @@ int main(int argc, char *argv[])
         model.initState(state.data());
         std::vector<double> orig_state = state;
         int is_correct;
-        double t0 = 0, start_record = 999, tout = start_record + 1;
+        double t0 = 0, start_record = 1, tout = start_record + 1;
         std::vector<double> ap(1000);
         
         double st = MPI_Wtime();

@@ -136,10 +136,11 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
 
         }
     }
-
     const double end_time = MPI_Wtime();
     if (rank == 0)
         printf("GA time: %f sec\n", end_time - start_time);
+
+    pop.done();
 }
 
 #endif
