@@ -4,48 +4,55 @@
 #include "LSODA.h"
 #include <iostream>
 
-template <typename Model>
-void solve(Model & model, std::vector<double> & y0, int & is_correct,
-            double t0, double start_record, double tout, std::vector<double> & ap)
+
+
+class ODESolver
 {
-    assert(ap.size() > 0);
-    assert(t0 <= start_record);
-    assert(start_recond <= tout);
-    assert(y0.size() > 0);
+	const double rtol = 1e-9, atol = 1e-6;
 
-    LSODA lsoda;
-    int istate = 1;//state to check if everything is fine
+public:
+	template <typename Model>
+	void solve(Model & model, std::vector<double> & y0, int & is_correct,
+				double t0, double start_record, double tout, std::vector<double> & ap)
+	{
+		assert(ap.size() > 0);
+		assert(t0 <= start_record);
+		assert(start_recond <= tout);
+		assert(y0.size() > 0);
 
-    std::vector<double> state_out;//anyway it will be resized lol
+		LSODA lsoda;
+		int istate = 1;//state to check if everything is fine
 
-    const double record_step = (tout - start_record) / (ap.size() - 1);
-    const double max_step = std::min(model.max_step(), record_step);
-    const double rtol = 1e-9, atol = 1e-6;
-    double t = t0;
-    int itask = 4;
+		std::vector<double> state_out;//anyway it will be resized lol
 
-    if (start_record > t)
-        lsoda.lsoda_update(model, model.state_size(), y0,
-            state_out, &t, start_record, &istate, nullptr, rtol, atol, max_step, itask);
-    else
-        state_out = y0;
+		const double record_step = (tout - start_record) / (ap.size() - 1);
+		const double max_step = std::min(model.max_step(), record_step);
+		double t = t0;
+		int itask = 4;
 
-    y0 = state_out;
-    ap[0] = state_out[0];
-    for (size_t i = 1; i < ap.size(); i++) {
+		if (start_record > t)
+			lsoda.lsoda_update(model, model.state_size(), y0,
+				state_out, &t, start_record, &istate, nullptr, rtol, atol, max_step, itask);
+		else
+			state_out = y0;
 
-        lsoda.lsoda_update(model, model.state_size(), y0,
-            state_out, &t, t + record_step, &istate, nullptr, rtol, atol, max_step, itask);
+		y0 = state_out;
+		ap[0] = state_out[0];
+		for (size_t i = 1; i < ap.size(); i++) {
 
-        y0 = state_out;
-        ap[i] = state_out[0];
-    }
+			lsoda.lsoda_update(model, model.state_size(), y0,
+				state_out, &t, t + record_step, &istate, nullptr, rtol, atol, max_step, itask);
 
-    if (istate <= 0) {
-        is_correct = 0;
-        throw;
-    } else {
-        is_correct = 1;
-    }
-}
+			y0 = state_out;
+			ap[i] = state_out[0];
+		}
+
+		if (istate <= 0) {
+			is_correct = 0;
+			throw;
+		} else {
+			is_correct = 1;
+		}
+	}
+};
 #endif

@@ -791,7 +791,7 @@ int main(int argc, char *argv[])
     if (rank == 0) {
         std::cout << "Error: " << func.solution_error_l2(pop.best()) << std::endl;
         
-        
+        ODESolver solver;
         //try malecar on one node
         MaleckarModel model;
         std::vector<double> state(model.state_size());
@@ -805,7 +805,7 @@ int main(int argc, char *argv[])
         std::vector<double> ap(1000);
         
         double st = MPI_Wtime();
-        solve(model, state, is_correct, t0, start_record, tout, ap);
+        solver.solve(model, state, is_correct, t0, start_record, tout, ap);
         st = MPI_Wtime() - st;
         std::cout << "TIME: " << st << std::endl;
     
