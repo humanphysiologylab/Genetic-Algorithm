@@ -22,7 +22,7 @@ public:
 
     int mpi_rank;
     int mpi_size;
-    
+
     double *min_gene;
     double *max_gene;
 
@@ -35,6 +35,8 @@ public:
 
     double *mutant_genes_buffer;
     int mutant_genes_buffer_size;
+
+    double *fitness_values;
 
     BasicPopulation(OptimizationProblem & problem, int number_elites_p, int number_mutants_p)
     : problem(problem),
@@ -62,31 +64,33 @@ public:
                 number_elites++;
             }
         }
-        
-        
+
+
         min_gene = new double [genes_per_organism];
         max_gene = new double [genes_per_organism];
-        
+
         int boundaries_status = problem.get_boundaries(min_gene, max_gene);
         if (boundaries_status == -1) {
             std::cerr << "non-constrained optimization problems are not supported"
                 << std::endl;
             throw;
         }
-        
+
         all_genes_size = number_organisms * genes_per_organism;
         all_genes = new double [all_genes_size];
-        
+
         elite_genes_buffer_size = number_elites * genes_per_organism;
         elite_genes_buffer = new double [elite_genes_buffer_size];
-        
+
         mutant_genes_buffer_size = number_mutants * genes_per_organism;
         mutant_genes_buffer = new double [mutant_genes_buffer_size];
-        
+
         for (int i = 0; i < elite_genes_buffer_size; i++)
             elite_genes_buffer[i] = nan("");
         for (int i = 0; i < mutant_genes_buffer_size; i++)
             mutant_genes_buffer[i] = nan("");
+
+        fitness_values = new double [number_organisms];
     }
 
     ~BasicPopulation()
@@ -96,6 +100,7 @@ public:
         delete [] all_genes;
         delete [] elite_genes_buffer;
         delete [] mutant_genes_buffer;
+        delete [] fitness_values;
     }
 
     template<typename InitializedRandomGenerator>
@@ -130,8 +135,8 @@ public:
 
     void gather()
     {
-//        MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : all_y, all_y_size / mpi_size, MPI_DOUBLE,
-  //                 all_y, all_y_size / mpi_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : fitness_values, number_organisms / mpi_size, MPI_DOUBLE,
+                   fitness_values, number_organisms / mpi_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : all_genes, all_genes_size / mpi_size,
                    MPI_DOUBLE, all_genes,
@@ -140,21 +145,18 @@ public:
 
     void run_generation()
     {
-        //TODO
-        /*
         #pragma omp parallel for
         for (int i = 0; i < number_organisms / mpi_size; i++) {
-            function(all_genes + i * genes_per_organism, all_y + i * y_per_organism);
+            fitness_values[i] = problem.genetic_algorithm_calls(all_genes + i * genes_per_organism);
         }
-        */
     }
 
     void fitness_function(std::vector<std::pair<double, int>> & sd_n_index)
     {
-        //TODO
-        #pragma omp parallel for
+        if (mpi_rank != 0)
+            return;
         for (int i = 0; i < number_organisms; i++) {
-            sd_n_index[i].first = problem.genetic_algorithm_calls(all_genes + i * genes_per_organism);
+            sd_n_index[i].first = fitness_values[i];
             sd_n_index[i].second = i;
         }
     }
@@ -168,34 +170,28 @@ protected:
     }
 
 public:
-
     void save_elite_to_elite_buffer(int from, int to)
     {
         copy_genes(all_genes + from * genes_per_organism, elite_genes_buffer + to * genes_per_organism);
     }
-
     void save_mutant_to_mutant_buffer(int from, int to)
     {
         copy_genes(all_genes + from * genes_per_organism, mutant_genes_buffer + to * genes_per_organism);
     }
-
     void restore_elites_to_main_array()
     {
         for (int i = 0; i < number_elites; i++)
             copy_genes(elite_genes_buffer + i * genes_per_organism, all_genes + i * genes_per_organism);
     }
-
     void restore_mutants_to_main_array()
     {
         for (int i = 0; i < number_mutants; i++)
             copy_genes(mutant_genes_buffer + i * genes_per_organism, all_genes + (number_elites + i) * genes_per_organism);
     }
-    
     std::vector<double> best() const
     {
         return std::vector<double>(all_genes, all_genes + genes_per_organism);
     }
-    
     void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
     {
         if (gen % 10 != 0) return ;
@@ -207,22 +203,18 @@ public:
             std::cout << " " << g;
         std::cout << std::endl << std::endl;
     }
-    
     double * get_mutant_buffer_genes()
     {
         return mutant_genes_buffer;
     }
-    
     double * get_min_gene_value()
     {
         return min_gene;
     }
-    
     double * get_max_gene_value()
     {
         return max_gene;
     }
-    
     int get_number_genes()
     {
         return genes_per_organism;

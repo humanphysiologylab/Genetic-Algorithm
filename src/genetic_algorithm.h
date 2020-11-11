@@ -37,17 +37,17 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
         pop.gather();
         gather_time = MPI_Wtime() - gather_time;
 
+
+        //store pairs of (error, index in state_struct) sorted by error in increasing order
+        //thus, first elements are for elite organisms
+        std::vector<std::pair<double, int>> sd_n_index(pop.number_organisms);
+         
+        double fitness_time = MPI_Wtime();
+        pop.fitness_function(sd_n_index);
+        fitness_time = MPI_Wtime() - fitness_time;
+
+
         if (rank == 0) {
-            //store pairs of (error, index in state_struct) sorted by error in increasing order
-            //thus, first elements are for elite organisms
-            std::vector<std::pair<double, int>> sd_n_index(pop.number_organisms);
-
-            //TODO fitness_function should be evaluated at each node
-            //And there is not need to send AP to the root
-
-            double fitness_time = MPI_Wtime();
-            pop.fitness_function(sd_n_index);
-            fitness_time = MPI_Wtime() - fitness_time;
 
             double sort_time = MPI_Wtime();
             //sort by error increasing
@@ -94,8 +94,6 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             //no need of mpool anymore
 
 
-
-
             double crossover_time = MPI_Wtime();
             crossover(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants,
                           pop.get_number_genes());
@@ -131,8 +129,6 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             printf("save_mutant_time   %9.3f %3d%%\n", save_mutant_time, (int) (save_mutant_time / total_time * 100));
             printf("save_elite_time    %9.3f %3d%%\n", save_elite_time, (int) (save_elite_time / total_time * 100));
             printf("sort_time          %9.3f %3d%%\n", sort_time, (int) (sort_time / total_time * 100));
-
-
 
         }
     }
