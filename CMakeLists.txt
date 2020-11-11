@@ -66,7 +66,6 @@ set(SOURCE_FILES
         src/basic_population.cpp
         src/polynomial_mutation.cpp
         src/basic_function_functor.cpp
-        src/fitness_functors.cpp
         src/test_functions.cpp
         src/maleckar_model.cpp
         LSODA/LSODA.cpp
