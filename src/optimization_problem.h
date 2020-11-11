@@ -3,34 +3,83 @@
 
 #include <string>
 #include <vector>
-/*
-template <typename Model, typename Solver>
+#include <cassert>
+
+
+template<int power = 2>
+class MinimizeAPbaselines
+{
+public:
+    using Baseline = std::vector<double>;
+    using Period = double;
+    using BaselinePeriod = std::pair<Baseline, Period>;
+    using BaselinePeriodVec = std::vector<BaselinePeriod>;
+
+    double distBaselines(const Baseline & a, const Baseline & b) const
+    {
+        double res = 0;
+        assert(a.size() == b.size());
+        for (int i = 0; i < a.size(); i++)
+            res += std::pow(std::abs(a[i] - b[i]), power);
+        res /= a.size();
+        return res;
+    }
+
+    double dist(const BaselinePeriodVec & a, const BaselinePeriodVec & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (int i = 0; i < a.size(); i++) {
+            assert(a[i].second == b[i].second);
+            res += distBaselines(a[i].first, b[i].first);
+        }
+        return std::pow(res, 1.0/power);
+    }
+};
+
+template <typename Model, typename Solver, typename Objective>
 class ODEoptimization
 {
     Model & model;
     Solver & solver;
-    std::vector<std::pair<std::vector<double>, double>> ap_period_baselines;
+    Objective & obj;
+    using Baseline = typename Objective::Baseline;
+    using Period = typename Objective::Period;
+    using BaselinePeriod = typename Objective::BaselinePeriod;
+    using BaselinePeriodVec = typename Objective::BaselinePeriodVec;
+    
+    BaselinePeriodVec baselines;
+    
     int number_parameters = 0;
 public:
-    ODEoptimization(Model & model, Solver & solver)
-    : model(model), solver(solver)
+    ODEoptimization(Model & model, Solver & solver, Objective & obj)
+    : model(model), solver(solver), obj(obj)
     {
-        
+        //TODO
     }
-    
+
     int get_number_parameters() const
     {
         return number_parameters;
     }
     void read_config()
     {
+        //TODO
         number_parameters = 100;
     }
-    int get_boundaries()
+    template <typename It>
+    int get_boundaries(It pmin, It pmax)
     {
+        //TODO
+      //  auto ppmin = func.x_min();
+     //   std::copy(ppmin.begin(), ppmin.end(), pmin);
+     //   auto ppmax = func.x_max();
+     //   std::copy(ppmax.begin(), ppmax.end(), pmax);
+     //   return 0; //have boundaries
         return -1; //no boundaries
     }
-    int initial_guess(double * p)
+    template <typename It>
+    int initial_guess(It begin)
     {
         if (0) {
             //read from a file
@@ -46,13 +95,13 @@ public:
         }
     }
 
-
-    double genetic_algorithm_calls(double * parameters)
+    template <typename It>
+    double genetic_algorithm_calls(It parameters_begin)
     {
         //unpack parameters
         //TODO
 
-        double fitness = 0;
+        double fitness = 0;/*
         for (auto & ap_period: ap_period_baselines) {
             std::vector<double> apRecord(ap_period.first.size());
             const double period = ap_period.second;
@@ -68,13 +117,21 @@ public:
             for (int i = 0; i < apRecord.size(); i++)
                 dist += pow(apRecord[i] - ap_period.first[i], 2);
             fitness += dist / apRecord.size();
-        }
+        }*/
         //make sure parameters were written back
         //TODO
         return fitness;
     }
+    template <typename It>
+    void genetic_algorithm_result(It parameters_begin)
+    {
+        //TODO
+     //   for (int i = 0; i != func.get_xdim(); i++, parameters_begin++)
+        //    result[i] = *parameters_begin;
+    }
+
 };
-*/
+
 
 
 
@@ -82,9 +139,11 @@ template <typename Func>
 class MinimizeFunc
 {
 public:
-    typename Func::num operator()(const typename Func::value & value) const
+    using num = typename Func::num;
+    using value = typename Func::value;
+    num operator()(const value & val) const
     {
-        return value[0];
+        return val[0];
     }
 };
 
@@ -92,9 +151,11 @@ template <typename Func>
 class MaximizeFunc
 {
 public:
-    typename Func::num operator()(const typename Func::value & value) const
+    using num = typename Func::num;
+    using value = typename Func::value;
+    num operator()(const value & val) const
     {
-        return -value[0];
+        return -val[0];
     }
 };
 
@@ -103,12 +164,13 @@ class FuncOptimization
 {
     Func & func;
     Obj<Func> obj;
-    typename Func::argument result;
+    using argument = typename Func::argument;
+    argument result;
 public:
     FuncOptimization(Func & func)
     : func(func)
     {}
-    typename Func::argument get_result()
+    argument get_result()
     {
         return result;
     }
@@ -129,12 +191,13 @@ public:
     template <typename It>
     int initial_guess(It begin)
     {
+        //return 0; //if you provided some initial guess
         return -1; //no initial guess at all
     }
     template <typename It>
     double genetic_algorithm_calls(It parameters_begin)
     {
-        typename Func::argument params;
+        argument params;
         for (int i = 0; i != func.get_xdim(); i++, parameters_begin++)
             params[i] = *parameters_begin;
         return obj(func(params));
