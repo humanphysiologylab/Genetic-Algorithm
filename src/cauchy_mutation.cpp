@@ -1,6 +1,6 @@
 #include <sys/time.h>
 #include <cstdlib>
-#include <math.h>
+#include <cmath>
 #include "cauchy_mutation.h"
 
 

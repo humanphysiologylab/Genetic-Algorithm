@@ -1,7 +1,7 @@
 /* Fitness function calculation.
 Date: 21.05.2019
 */
-#include <math.h>
+#include <cmath>
 #include <cstdio> 
 #include "fitness_function.h"
 
@@ -110,7 +110,7 @@ void fitness_function(double *AP_control, double *AP_current, float *best_scalin
                                     TIME[baseline_counter]); //Authomatic baseline scaling is implemented.
             t_current += TIME[baseline_counter];
         }
-        if (isnan(res)) {
+        if (std::isnan(res)) {
             printf("SD is NAN!; Set to 1e100\n");
             res = 1e100;
         }

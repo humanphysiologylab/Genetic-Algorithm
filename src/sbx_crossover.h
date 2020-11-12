@@ -1,7 +1,7 @@
 #ifndef GA_SBX_CROSSOVER_H
 #define GA_SBX_CROSSOVER_H
 
-#include <math.h>
+#include <cmath>
 #include <cassert>
 #include <algorithm>
 #include <random>

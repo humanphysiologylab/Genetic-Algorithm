@@ -5,6 +5,7 @@
 #include <random>
 #include <omp.h>
 #include <vector>
+#include <cassert>
 
 template <typename RandomGenerator, typename Seed>
 class CauchyMutation
@@ -29,13 +30,13 @@ class CauchyMutation
                 s = u * u + v * v;
             } while ((s == 0) || (s >= 1));
 
-            const double sq = sqrt( - 2 * log(s) / s);
+            const double sq = std::sqrt( - 2 * std::log(s) / s);
             const double z1 = u * sq;
 
             uniform_vector[i] = z1; // mu + z1 * epsilon;
             vector_len += uniform_vector[i] * uniform_vector[i];
         }
-        vector_len = sqrt(vector_len);
+        vector_len = std::sqrt(vector_len);
         for (int i = 0; i < number_genes; i++)
             uniform_vector[i] /= vector_len;
     }
@@ -67,12 +68,16 @@ class CauchyMutation
                 const double a = genes_input[j] - min_value[j];
                 const double b = max_value[j] - genes_input[j];
 
-                double x = shift * uniform_vector[j];
-                while (x < 0)
-                    x += 2 * L;
-                x = fmod(x, 2 * L);
 
-                const double y = fabs(fabs(x - b) - L) - a;
+                double x = shift * uniform_vector[j];
+
+                assert(L > 0);
+                if (x >= 0)
+                    x = std::fmod(x, 2 * L);
+                else
+                    x = 2 * L + std::fmod(x, 2 * L);
+
+                const double y = std::abs(std::abs(x - b) - L) - a;
                 genes_output[j] = genes_input[j] + y;
             }
         }
