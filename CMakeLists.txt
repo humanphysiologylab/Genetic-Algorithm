@@ -23,7 +23,7 @@ find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 include_directories("./pcg-cpp-0.98")
 include_directories("LSODA")
-
+include_directories("json")
 
 # Download and unpack googletest at configure time
 configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)

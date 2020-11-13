@@ -21,7 +21,7 @@ public:
     {
         double res = 0;
         assert(a.size() == b.size());
-        for (int i = 0; i < a.size(); i++)
+        for (size_t i = 0; i < a.size(); i++)
             res += std::pow(std::abs(a[i] - b[i]), power);
         res /= a.size();
         return res;
@@ -31,7 +31,7 @@ public:
     {
         assert(a.size() == b.size());
         double res = 0;
-        for (int i = 0; i < a.size(); i++) {
+        for (size_t i = 0; i < a.size(); i++) {
             res += distBaselines(a[i], b[i]);
         }
         return std::pow(res, 1.0/power);
@@ -169,19 +169,19 @@ public:
         } else if (1) {
             //use model's default
             std::vector<double> y0(model.state_size());
-            std::vector<double> vconstants(model.constants_size()];
+            std::vector<double> vconstants(model.constants_size());
 
             //first, find it
-            model.initConsts(constants.data());
+            model.initConsts(vconstants.data());
             model.initState(y0.data());
             
             //then, set mutable global parameters
             for (const Mutable & m: globalVariables.mutableConstants) {
-                parameters_begin[m.parameter_position] = constants[m.model_position];
+                parameters_begin[m.parameter_position] = vconstants[m.model_position];
             }
             
             //finally, set mutable baseline parameters
-            for (int i = 0; i < apbaselines.size(); i++) {
+            for (size_t i = 0; i < apbaselines.size(); i++) {
                 for (const Mutable & m: BaselineVariables[i].mutableStates) {
                     parameters_begin[m.parameter_position] = y0[m.model_position];
                 }
@@ -232,9 +232,9 @@ public:
     template <typename It>
     double genetic_algorithm_calls(It parameters_begin)
     {
-        for (int i = 0; i < apbaselines.size(); i++) {
+        for (size_t i = 0; i < apbaselines.size(); i++) {
             std::vector<double> y0(model.state_size());
-            std::vector<double> vconstants(model.constants_size()];
+            std::vector<double> vconstants(model.constants_size());
             double * constants = vconstants.data();
 
             Baseline & apRecord = apmodel[i];
@@ -242,12 +242,14 @@ public:
 
             fill_constants_y0(parameters_begin, constants, y0.data(), i);
 
+            const double period = vconstants[constantsMapModel["stim_period"]];
+            
             int is_correct;
             const int beats = 10;
             const double t0 = 0, start_record = period * (beats - 1),
                     tout = period * beats;
 
-            solver.solve(model, std::vector<double> & y0, is_correct,
+            solver.solve(model, y0, is_correct,
                             t0, start_record, tout, apRecord);
 
             //maybe if a solver fails rarely then we may consider it
@@ -268,19 +270,19 @@ public:
     {
         //mirror the stage of initialization before solver.solve call
         //but just save the final result
-        for (int i = 0; i < apbaselines.size(); i++) {
+        for (size_t i = 0; i < apbaselines.size(); i++) {
             BaselineResult res;
             std::vector<double> y0(model.state_size());
-            std::vector<double> vconstants(model.constants_size()];
+            std::vector<double> vconstants(model.constants_size());
             fill_constants_y0(parameters_begin, vconstants.data(), y0.data(), i);
 
-            for (auto & cit: constantsMapModel) {
-                res.constantsResult[cit->first] = vconstants[cit->second];
+            for (const auto & cit: constantsMapModel) {
+                res.constantsResult[cit.first] = vconstants[cit.second];
             }
-            for (auto & sit: statesMapModel) {
-                res.statesResult[sit->first] = y0[sit->second];
+            for (const auto & sit: statesMapModel) {
+                res.statesResult[sit.first] = y0[sit.second];
             }
-            results.append(res);
+            results.push_back(res);
         }
         results_optimizer_format = std::vector<double>(number_parameters);
         std::copy(parameters_begin, parameters_begin + number_parameters, results_optimizer_format.begin());
