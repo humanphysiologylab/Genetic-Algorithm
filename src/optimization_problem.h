@@ -208,6 +208,7 @@ public:
                 
                 baselineVariables.emplace_back();
                 Variables & bVar = baselineVariables.back();
+                BiMap statesBiMapDrifting = statesBiMapModel;
                 for (auto variable: b["params"].items()) {
                     auto v = variable.value();
                     std::string name = v["name"].get<std::string>();
@@ -235,7 +236,10 @@ public:
                         bool is_value = (v.find("value") != v.end());
                         if (is_value)
                             throw(name + "cannot be a value");
-                        bVar.mutableConstants.push_back(
+                        //remove it from statesBiMapDrifting
+                        statesBiMapDrifting.left.erase(name);
+
+                        bVar.mutableStates.push_back(
                         {.name = name,
                          .min_value = v["bounds"][0].get<double>(),
                          .max_value = v["bounds"][1].get<double>(),
@@ -246,12 +250,23 @@ public:
                         });
                     }
                 }
-                //TODO add drifting state variables to bVar
+                //other state mutable variables for each baseline
+                //are drifting
+                for (const auto & sit: statesBiMapDrifting) {
+                    std::cout << sit.left << std::endl;
+                    bVar.mutableStates.push_back(
+                    {.name = sit.left,
+                     .min_value = 0,
+                     .max_value = 0,
+                     .parameter_position = number_parameters++,
+                     .model_position = sit.right,
+                     .gamma = 0,
+                     .is_mutation_applicable = 0
+                    });
+                }
             }
             std::cout << "Unknowns: " << number_parameters << std::endl;
             throw;
-            //other state mutable variables for each baseline
-            //are drifting
         }
         //broadcast all this nonsense;
         //TODO
