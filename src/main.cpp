@@ -544,7 +544,7 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 
-
+/*
     using FuncToOptimize = RosenbrockFunction<2>;
     FuncToOptimize func;
     FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
@@ -562,14 +562,15 @@ int main(int argc, char *argv[])
         auto res = optim.get_result();
         std::cout << "Parameter error: " << func.solution_error(res) << std::endl;
     }
-
+*/
 
     MaleckarModel model;
     ODESolver solver;
     MinimizeAPbaselines obj;
     ODEoptimization problem(model, solver, obj);
     problem.read_config("config.json");
-    BasicPopulation popMal(problem, 1, 10);
+    
+    BasicPopulation popMal(problem, 10, 100);
     popMal.init(pcg64(seed_source));
     genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),

@@ -97,7 +97,7 @@ class TournamentSelectionFast
 {
     InitializedRandomGenerator rg;
 
-    void tournament_basic_half_fast(int *mpool, int mpool_size, std::vector<std::pair<double, int>> & sd_n_index)
+    void tournament_basic_half_fast(int *mpool, size_t mpool_size, std::vector<std::pair<double, int>> & sd_n_index)
     {
         /* tournament_basic_half_fast fills in mpool with indices of organisms in mating pool according to the tournament selection without replacement.
          */
@@ -111,7 +111,7 @@ class TournamentSelectionFast
         //now, for each following pair, find a winner and put it into mpool
         assert(mpool_size * 2 <= sd_n_index.size());
         assert(sd_n_index.size() % 2 == 0);
-        for (int i = 0; i < mpool_size; i++) {
+        for (size_t i = 0; i < mpool_size; i++) {
             const int one = 2 * i;
             const int two = 2 * i + 1;
             if (sd_n_index[one].first < sd_n_index[two].first)
@@ -126,7 +126,7 @@ public:
     : rg(rg)
     {}
 
-    void operator()(int *mpool, int mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
+    void operator()(int *mpool, size_t mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
     {
         /* FAST version!
          * sd_n_index is expected to be partially sorted by sd

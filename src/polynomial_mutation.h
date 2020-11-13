@@ -13,7 +13,7 @@ class PolynomialMutation
     const int eta_m;
     const double pmut_real;
     
-    void real_mutate_ind(double * genes, const double * min_realvar, const double * max_realvar, int genes_number)
+    void real_mutate_ind(double * genes, const double * min_realvar, const double * max_realvar, int genes_number, const int *is_mutation_applicable)
     {
         /* Routine for real polynomial mutation of an individual
          * 
@@ -33,6 +33,8 @@ class PolynomialMutation
         RandomGenerator & rg = random_generators[omp_get_thread_num()];
         
         for (int j = 0; j < genes_number; j++) {
+            if (!is_mutation_applicable[j]) continue;
+            
             if (ran(rg) <= pmut_real) {
                 double y = genes[j];
                 double deltaq;
@@ -43,13 +45,13 @@ class PolynomialMutation
                 if (rnd <= 0.5) {
                     const double delta1 = (y - yl) / (yu - yl);
                     const double xy = 1.0 - delta1;
-                    const double val = 2.0 * rnd + (1.0 - 2.0 * rnd) * pow(xy, (eta_m + 1.0));
-                    deltaq = pow(val, mut_pow) - 1.0;
+                    const double val = 2.0 * rnd + (1.0 - 2.0 * rnd) * std::pow(xy, (eta_m + 1.0));
+                    deltaq = std::pow(val, mut_pow) - 1.0;
                 } else {
                     const double delta2 = (yu - y) / (yu - yl);
                     const double xy = 1.0 - delta2;
-                    const double val = 2.0 * (1.0 - rnd) + (2.0 * rnd - 1.0) * pow(xy, (eta_m + 1.0));
-                    deltaq = 1.0 - pow(val, mut_pow);
+                    const double val = 2.0 * (1.0 - rnd) + (2.0 * rnd - 1.0) * std::pow(xy, (eta_m + 1.0));
+                    deltaq = 1.0 - std::pow(val, mut_pow);
                 }
                 y = y + deltaq * (yu - yl);
                 if (y < yl)
@@ -61,7 +63,7 @@ class PolynomialMutation
         }
     }
 public:
-    PolynomialMutation(Seed & seed, double mutrate = 0.1, double eta_m = 20)
+    PolynomialMutation(Seed & seed, double mutrate = 0.1, int eta_m = 20)
     : eta_m(eta_m), pmut_real(mutrate)
     {
         const int openmp_threads = omp_get_max_threads();
@@ -70,11 +72,11 @@ public:
         
     }
 
-    void operator()(double *population_genes, const double * min_value, const double * max_value, int population_size, int genes_number)
+    void operator()(double *population_genes, const double * min_value, const double * max_value, int population_size, int genes_number, const int * is_mutation_applicable)
     {
         #pragma omp parallel for
         for (int i = 0; i < population_size; i++) {
-            real_mutate_ind(population_genes + i * genes_number, min_value, max_value, genes_number);
+            real_mutate_ind(population_genes + i * genes_number, min_value, max_value, genes_number, is_mutation_applicable);
         }   
     }
     

@@ -1,5 +1,6 @@
 #include "maleckar_model.h"
 #include <cmath>
+#include <array>
 /*
    There are a total of 70 entries in the algebraic variable array.
    There are a total of 30 entries in each of the rate and state variable arrays.
@@ -279,8 +280,9 @@ void MaleckarModel::initConsts(double * constants) const
     constants[50] = 0.003;
 }
 
-void MaleckarModel::computerates(double VOI, double*  __restrict constants, double*  __restrict rates, double*  __restrict states, double*  __restrict algebraic)
+void MaleckarModel::computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, double*  __restrict states) const
 {
+    std::array<double, alg_size> algebraic;
 algebraic[12] =  2000.00*constants[32]*((1.00000 - states[22]) - states[23]) -  666.000*states[23];
 rates[23] = algebraic[12];
 algebraic[18] =  0.00350000*exp((( - states[0]*states[0])/30.0000)/30.0000)+0.00150000;

@@ -12,12 +12,12 @@ class ODESolver
 
 public:
 	template <typename Model>
-	void solve(Model & model, std::vector<double> & y0, int & is_correct,
-				double t0, double start_record, double tout, std::vector<double> & ap)
+	void solve(const Model & model, std::vector<double> & y0, int & is_correct,
+				double t0, double start_record, double tout, std::vector<double> & ap) const
 	{
 		assert(ap.size() > 0);
 		assert(t0 <= start_record);
-		assert(start_recond <= tout);
+		assert(start_record <= tout);
 		assert(y0.size() > 0);
 
 		LSODA lsoda;

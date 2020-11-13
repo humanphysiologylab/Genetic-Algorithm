@@ -25,6 +25,7 @@ public:
 
     double *min_gene;
     double *max_gene;
+    int    *is_mutation_applicable;
 
     double *all_genes;
     int genes_per_organism;
@@ -68,8 +69,10 @@ public:
 
         min_gene = new double [genes_per_organism];
         max_gene = new double [genes_per_organism];
+        is_mutation_applicable = new int [genes_per_organism];
 
-        int boundaries_status = problem.get_boundaries(min_gene, max_gene);
+        int boundaries_status = problem.get_boundaries(min_gene, max_gene, is_mutation_applicable);
+
         if (boundaries_status == -1) {
             std::cerr << "non-constrained optimization problems are not supported"
                 << std::endl;
@@ -97,6 +100,7 @@ public:
     {
         delete [] min_gene;
         delete [] max_gene;
+        delete [] is_mutation_applicable;
         delete [] all_genes;
         delete [] elite_genes_buffer;
         delete [] mutant_genes_buffer;
@@ -194,14 +198,14 @@ public:
     }
     void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
     {
-        if (gen % 10 != 0) return ;
+        if (gen % 1 != 0) return ;
         std::cout << "Generation: " << gen << std::endl
                   << "Value: " << sd_n_index[0].first << std::endl;
-        auto best_genes = best();
-        std::cout << "Genes:";
-        for (auto &g: best_genes)
-            std::cout << " " << g;
-        std::cout << std::endl << std::endl;
+       // auto best_genes = best();
+      //  std::cout << "Genes:";
+       // for (auto &g: best_genes)
+       //     std::cout << " " << g;
+       // std::cout << std::endl << std::endl;
     }
     double * get_mutant_buffer_genes()
     {

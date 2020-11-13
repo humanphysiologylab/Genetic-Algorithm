@@ -47,13 +47,13 @@ public:
 template <typename Model, typename Solver, typename Objective>
 class ODEoptimization
 {
-    Model & model;
-    Solver & solver;
-    Objective & obj;
+    Model glob_model;//!!!!
+    Solver solver;//!!!!
+    Objective obj;//!!!!
     using Baseline = typename Objective::Baseline;
     using BaselineVec = typename Objective::BaselineVec;
     
-    BaselineVec apbaselines, apmodel;
+    BaselineVec apbaselines;
     
     //two types of variables
     struct Mutable
@@ -121,8 +121,8 @@ public:
     {
         return results_optimizer_format;
     }
-    ODEoptimization(Model & model, Solver & solver, Objective & obj)
-    : model(model), solver(solver), obj(obj)
+    ODEoptimization(const Model & model, const Solver & solver, const Objective & obj)
+    : glob_model(model), solver(solver), obj(obj)
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -292,36 +292,39 @@ public:
                 }
             }
             std::cout << "Unknowns: " << number_parameters << std::endl;
-            throw;
         }
         //broadcast all this nonsense;
         //TODO
     }
     template <typename It>
-    int get_boundaries(It pmin, It pmax)
+    int get_boundaries(It pmin, It pmax, int * is_mutation_applicable) const
     {
         for (const Mutable & gl: globalVariables.mutableConstants) {
-            pmin[gl.model_position] = gl.min_value;
-            pmax[gl.model_position] = gl.max_value;
+            pmin[gl.parameter_position] = gl.min_value;
+            pmax[gl.parameter_position] = gl.max_value;
+            is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
         }
         for (const Mutable & gl: globalVariables.mutableStates) {
-            pmin[gl.model_position] = gl.min_value;
-            pmax[gl.model_position] = gl.max_value;
+            pmin[gl.parameter_position] = gl.min_value;
+            pmax[gl.parameter_position] = gl.max_value;
+            is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
         }
         for (const Variables & vars: baselineVariables) {
             for (const Mutable & gl: vars.mutableConstants) {
-                pmin[gl.model_position] = gl.min_value;
-                pmax[gl.model_position] = gl.max_value;
+                pmin[gl.parameter_position] = gl.min_value;
+                pmax[gl.parameter_position] = gl.max_value;
+                is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
             }
             for (const Mutable & gl: vars.mutableStates) {
-                pmin[gl.model_position] = gl.min_value;
-                pmax[gl.model_position] = gl.max_value;
+                pmin[gl.parameter_position] = gl.min_value;
+                pmax[gl.parameter_position] = gl.max_value;
+                is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
             }
         }
         return 0;
     }
     template <typename It>
-    int initial_guess(It parameters_begin)
+    int initial_guess(It parameters_begin) const
     {
         if (0) {
             //read from a file
@@ -329,12 +332,12 @@ public:
             return 0;
         } else if (1) {
             //use model's default
-            std::vector<double> y0(model.state_size());
-            std::vector<double> vconstants(model.constants_size());
+            std::vector<double> y0(glob_model.state_size());
+            std::vector<double> vconstants(glob_model.constants_size());
 
             //first, find it
-            model.initConsts(vconstants.data());
-            model.initState(y0.data());
+            glob_model.initConsts(vconstants.data());
+            glob_model.initState(y0.data());
             
             //then, set mutable global parameters
             for (const Mutable & m: globalVariables.mutableConstants) {
@@ -355,11 +358,11 @@ public:
     }
 
     template <typename It>
-    void fill_constants_y0(It parameters_begin, double * constants, double * y0, int i)
+    void fill_constants_y0(It parameters_begin, double * constants, double * y0, int i) const
     {
         //first, default
-        model.initConsts(constants);
-        model.initState(y0);
+        glob_model.initConsts(constants);
+        glob_model.initState(y0);
             
         //global section of config overwrites default
         for (const Mutable & m: globalVariables.mutableConstants) {
@@ -391,22 +394,27 @@ public:
     }
 
     template <typename It>
-    double genetic_algorithm_calls(It parameters_begin)
+    double genetic_algorithm_calls(It parameters_begin) const
     {
+        BaselineVec apmodel;
+        for (const auto & v: apbaselines)
+            apmodel.push_back(Baseline(v.size()));
+        
+        Model model(glob_model);
         for (size_t i = 0; i < apbaselines.size(); i++) {
             std::vector<double> y0(model.state_size());
             std::vector<double> vconstants(model.constants_size());
             double * constants = vconstants.data();
 
             Baseline & apRecord = apmodel[i];
-            model.set_constants(constants);
+            model.set_constants(constants);//!!!!!!!
 
             fill_constants_y0(parameters_begin, constants, y0.data(), i);
 
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
             int is_correct;
-            const int beats = 10;
+            const int beats = 2;
             const double t0 = 0, start_record = period * (beats - 1),
                     tout = period * beats;
 
@@ -433,8 +441,8 @@ public:
         //but just save the final result
         for (size_t i = 0; i < apbaselines.size(); i++) {
             BaselineResult res;
-            std::vector<double> y0(model.state_size());
-            std::vector<double> vconstants(model.constants_size());
+            std::vector<double> y0(glob_model.state_size());
+            std::vector<double> vconstants(glob_model.constants_size());
             fill_constants_y0(parameters_begin, vconstants.data(), y0.data(), i);
 
             for (const auto & cit: constantsBiMapModel) {
@@ -486,7 +494,7 @@ public:
     FuncOptimization(Func & func)
     : func(func)
     {}
-    argument get_result()
+    argument get_result() const
     {
         return result;
     }
@@ -495,23 +503,24 @@ public:
         return func.get_xdim();
     }
     template <typename It>
-    int get_boundaries(It pmin, It pmax)
+    int get_boundaries(It pmin, It pmax, int * is_mutation_applicable) const
     {
         auto ppmin = func.x_min();
         std::copy(ppmin.begin(), ppmin.end(), pmin);
         auto ppmax = func.x_max();
         std::copy(ppmax.begin(), ppmax.end(), pmax);
+        std::fill(is_mutation_applicable, is_mutation_applicable + get_number_parameters(), 1);
         return 0; //have boundaries
         //return -1; //no boundaries
     }
     template <typename It>
-    int initial_guess(It begin)
+    int initial_guess(It begin) const
     {
         //return 0; //if you provided some initial guess
         return -1; //no initial guess at all
     }
     template <typename It>
-    double genetic_algorithm_calls(It parameters_begin)
+    double genetic_algorithm_calls(It parameters_begin) const
     {
         argument params;
         for (int i = 0; i != func.get_xdim(); i++, parameters_begin++)

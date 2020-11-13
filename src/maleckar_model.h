@@ -6,10 +6,9 @@
 
 class MaleckarModel
 {
-    const int states_size = 30, alg_size = 70, const_size = 51;
+    static const int states_size = 30, alg_size = 70, const_size = 51;
     double * constants;
-    std::vector<double> algebraic;
-    void computerates(double VOI, double*  __restrict constants, double*  __restrict rates, double*  __restrict states, double* __restrict  algebraic);
+    void computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, double*  __restrict states) const;
 
 public:
     void set_constants(double *c)
@@ -18,7 +17,7 @@ public:
     }
    
     MaleckarModel()
-    : constants(0), algebraic(alg_size)
+    : constants(0)
     {}
     
     double max_step() const
@@ -38,13 +37,13 @@ public:
         return alg_size;
     }
     
-    void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data)
+    void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const
     {
         //the last parameter data was passed to lsoda_update (consider it null_ptr)
         //basically it was poor man's functor
         //here for real functor we do not need it
         assert(constants != 0);
-        computerates(t, constants, dxdt, x, algebraic.data()); 
+        computerates(t, constants, dxdt, x); 
     }
     void initConsts(double * constants) const;
     void initState(double * state) const;
