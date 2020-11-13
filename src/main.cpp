@@ -563,11 +563,12 @@ int main(int argc, char *argv[])
         std::cout << "Parameter error: " << func.solution_error(res) << std::endl;
     }
 
-    
+
     MaleckarModel model;
     ODESolver solver;
     MinimizeAPbaselines obj;
     ODEoptimization problem(model, solver, obj);
+    problem.read_config("config.json");
     BasicPopulation popMal(problem, 1, 10);
     popMal.init(pcg64(seed_source));
     genetic_algorithm(popMal,

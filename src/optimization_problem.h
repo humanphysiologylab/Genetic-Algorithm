@@ -85,7 +85,7 @@ class ODEoptimization
     Variables globalVariables;
 
     //baseline sections of config
-    std::vector<Variables> BaselineVariables;
+    std::vector<Variables> baselineVariables;
 
     //number of mutable variables passed to an optimization algorithm
     int number_parameters = 0;
@@ -109,8 +109,8 @@ private:
             boost::bimaps::unordered_set_of<int>,
             boost::bimaps::list_of_relation>;
             
-    BiMap constantsBiMapModel,
-            statesBiMapModel, algebraicBiMapModel, ratesBiMapModel;
+    BiMap constantsBiMapModel, statesBiMapModel;
+      //no need of algebraicBiMapModel, ratesBiMapModel;
 public:
 
     Results get_results() const
@@ -135,10 +135,12 @@ public:
         model.get_maps(statesMap, constantsMap, algMap, ratesMap);
 
         //now save it to bimap
-        for (const auto & s: statesMap) {
+        for (auto & s: statesMap) {
+            s.second.resize(s.second.find(" "));
             statesBiMapModel.left.insert(BiMap::left_value_type(s.second, s.first));
         }
-        for (const auto & s: constantsMap) {
+        for (auto & s: constantsMap) {
+            s.second.resize(s.second.find(" "));
             constantsBiMapModel.left.insert(BiMap::left_value_type(s.second, s.first));
         }
     }
@@ -147,25 +149,108 @@ public:
     {
         return number_parameters;
     }
-    void read_config()
+    void read_config(const std::string & configFilename)
     {
         if (mpi_rank == 0) {
             std::ifstream configFile;
-            configFile.open("config.json");
+            configFile.open(configFilename);
             if (!configFile.is_open())
                 throw("Cannot open main config file");
             json config;
-
             configFile >> config;
             configFile.close();
             //TODO
             
+            number_parameters = 0;
             //read global variables
-            
-            
-            //
-            
-            //other state variables for each baseline
+            for (auto variable: config["global"].items()) {
+                auto v = variable.value();
+                std::string name = v["name"].get<std::string>();
+                
+                int model_position;
+                try {
+                    //usually in global we have constants
+                    model_position = constantsBiMapModel.left.at(name);
+                } catch (...) {
+                    //so name is not a constant
+                    //1. it can be a state (which is quite reasonable but we dont need it now)
+                    //2. or it is neither a constant nor a state variable
+                    throw(name + " in global config is not a constant of a model");
+                }
+                bool is_value = (v.find("value") != v.end());
+                if (is_value) {
+                    globalVariables.valueConstants.push_back(
+                    {.name = name,
+                     .value = v["value"].get<double>(),
+                     .model_position = model_position
+                    });
+                } else {
+                    //parameter
+                    globalVariables.mutableConstants.push_back(
+                    {.name = name,
+                     .min_value = v["bounds"][0].get<double>(),
+                     .max_value = v["bounds"][1].get<double>(),
+                     .parameter_position = number_parameters++,
+                     .model_position = model_position,
+                     .gamma = v["gamma"].get<double>(),
+                     .is_mutation_applicable = 1
+                    });
+                }
+            }
+            //constants not listed in config will have default values
+
+
+            for (auto baseline: config["baselines"].items()) {
+                auto b = baseline.value();
+                std::string apfilename = b["filename_phenotype"].get<std::string>();
+                std::string statefilename = b["filename_state"].get<std::string>();
+                //read these files TODO
+                
+                baselineVariables.emplace_back();
+                Variables & bVar = baselineVariables.back();
+                for (auto variable: b["params"].items()) {
+                    auto v = variable.value();
+                    std::string name = v["name"].get<std::string>();
+                    int model_position;
+                    try {
+                        //constant can be listed as a baseline value
+                        model_position = constantsBiMapModel.left.at(name);
+                        bool is_value = (v.find("value") != v.end());
+                        if (!is_value)
+                            throw(name + " in baseline config is required to be a value");
+                        bVar.valueConstants.push_back(
+                        {.name = name,
+                         .value = v["value"].get<double>(),
+                         .model_position = model_position
+                        });
+                    } catch (...) {
+                        //name is not a constant
+                        //so it is probably a state which can be mutated
+                        try {
+                            model_position = statesBiMapModel.left.at(name);
+                        } catch (...) {
+                            //or it is neither a constant nor a state variable
+                            throw(name + " in baseline config is neither constant nor state variable");
+                        }
+                        bool is_value = (v.find("value") != v.end());
+                        if (is_value)
+                            throw(name + "cannot be a value");
+                        bVar.mutableConstants.push_back(
+                        {.name = name,
+                         .min_value = v["bounds"][0].get<double>(),
+                         .max_value = v["bounds"][1].get<double>(),
+                         .parameter_position = number_parameters++,
+                         .model_position = model_position,
+                         .gamma = v["gamma"].get<double>(),
+                         .is_mutation_applicable = 1
+                        });
+                    }
+                }
+                //TODO add drifting state variables to bVar
+            }
+            std::cout << "Unknowns: " << number_parameters << std::endl;
+            throw;
+            //other state mutable variables for each baseline
             //are drifting
         }
         //broadcast all this nonsense;
@@ -182,7 +267,7 @@ public:
             pmin[gl.model_position] = gl.min_value;
             pmax[gl.model_position] = gl.max_value;
         }
-        for (const Variables & vars: BaselineVariables) {
+        for (const Variables & vars: baselineVariables) {
             for (const Mutable & gl: vars.mutableConstants) {
                 pmin[gl.model_position] = gl.min_value;
                 pmax[gl.model_position] = gl.max_value;
@@ -217,7 +302,7 @@ public:
             
             //finally, set mutable baseline parameters
             for (size_t i = 0; i < apbaselines.size(); i++) {
-                for (const Mutable & m: BaselineVariables[i].mutableStates) {
+                for (const Mutable & m: baselineVariables[i].mutableStates) {
                     parameters_begin[m.parameter_position] = y0[m.model_position];
                 }
             }
@@ -250,16 +335,16 @@ public:
         }
 
         //baseline sections of config overwrites global and default
-        for (const Mutable & m: BaselineVariables[i].mutableConstants) {
+        for (const Mutable & m: baselineVariables[i].mutableConstants) {
             throw("Wait, that's illegal. Please contact us if you want it.");
         }
-        for (const Mutable & m: BaselineVariables[i].mutableStates) {
+        for (const Mutable & m: baselineVariables[i].mutableStates) {
             y0[m.model_position] = parameters_begin[m.parameter_position];
         }
-        for (const Value & v: BaselineVariables[i].valueConstants) {
+        for (const Value & v: baselineVariables[i].valueConstants) {
             constants[v.model_position] = v.value;
         }
-        for (const Value & v: BaselineVariables[i].valueStates) {
+        for (const Value & v: baselineVariables[i].valueStates) {
             throw("Wait, that's illegal. Please contact us if you want it.");
         }
     }
@@ -294,7 +379,7 @@ public:
 
             //save mutable variables from the state
             //since we let them to drift
-            for (const Mutable & m: BaselineVariables[i].mutableStates) {
+            for (const Mutable & m: baselineVariables[i].mutableStates) {
                 parameters_begin[m.parameter_position] =  y0[m.model_position];
             }
         }
