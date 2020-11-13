@@ -8,6 +8,12 @@
 #include <fstream>
 
 #include <json.hpp>
+#include <boost/bimap.hpp>
+#include <boost/bimap/unordered_set_of.hpp>
+#include <boost/bimap/vector_of.hpp>
+#include <boost/bimap/list_of.hpp>
+#include <boost/bimap/unconstrained_set_of.hpp>
+
 using json = nlohmann::json;
 
 template<int power = 2>
@@ -98,7 +104,13 @@ public:
 private:
     Results results;
     std::vector<double> results_optimizer_format;
-    std::unordered_map<std::string, int> constantsMapModel, statesMapModel;
+    
+    using BiMap = boost::bimap<boost::bimaps::unordered_set_of<std::string>,
+            boost::bimaps::unordered_set_of<int>,
+            boost::bimaps::list_of_relation>;
+            
+    BiMap constantsBiMapModel,
+            statesBiMapModel, algebraicBiMapModel, ratesBiMapModel;
 public:
 
     Results get_results() const
@@ -114,6 +126,21 @@ public:
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+        std::unordered_map<int, std::string> statesMap(model.state_size()),
+                constantsMap(model.constants_size()),
+                algMap(model.get_alg_size()),
+                ratesMap(model.state_size());
+
+        model.get_maps(statesMap, constantsMap, algMap, ratesMap);
+
+        //now save it to bimap
+        for (const auto & s: statesMap) {
+            statesBiMapModel.left.insert(BiMap::left_value_type(s.second, s.first));
+        }
+        for (const auto & s: constantsMap) {
+            constantsBiMapModel.left.insert(BiMap::left_value_type(s.second, s.first));
+        }
     }
 
     int get_number_parameters() const
@@ -132,6 +159,14 @@ public:
             configFile >> config;
             configFile.close();
             //TODO
+            
+            //read global variables
+            
+            
+            //
+            
+            //other state variables for each baseline
+            //are drifting
         }
         //broadcast all this nonsense;
         //TODO
@@ -242,7 +277,7 @@ public:
 
             fill_constants_y0(parameters_begin, constants, y0.data(), i);
 
-            const double period = vconstants[constantsMapModel["stim_period"]];
+            const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
             int is_correct;
             const int beats = 10;
@@ -276,11 +311,11 @@ public:
             std::vector<double> vconstants(model.constants_size());
             fill_constants_y0(parameters_begin, vconstants.data(), y0.data(), i);
 
-            for (const auto & cit: constantsMapModel) {
-                res.constantsResult[cit.first] = vconstants[cit.second];
+            for (const auto & cit: constantsBiMapModel) {
+                res.constantsResult[cit.left] = vconstants[cit.right];
             }
-            for (const auto & sit: statesMapModel) {
-                res.statesResult[sit.first] = y0[sit.second];
+            for (const auto & sit: statesBiMapModel) {
+                res.statesResult[sit.left] = y0[sit.right];
             }
             results.push_back(res);
         }

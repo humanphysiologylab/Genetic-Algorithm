@@ -33,6 +33,10 @@ public:
     {
         return const_size;
     }
+    int get_alg_size() const
+    {
+        return alg_size;
+    }
     
     void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data)
     {
@@ -47,7 +51,7 @@ public:
     
     
     template<typename Map1, typename Map2, typename Map3, typename Map4>
-    void get_maps(Map1 & legend_states, Map2 & legend_constants, Map3 & legend_algebraic, Map4 & legend_rates)
+    void get_maps(Map1 & legend_states, Map2 & legend_constants, Map3 & legend_algebraic, Map4 & legend_rates) const
     {
         //simply copy it from python's version of cellml code
         legend_states[0] = "V in component membrane (millivolt)";
