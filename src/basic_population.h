@@ -198,9 +198,10 @@ public:
     }
     void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
     {
-        if (gen % 1 != 0) return ;
+        if (gen % 10 != 0) return ;
         std::cout << "Generation: " << gen << std::endl
                   << "Value: " << sd_n_index[0].first << std::endl;
+
        // auto best_genes = best();
       //  std::cout << "Genes:";
        // for (auto &g: best_genes)

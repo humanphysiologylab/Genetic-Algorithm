@@ -572,12 +572,20 @@ int main(int argc, char *argv[])
     
     BasicPopulation popMal(problem, 10, 100);
     popMal.init(pcg64(seed_source));
+  
     genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
             SBXcrossover(pcg64(seed_source)),
             PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
+            1000);
+    
+    /*
+        genetic_algorithm(popMal,
+            TournamentSelectionFast(pcg64(seed_source)),
+            NoCrossover(),
+            NoMutation(),
             100);
-
+    */
 
     if (rank == 0) {
 

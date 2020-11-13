@@ -6,6 +6,7 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <limits>
 
 #include <json.hpp>
 #include <boost/bimap.hpp>
@@ -40,7 +41,10 @@ public:
         for (size_t i = 0; i < a.size(); i++) {
             res += distBaselines(a[i], b[i]);
         }
-        return std::pow(res, 1.0/power);
+        res = std::pow(res, 1.0/power);
+        if (std::isnan(res))
+            res = std::numeric_limits<double>::max();
+        return res;
     }
 };
 
