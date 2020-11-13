@@ -149,6 +149,23 @@ public:
     {
         return number_parameters;
     }
+    
+    void scan_baseline(Baseline & baseline, const std::string & filename)
+    {
+        std::ifstream file;
+        file.open(filename);
+        if (!file.is_open())
+            throw(filename + " cannot be opened");
+        double v;
+        while (file >> v)
+            baseline.push_back(v);
+    }
+    
+    void scan_state()
+    {
+        //TODO
+    }
+    
     void read_config(const std::string & configFilename)
     {
         if (mpi_rank == 0) {
@@ -159,7 +176,6 @@ public:
             json config;
             configFile >> config;
             configFile.close();
-            //TODO
             
             number_parameters = 0;
             //read global variables
@@ -203,9 +219,19 @@ public:
             for (auto baseline: config["baselines"].items()) {
                 auto b = baseline.value();
                 std::string apfilename = b["filename_phenotype"].get<std::string>();
-                std::string statefilename = b["filename_state"].get<std::string>();
-                //read these files TODO
-                
+
+                apbaselines.emplace_back();
+                scan_baseline(apbaselines.back(), apfilename);
+
+                bool initial_state = (b.find("filename_state") != b.end());
+                if (initial_state) {
+                    std::string statefilename = b["filename_state"].get<std::string>();
+
+                    //TODO
+                    //scan_state(..., statefilename);
+                }
+
+
                 baselineVariables.emplace_back();
                 Variables & bVar = baselineVariables.back();
                 BiMap statesBiMapDrifting = statesBiMapModel;
