@@ -35,49 +35,7 @@
 
 #ifdef HIDE_CODE
 
-class FitnessFunctor
-{
-    std::vector<double> AP_control;
-    std::vector<int> baseline_periods;
-public:
-    std::vector<int> get_baseline_periods() const
-    {
-        return baseline_periods;
-    }
-    int get_sum_of_periods() const
-    {
-        return AP_control.size();
-    }
-    double operator()(const double * AP) const
-    {
-        double res = 0;
-        for (int i = 0; i < AP_control.size(); i++)
-            res += std::pow(AP[i] - AP_control[i], 2);
-        return res;
-    }
-    FitnessFunctor(std::vector<std::string> & baseline_file_names)
-    {
-        for (auto & filename: baseline_file_names) {
-            FILE *file = fopen(filename.c_str(), "r");
-            if (file == NULL) {
-                std::cerr << "Cannot open baseline file: " << filename << std::endl;
-                throw;
-            }
-            
-            int period;
-            double buf;
-            for (period = 0;; period++) {
-                if (fscanf(file, "%lf\n", &buf) == EOF)
-                    break;
-                
-                AP_control.push_back(buf);
-            }
-            assert(period > 0);
-            baseline_periods.push_back(period);
-            fclose(file);
-        }
-    }
-};
+
 
 class Population
 {
@@ -167,31 +125,6 @@ void normalize_baseline(int j0, int j1, double *AP_control)
 }
 
 
-
-static char *read_line(char *pcBuf, int iMaxSize, FILE *fStream)
-{
-    //tbh weird function.
-    //it returns pcBuf containing next non-zero line from fStream
-    //which is not a comment starting with #.
-    //seems like p always points at pcBuf.
-    //if eof then pcBuf stores \0.
-    char *p;
-
-    do {
-        p = NULL;
-        *pcBuf = '\0';
-
-        if (fgets(pcBuf, iMaxSize, fStream) == NULL) {
-            std::cerr << "Error! Unable to read line!" << std::endl;
-            exit(-1);
-        }
-
-        if (feof(fStream)) break;
-        p = strtok(pcBuf, "\n\r");
-    } while ((p == NULL) || (*p == '#'));
-
-    return p;
-}
 
 void print_log_stdout(struct GlobalSetup gs, const double *genes,
                       const std::vector<std::pair<double, int>> &sd_n_index)
@@ -534,7 +467,6 @@ void old_code(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
     MPI_Init(&argc, &argv);
 
     pcg_extras::seed_seq_from<std::random_device> seed_source;
@@ -570,14 +502,14 @@ int main(int argc, char *argv[])
     ODEoptimization problem(model, solver, obj);
     problem.read_config("config.json");
     
-    BasicPopulation popMal(problem, 10, 100);
+    BasicPopulation popMal(problem, 100, 1000);
     popMal.init(pcg64(seed_source));
   
     genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
             SBXcrossover(pcg64(seed_source)),
-            PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
-            1000);
+            PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source, 0.1, 20),
+            100);
     
     /*
         genetic_algorithm(popMal,
@@ -588,7 +520,13 @@ int main(int argc, char *argv[])
     */
 
     if (rank == 0) {
-
+        using Results = decltype(problem)::Results;
+        using BaselineResult = decltype(problem)::BaselineResult;
+        Results results = problem.get_relative_results();
+        BaselineResult res = results[0];
+        std::cout << "Printing relative to default results" << std::endl;
+        for (const auto & cit: res.constantsResult)
+            std::cout << cit.first << " " << cit.second << std::endl;
      /*   
         
         //now try to simply solve ode model

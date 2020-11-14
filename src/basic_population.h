@@ -7,7 +7,7 @@
 #include <cmath>
 #include <iostream>
 #include <random>
-
+#include <cassert>
 
 template <typename OptimizationProblem>
 class BasicPopulation
@@ -112,20 +112,18 @@ public:
     {
         std::vector<double> init_vector(genes_per_organism);
         int init_status = problem.initial_guess(init_vector.begin());
-        if (init_status == -1) {
-            //no initial guess
-            //fill with random values
-            for (int i = 0; i < number_organisms; i++)
-                for (int j = 0; j < genes_per_organism; j++)
+        
+        for (int i = 0; i < number_organisms; i++) {
+            for (int j = 0; j < genes_per_organism; j++) {
+                if (is_mutation_applicable[j]) {
                     all_genes[j + i * genes_per_organism] =
                         std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
-        } else {
-            //initial guess
-            //maybe it is not really fine to assign the same initial values for
-            //the whole population
-            for (int i = 0; i < number_organisms; i++)
-                for (int j = 0; j < genes_per_organism; j++)
+                } else {
+                    assert(init_status != -1);
+                    //or maybe it is fine to put zero if init_status == -1
                     all_genes[j + i * genes_per_organism] = init_vector[j];
+                }
+            }
         }
     }
 
@@ -198,7 +196,7 @@ public:
     }
     void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
     {
-        if (gen % 10 != 0) return ;
+        if (gen % 1 != 0) return ;
         std::cout << "Generation: " << gen << std::endl
                   << "Value: " << sd_n_index[0].first << std::endl;
 

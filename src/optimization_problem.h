@@ -106,7 +106,7 @@ public:
     };
     using Results = std::vector<BaselineResult>;
 private:
-    Results results;
+    Results results, relative_results;//abs values and relative to default values
     std::vector<double> results_optimizer_format;
     
     using BiMap = boost::bimap<boost::bimaps::unordered_set_of<std::string>,
@@ -120,6 +120,10 @@ public:
     Results get_results() const
     {
         return results;
+    }
+    Results get_relative_results() const
+    {
+        return relative_results;
     }
     std::vector<double> get_results_optimizer_format() const
     {
@@ -361,12 +365,17 @@ public:
         }
     }
 
+    void get_default_values(double * constants, double * y0) const
+    {
+        glob_model.initConsts(constants);
+        glob_model.initState(y0);
+    }
+
     template <typename It>
     void fill_constants_y0(It parameters_begin, double * constants, double * y0, int i) const
     {
         //first, default
-        glob_model.initConsts(constants);
-        glob_model.initState(y0);
+        get_default_values(constants, y0);
             
         //global section of config overwrites default
         for (const Mutable & m: globalVariables.mutableConstants) {
@@ -418,7 +427,7 @@ public:
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
             int is_correct;
-            const int beats = 2;
+            const int beats = 7;
             const double t0 = 0, start_record = period * (beats - 1),
                     tout = period * beats;
 
@@ -444,18 +453,27 @@ public:
         //mirror the stage of initialization before solver.solve call
         //but just save the final result
         for (size_t i = 0; i < apbaselines.size(); i++) {
-            BaselineResult res;
+            BaselineResult res, relative_res;
             std::vector<double> y0(glob_model.state_size());
             std::vector<double> vconstants(glob_model.constants_size());
             fill_constants_y0(parameters_begin, vconstants.data(), y0.data(), i);
 
+            std::vector<double> y0_default(glob_model.state_size());
+            std::vector<double> vconstants_default(glob_model.constants_size());
+            get_default_values(vconstants_default.data(), y0_default.data());
+            //TODO y0_default should be specific for each baseline
+            //not really from a default model
+
             for (const auto & cit: constantsBiMapModel) {
                 res.constantsResult[cit.left] = vconstants[cit.right];
+                relative_res.constantsResult[cit.left] = vconstants[cit.right] / vconstants_default[cit.right];
             }
             for (const auto & sit: statesBiMapModel) {
                 res.statesResult[sit.left] = y0[sit.right];
+                relative_res.statesResult[sit.left] = y0[sit.right] / y0_default[sit.right];
             }
             results.push_back(res);
+            relative_results.push_back(relative_res);
         }
         results_optimizer_format = std::vector<double>(number_parameters);
         std::copy(parameters_begin, parameters_begin + number_parameters, results_optimizer_format.begin());
