@@ -112,8 +112,8 @@ class TournamentSelectionFast
         assert(mpool_size * 2 <= sd_n_index.size());
         assert(sd_n_index.size() % 2 == 0);
         for (size_t i = 0; i < mpool_size; i++) {
-            const int one = 2 * i;
-            const int two = 2 * i + 1;
+            const size_t one = 2 * i;
+            const size_t two = 2 * i + 1;
             if (sd_n_index[one].first < sd_n_index[two].first)
                 mpool[i] = sd_n_index[one].second;
             else
@@ -144,7 +144,5 @@ public:
         tournament_basic_half_fast(mpool + mpool_size / 2, mpool_size / 2, sd_n_index);
     }
 };
-
-
 
 #endif //GA_TOURNAMENT_SELECTION_H

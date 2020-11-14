@@ -74,8 +74,9 @@ public:
         int boundaries_status = problem.get_boundaries(min_gene, max_gene, is_mutation_applicable);
 
         if (boundaries_status == -1) {
-            std::cerr << "non-constrained optimization problems are not supported"
-                << std::endl;
+            if (mpi_rank == 0)
+                std::cerr << "non-constrained optimization problems are not supported"
+                    << std::endl;
             throw;
         }
 
@@ -155,8 +156,6 @@ public:
 
     void fitness_function(std::vector<std::pair<double, int>> & sd_n_index)
     {
-        if (mpi_rank != 0)
-            return;
         for (int i = 0; i < number_organisms; i++) {
             sd_n_index[i].first = fitness_values[i];
             sd_n_index[i].second = i;
@@ -196,6 +195,7 @@ public:
     }
     void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
     {
+        if (mpi_rank != 0) return;
         if (gen % 1 != 0) return ;
         std::cout << "Generation: " << gen << std::endl
                   << "Value: " << sd_n_index[0].first << std::endl;
@@ -224,6 +224,7 @@ public:
     }
     void done()
     {
+        if (mpi_rank != 0) return;
         problem.genetic_algorithm_result(all_genes);
     }
 };

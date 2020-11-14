@@ -96,6 +96,8 @@ class ODEoptimization
 
     int mpi_rank;
     int mpi_size;
+
+    int beats;
 public:
     using ConstantsResult = std::unordered_map<std::string, double>;
     using StatesResult = std::unordered_map<std::string, double>;
@@ -157,7 +159,7 @@ public:
     {
         return number_parameters;
     }
-    
+
     void scan_baseline(Baseline & baseline, const std::string & filename)
     {
         std::ifstream file;
@@ -168,15 +170,16 @@ public:
         while (file >> v)
             baseline.push_back(v);
     }
-    
+
     void scan_state()
     {
         //TODO
     }
-    
+
     void read_config(const std::string & configFilename)
     {
-        if (mpi_rank == 0) {
+        //lets make it plain, no MPI-IO, TODO
+       // if (mpi_rank == 0) {
             std::ifstream configFile;
             configFile.open(configFilename);
             if (!configFile.is_open())
@@ -184,7 +187,9 @@ public:
             json config;
             configFile >> config;
             configFile.close();
-            
+
+            beats = config["n_beats"].get<int>();
+
             number_parameters = 0;
             //read global variables
             for (auto variable: config["global"].items()) {
@@ -299,8 +304,8 @@ public:
                     });
                 }
             }
-            std::cout << "Unknowns: " << number_parameters << std::endl;
-        }
+       //     std::cout << "Unknowns: " << number_parameters << std::endl;
+      //  }
         //broadcast all this nonsense;
         //TODO
     }
@@ -372,11 +377,11 @@ public:
     }
 
     template <typename It>
-    void fill_constants_y0(It parameters_begin, double * constants, double * y0, int i) const
+    void fill_constants_y0(It parameters_begin, double * constants, double * y0, size_t i) const
     {
         //first, default
         get_default_values(constants, y0);
-            
+
         //global section of config overwrites default
         for (const Mutable & m: globalVariables.mutableConstants) {
             constants[m.model_position] = parameters_begin[m.parameter_position];
@@ -427,7 +432,7 @@ public:
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
             int is_correct;
-            const int beats = 7;
+
             const double t0 = 0, start_record = period * (beats - 1),
                     tout = period * beats;
 

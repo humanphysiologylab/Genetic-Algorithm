@@ -32,11 +32,9 @@
 #include "maleckar_model.h"
 #include "cellml_ode_solver.h"
 #include "optimization_problem.h"
+#include <json.hpp>
 
 #ifdef HIDE_CODE
-
-
-
 class Population
 {
     void mutation()
@@ -105,9 +103,6 @@ class Population
 };
 
 
-
-
-
 void normalize_baseline(int j0, int j1, double *AP_control)
 {
     // max (min) is the time of baseline maximum (minimum)
@@ -125,45 +120,6 @@ void normalize_baseline(int j0, int j1, double *AP_control)
 }
 
 
-
-void print_log_stdout(struct GlobalSetup gs, const double *genes,
-                      const std::vector<std::pair<double, int>> &sd_n_index)
-{
-
-    double average_error = 0;
-    for (int i = 0; i < gs.number_organisms; i++)
-        average_error += sd_n_index[i].first;
-    average_error /= gs.number_organisms;
-
-    std::cout << "Best SD: " << sd_n_index[0].first << " mV\n";
-    std::cout << "Worst SD: " << sd_n_index.back().first << " mV\n";
-    std::cout << "Average SD: " << average_error << " mV\n";
-    std::cout << "The fittest organism:\n";
-
-    const int index_best = sd_n_index[0].second;
-
-    const int number_conc_types = 3;
-    std::string conc[] = {"Na_i", "Ca_rel", "K_i"};
-    const int number_cond = gs.number_genes - number_conc_types * gs.number_baselines;
-    std::string mult[] = {"INa", "ICaL", "Ito", "IKur", "IK1",
-                          "IKs", "IKr", "IBNa", "IBCa", "INaK",
-                          "ICaP", "INaCa", "Iup", "Irel"};
-    const int stride = 4;
-
-    for (int i = 0; i < number_cond; ++i) {
-        std::cout << mult[i] << " " << genes[index_best * gs.number_genes + i] << "\t";
-        if (i % stride == stride - 1) std::cout << std::endl;
-    }
-    std::cout << std::endl;
-
-    for (int i = 0; i < number_conc_types; ++i) {
-        std::cout << conc[i] << ": ";
-        for (int j = 0; j < gs.number_baselines; ++j) {
-            std::cout << genes[index_best * gs.number_genes + number_cond + i * gs.number_baselines + j] << " ";
-        }
-        std::cout << std::endl;
-    }
-}
 
 
 void old_code(int argc, char *argv[])
@@ -465,51 +421,54 @@ void old_code(int argc, char *argv[])
 
 #endif
 
-int main(int argc, char *argv[])
+
+
+
+void main_gen_algo(const char *configFilename)
 {
-    MPI_Init(&argc, &argv);
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
     pcg_extras::seed_seq_from<std::random_device> seed_source;
 
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-
-/*
-    using FuncToOptimize = RosenbrockFunction<2>;
-    FuncToOptimize func;
-    FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
-
-    BasicPopulation pop(optim, 100, 10000);
-
-    pop.init(pcg64(seed_source));
-
-    genetic_algorithm(pop,
-                    TournamentSelectionFast(pcg64(seed_source)),
-                    SBXcrossover(pcg64(seed_source)),
-                    PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
-                    100);
-    if (rank == 0) {
-        auto res = optim.get_result();
-        std::cout << "Parameter error: " << func.solution_error(res) << std::endl;
+    std::ifstream configFile;
+    configFile.open(configFilename);
+    if (!configFile.is_open() && mpi_rank == 0) {
+        std::cerr << "Cannot open main config file" << std::endl;
+        throw;
     }
-*/
+    json config;
+    configFile >> config;
+    configFile.close();
 
     MaleckarModel model;
     ODESolver solver;
     MinimizeAPbaselines obj;
     ODEoptimization problem(model, solver, obj);
-    problem.read_config("config.json");
-    
-    BasicPopulation popMal(problem, 100, 1000);
+
+    double time_read_config = MPI_Wtime();
+    problem.read_config(configFilename);
+    time_read_config = MPI_Wtime() - time_read_config;
+
+    BasicPopulation popMal(problem,
+                    config["n_elites"].get<unsigned>(),
+                    config["n_organisms"].get<unsigned>());
+
+    double time_population_init = MPI_Wtime();
     popMal.init(pcg64(seed_source));
-  
+    time_population_init = MPI_Wtime() - time_population_init;
+
+    if (mpi_rank == 0) {
+        std::cout << "time_read_config, s: " << time_read_config << std::endl;
+        std::cout << "time_population_init, s: " << time_population_init << std::endl;
+    }
+
     genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
             SBXcrossover(pcg64(seed_source)),
             PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source, 0.1, 20),
-            100);
+            config["n_generations"].get<unsigned>());
     
     /*
         genetic_algorithm(popMal,
@@ -519,7 +478,7 @@ int main(int argc, char *argv[])
             100);
     */
 
-    if (rank == 0) {
+    if (mpi_rank == 0) {
         using Results = decltype(problem)::Results;
         using BaselineResult = decltype(problem)::BaselineResult;
         Results results = problem.get_relative_results();
@@ -527,8 +486,9 @@ int main(int argc, char *argv[])
         std::cout << "Printing relative to default results" << std::endl;
         for (const auto & cit: res.constantsResult)
             std::cout << cit.first << " " << cit.second << std::endl;
-     /*   
-        
+    }
+    /*
+    if (mpi_rank == 0) {  
         //now try to simply solve ode model
         ODESolver solver;
         //try malecar on one node
@@ -569,8 +529,53 @@ int main(int argc, char *argv[])
         else
             std::cout << "Incorrect integration" << std::endl;
         delete [] constants;
-        */
+        
+    }*/
+}
+
+
+void test_function_example()
+{
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    
+    if (rank == 0)
+        std::cout << "Usage: ./ga config.json" << std::endl <<
+        "Problem with a test function will be solved now" << std::endl;
+        
+    pcg_extras::seed_seq_from<std::random_device> seed_source;
+        
+    using FuncToOptimize = RosenbrockFunction<20>;
+    FuncToOptimize func;
+    FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
+
+    BasicPopulation pop(optim, 100, 10000);
+
+    pop.init(pcg64(seed_source));
+
+    genetic_algorithm(pop,
+                    TournamentSelectionFast(pcg64(seed_source)),
+                    SBXcrossover(pcg64(seed_source)),
+                    PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
+                    100);
+    if (rank == 0) {
+        auto res = optim.get_result();
+        std::cout << "Parameter error: " << func.solution_error(res) << std::endl;
     }
+}
+
+
+int main(int argc, char *argv[])
+{
+    MPI_Init(&argc, &argv);
+
+    if (argc == 2) {
+        main_gen_algo(argv[1]);
+    } else {
+        test_function_example();
+    }
+
     MPI_Finalize();
     return 0;
 }

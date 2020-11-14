@@ -16,7 +16,7 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -fopenmp")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -fopt-info-missed=missed.all") #-fopt-info")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wconversion")
 
 find_package(MPI REQUIRED)
 

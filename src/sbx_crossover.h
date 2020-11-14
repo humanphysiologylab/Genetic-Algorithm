@@ -10,16 +10,16 @@ template<typename InitializedRandomGenerator>
 class SBXcrossover
 {
     InitializedRandomGenerator rg;
-    const int crossrate = 0.9; //probability of crossover
-    const int eta_c = 10; //The order of the polynomial for the SBX crossover
+    const double crossrate; //probability of crossover
+    const int eta_c; //The order of the polynomial for the SBX crossover
 
 public:
-    SBXcrossover(InitializedRandomGenerator rg)
-    : rg(rg)
+    SBXcrossover(InitializedRandomGenerator rg, double crossrate = 0.1, int eta_c = 10)
+    : rg(rg), crossrate(crossrate), eta_c(eta_c)
     {}
     
     void operator()(double *next_generation, double *left_border, double *right_border,
-                   int number_organisms, int number_genes)
+                   int number_organisms, int number_genes, const int * is_mutation_applicable)
     {
         /*
         adopted realcross from NSGA-II: Non-dominated Sorting Genetic Algorithm - II
@@ -37,6 +37,7 @@ public:
         for (int i = 0; i < number_organisms / 2; i++) {
             if (ran(rg) <= crossrate) {
                 for (int j = 0; j < number_genes; j++) {
+                    if (!is_mutation_applicable[j]) continue;
                     if (ran(rg) <= 0.5) {
                         double y1 = next_generation[2 * i * number_genes + j],
                                y2 = next_generation[(2 * i + 1) * number_genes + j];
