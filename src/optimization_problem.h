@@ -300,7 +300,6 @@ public:
                 //other state mutable variables for each baseline
                 //are drifting
                 for (const auto & sit: statesBiMapDrifting) {
-                    std::cout << sit.left << std::endl;
                     bVar.mutableStates.push_back(
                     {.name = sit.left,
                      .min_value = 0,
@@ -358,6 +357,7 @@ public:
                     baseline_number++;
                 }
             }
+            MPI_Barrier(MPI_COMM_WORLD);
 
             //read baselines
             for (auto baseline: config["baselines"].items()) {
