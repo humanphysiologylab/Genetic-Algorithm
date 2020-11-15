@@ -1,0 +1,63 @@
+{
+    "comment": "this config file is for default maleckar model",
+    "mode": "test",
+    "mode_comment": "test mode generates default baselines and OVERWRITES corresponding files",
+    "mode_comment2": "remove mode field or change test to anything else to run optimization only",
+    "test_beats": 10000,
+    "t_sampling": 1e-3,
+    "n_organisms": 100,
+    "n_elites": 10,
+    "n_generations": 100,
+    "n_beats": 7,
+    "global": [
+      {"name": "P_Na", "bounds": [0, 1], "gamma": 0.1},
+      {"name": "g_Ca_L", "bounds": [1, 10], "gamma": 0.1},
+      {"name": "g_t", "bounds": [1, 15], "gamma": 0.1},
+      {"name": "g_kur", "bounds": [0.2, 10], "gamma": 0.1},
+      {"name": "g_K1", "bounds": [0.2, 15], "gamma": 0.1},
+      {"name": "g_Ks", "bounds": [0.2, 5], "gamma": 0.1},
+      {"name": "g_Kr", "bounds": [0, 5], "gamma": 0.1},
+      {"name": "g_B_Na", "bounds": [0, 1], "gamma": 0.1},
+      {"name": "g_B_Ca", "bounds": [0, 1], "gamma": 0.1},
+      {"name": "i_NaK_max", "bounds": [1, 400], "gamma": 0.1},
+      {"name": "i_CaP_max", "bounds": [0.1, 20], "gamma": 0.1},
+      {"name": "K_NaCa", "bounds": [0, 1], "gamma": 0.1},
+      {"name": "I_up_max", "bounds": [100, 10000], "gamma": 0.1},
+      {"name": "alpha_rel", "bounds": [20000, 2000000], "gamma": 0.1}
+    ],
+    "baselines": [
+        {
+            "filename_phenotype": "./baselines/baseline_1000.txt",
+            "filename_state": "./states/state_1000.txt",
+            "params": [
+                {"name": "stim_period", "value": 1},
+                {"name": "Na_i", "bounds": [4, 16], "gamma": 0.15},
+                {"name": "Ca_rel", "bounds": [0.01, 4], "gamma": 0.015},
+                {"name": "K_i", "bounds": [80, 190], "gamma": 0.15},
+                {"name": "stim_amplitude", "value": -15}
+            ]
+        },
+        {
+            "filename_phenotype": "./baselines/baseline_500.txt",
+            "filename_state": "./states/state_500.txt",
+            "params": [
+            	{"name": "stim_period", "value": 0.5},
+                {"name": "Na_i", "bounds": [4, 16], "gamma": 0.15},
+                {"name": "Ca_rel", "bounds": [0.01, 4], "gamma": 0.015},
+                {"name": "K_i", "bounds": [80, 190], "gamma": 0.15},
+                {"name": "stim_amplitude", "value": -15}
+            ]
+        },
+        {
+            "filename_phenotype": "./baselines/baseline_250.txt",
+            "filename_state": "./states/state_250.txt",
+            "params": [
+                {"name": "stim_period", "value": 0.25},
+                {"name": "Na_i", "bounds": [4, 16], "gamma": 0.15},
+                {"name": "Ca_rel", "bounds": [0.01, 4], "gamma": 0.015},
+                {"name": "K_i", "bounds": [80, 190], "gamma": 0.15},
+                {"name": "stim_amplitude", "value": -15}
+            ]
+        }
+    ]
+}

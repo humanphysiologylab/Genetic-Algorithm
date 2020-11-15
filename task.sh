@@ -4,4 +4,4 @@
 #SBATCH -J TASK_NAME
 #SBATCH --comment Atrial_genetic_algorithms
 
-mpirun ./ga input_ga.txt &> out.log
+mpirun ./ga config.json &> out.log

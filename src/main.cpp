@@ -546,7 +546,7 @@ void test_function_example()
         
     pcg_extras::seed_seq_from<std::random_device> seed_source;
         
-    using FuncToOptimize = RosenbrockFunction<20>;
+    using FuncToOptimize = RosenbrockFunction<10>;
     FuncToOptimize func;
     FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
 
@@ -558,7 +558,7 @@ void test_function_example()
                     TournamentSelectionFast(pcg64(seed_source)),
                     SBXcrossover(pcg64(seed_source)),
                     PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
-                    100);
+                    1000);
     if (rank == 0) {
         auto res = optim.get_result();
         std::cout << "Parameter error: " << func.solution_error(res) << std::endl;

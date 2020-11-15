@@ -176,6 +176,25 @@ public:
         //TODO
     }
 
+    void write_baseline(const Baseline & apRecord, const std::string & filename) const
+    {
+        std::ofstream file;
+        file.open(filename);
+        if (!file.is_open())
+            throw(filename + " cannot be opened");
+        for (const auto & x: apRecord)
+            file << x << std::endl;
+    }
+    
+    void write_state(const std::vector<double> & state, const std::string & filename) const
+    {
+        std::ofstream file;
+        file.open(filename);
+        if (!file.is_open())
+            throw(filename + " cannot be opened");
+        for (const auto & x: state)
+            file << x << std::endl;
+    }
     void read_config(const std::string & configFilename)
     {
         //lets make it plain, no MPI-IO, TODO
@@ -187,6 +206,7 @@ public:
             json config;
             configFile >> config;
             configFile.close();
+
 
             beats = config["n_beats"].get<int>();
 
@@ -228,22 +248,10 @@ public:
             }
             //constants not listed in config will have default values
 
-
+            int baselines_num = 0;
             for (auto baseline: config["baselines"].items()) {
+                baselines_num++;
                 auto b = baseline.value();
-                std::string apfilename = b["filename_phenotype"].get<std::string>();
-
-                apbaselines.emplace_back();
-                scan_baseline(apbaselines.back(), apfilename);
-
-                bool initial_state = (b.find("filename_state") != b.end());
-                if (initial_state) {
-                    std::string statefilename = b["filename_state"].get<std::string>();
-
-                    //TODO
-                    //scan_state(..., statefilename);
-                }
-
 
                 baselineVariables.emplace_back();
                 Variables & bVar = baselineVariables.back();
@@ -302,6 +310,70 @@ public:
                      .gamma = 0,
                      .is_mutation_applicable = 0
                     });
+                }
+            }
+            
+            //we may need to generate test baselines first
+            bool run_type = (config.find("mode") != config.end());
+            apbaselines = BaselineVec(baselines_num); //sorry for this
+            if (mpi_rank == 0 && run_type && config["mode"].get<std::string>() == "test") {
+                
+                std::cout << "Generating test baselines" << std::endl;
+                std::cout << "ATTENTION! ALL BASELINES FROM CONFIG WILL BE OVERWRITTEN" << std::endl;
+                const double t_sampling = config["t_sampling"].get<double>();
+                const int beats_num = config["test_beats"].get<int>();//run model long enough to get a steady state
+
+                int baseline_number = 0;
+
+                for (auto baseline: config["baselines"].items()) {
+                    std::vector<double> y0(glob_model.state_size());
+                    Model model(glob_model);
+                    std::vector<double> parameters(number_parameters);
+                    initial_guess(parameters.begin());
+
+                    std::vector<double> vconstants(model.constants_size());
+                    double * constants = vconstants.data();
+                    model.set_constants(constants);//!!!!!!!
+                    fill_constants_y0(parameters.begin(), constants, y0.data(), baseline_number);
+                    const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
+
+                    //now we need to resize apRecord according to period lenght and t_sampling
+                    Baseline apRecord(1 + std::ceil( period / t_sampling ));
+                    model_eval(y0, model, beats_num, period, apRecord);
+
+                    if (std::isnan(apRecord[0])) {
+                        std::cout << "nan" << std::endl;
+                        throw;
+                    }
+                    //save state and baseline
+                    auto b = baseline.value();
+                    std::string apfilename = b["filename_phenotype"].get<std::string>();
+                    write_baseline(apRecord, apfilename);
+                    //initial state may not be provided
+                    bool initial_state = (b.find("filename_state") != b.end());
+                    if (initial_state) {
+                        std::string statefilename = b["filename_state"].get<std::string>();
+                        write_state(y0, statefilename);
+                    }
+                    baseline_number++;
+                }
+            }
+
+            //read baselines
+            for (auto baseline: config["baselines"].items()) {
+                auto b = baseline.value();
+                std::string apfilename = b["filename_phenotype"].get<std::string>();
+                apbaselines = BaselineVec();
+                apbaselines.emplace_back();
+                scan_baseline(apbaselines.back(), apfilename);
+
+                //initial state may not be provided
+                bool initial_state = (b.find("filename_state") != b.end());
+                if (initial_state) {
+                    std::string statefilename = b["filename_state"].get<std::string>();
+
+                    //TODO
+                    //scan_state(..., statefilename);
                 }
             }
        //     std::cout << "Unknowns: " << number_parameters << std::endl;
@@ -411,6 +483,22 @@ public:
         }
     }
 
+    void model_eval(std::vector<double> & y0, Model & model, int beats_number, double period, Baseline & apRecord) const
+    {
+        int is_correct;
+
+        const double t0 = 0, start_record = period * (beats_number - 1),
+                tout = period * beats_number;
+
+        solver.solve(model, y0, is_correct,
+                        t0, start_record, tout, apRecord);
+
+        //maybe if a solver fails rarely then we may consider it
+        //as a really poor fitness
+        if (!is_correct)
+            throw("Solver failed");
+    }
+
     template <typename It>
     double genetic_algorithm_calls(It parameters_begin) const
     {
@@ -421,29 +509,16 @@ public:
         Model model(glob_model);
         for (size_t i = 0; i < apbaselines.size(); i++) {
             std::vector<double> y0(model.state_size());
+            Baseline & apRecord = apmodel[i];
+
             std::vector<double> vconstants(model.constants_size());
             double * constants = vconstants.data();
-
-            Baseline & apRecord = apmodel[i];
             model.set_constants(constants);//!!!!!!!
-
             fill_constants_y0(parameters_begin, constants, y0.data(), i);
-
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
-            int is_correct;
 
-            const double t0 = 0, start_record = period * (beats - 1),
-                    tout = period * beats;
-
-            solver.solve(model, y0, is_correct,
-                            t0, start_record, tout, apRecord);
-
-            //maybe if a solver fails rarely then we may consider it
-            //as a really poor fitness
-            if (!is_correct)
-                throw("Solver failed");
-
+            model_eval(y0, model, beats, period, apRecord);
             //save mutable variables from the state
             //since we let them to drift
             for (const Mutable & m: baselineVariables[i].mutableStates) {
