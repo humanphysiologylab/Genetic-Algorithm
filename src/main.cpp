@@ -466,8 +466,11 @@ void main_gen_algo(const char *configFilename)
 
     genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
-            SBXcrossover(pcg64(seed_source)),
-            PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source, 0.1, 20),
+            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
+            PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>
+                                            (seed_source,
+                                            config["mutrate"].get<double>(),
+                                            config["eta_mutation"].get<int>()),
             config["n_generations"].get<unsigned>());
     
     /*

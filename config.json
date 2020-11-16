@@ -9,6 +9,10 @@
     "n_elites": 10,
     "n_generations": 100,
     "n_beats": 7,
+    "eta_crossover": 10,
+    "crossrate": 0.1,
+    "eta_mutation": 20,
+    "mutrate": 0.1,
     "global": [
       {"name": "P_Na", "bounds": [0, 1], "gamma": 0.1},
       {"name": "g_Ca_L", "bounds": [1, 10], "gamma": 0.1},
