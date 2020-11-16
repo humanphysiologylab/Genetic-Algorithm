@@ -423,6 +423,35 @@ void old_code(int argc, char *argv[])
 
 
 
+template <typename SeedSource, typename Problem>
+void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen)
+{
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+    
+    BasicPopulation popMal(problem,
+                    config["n_elites"].get<unsigned>(),
+                    config["n_organisms"].get<unsigned>());
+
+    double time_population_init = MPI_Wtime();
+    popMal.init(pcg64(seed_source));
+    time_population_init = MPI_Wtime() - time_population_init;
+    
+    if (mpi_rank == 0)
+        std::cout << "time_population_init, s: " << time_population_init << std::endl;
+    
+    genetic_algorithm(popMal,
+            TournamentSelectionFast(pcg64(seed_source)),
+            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
+            PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>
+                                            (seed_source,
+                                            config["mutrate"].get<double>(),
+                                            config["eta_mutation"].get<int>()),
+            config["n_generations"].get<unsigned>());
+
+    error_per_gen = popMal.get_error_per_gen();
+}
 
 void main_gen_algo(const char *configFilename)
 {
@@ -451,27 +480,48 @@ void main_gen_algo(const char *configFilename)
     problem.read_config(configFilename);
     time_read_config = MPI_Wtime() - time_read_config;
 
-    BasicPopulation popMal(problem,
-                    config["n_elites"].get<unsigned>(),
-                    config["n_organisms"].get<unsigned>());
-
-    double time_population_init = MPI_Wtime();
-    popMal.init(pcg64(seed_source));
-    time_population_init = MPI_Wtime() - time_population_init;
-
     if (mpi_rank == 0) {
         std::cout << "time_read_config, s: " << time_read_config << std::endl;
-        std::cout << "time_population_init, s: " << time_population_init << std::endl;
+    }
+    
+    const double crossrates[] = {0.1, 0.5, 0.9};
+    const int eta_crossovers[] = {10, 20, 200};
+    const double mutrates[] = {0.1, 0.5, 0.9};
+    const int eta_mutations[] = {10, 20, 200};
+    for (double crossrate: crossrates) {
+        for (int eta_crossover: eta_crossovers) {
+            for (double mutrate: mutrates) {
+                for (int eta_mutation: eta_mutations) {
+    config["crossrate"] = crossrate;
+    config["eta_crossover"] = eta_crossover;
+    config["mutrate"] = mutrate;
+    config["eta_mutation"] = eta_mutation;
+     
+    const int num_tries = 5;
+    for (int i = 0; i < num_tries; i++) {
+        std::vector<std::pair<int, double>> error_per_gen;
+        gen_algo_call(seed_source, problem, config, error_per_gen);
+        //write error_per_gen to file
+        std::ostringstream crossrate_string, mutrate_string;
+        crossrate_string << std::noshowpoint << crossrate;
+        mutrate_string << std::noshowpoint << mutrate;
+        
+        std::string filename = crossrate_string.str() + 
+                               "_" + std::to_string(eta_crossover) + "_" +
+                               mutrate_string.str() + "_" + 
+                               std::to_string(eta_mutation) + "_" + std::to_string(i);
+        
+        std::ofstream file(filename);
+        for (const auto & p: error_per_gen)
+            file << p.first << " " << p.second << std::endl;
+    }
+                }
+            }
+        }
     }
 
-    genetic_algorithm(popMal,
-            TournamentSelectionFast(pcg64(seed_source)),
-            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
-            PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>
-                                            (seed_source,
-                                            config["mutrate"].get<double>(),
-                                            config["eta_mutation"].get<int>()),
-            config["n_generations"].get<unsigned>());
+
+
     
     /*
         genetic_algorithm(popMal,
@@ -480,7 +530,7 @@ void main_gen_algo(const char *configFilename)
             NoMutation(),
             100);
     */
-
+/*
     if (mpi_rank == 0) {
         using Results = decltype(problem)::Results;
         using BaselineResult = decltype(problem)::BaselineResult;
@@ -489,7 +539,7 @@ void main_gen_algo(const char *configFilename)
         std::cout << "Printing relative to default results" << std::endl;
         for (const auto & cit: res.constantsResult)
             std::cout << cit.first << " " << cit.second << std::endl;
-    }
+    }*/
     /*
     if (mpi_rank == 0) {  
         //now try to simply solve ode model

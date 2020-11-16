@@ -193,13 +193,20 @@ public:
     {
         return std::vector<double>(all_genes, all_genes + genes_per_organism);
     }
+    
+    std::vector<std::pair<int, double>> error_per_gen;
+    std::vector<std::pair<int, double>> get_error_per_gen() const
+    {
+        return error_per_gen;
+    }
     void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
     {
+        error_per_gen.push_back({gen, sd_n_index[0].first});
         if (mpi_rank != 0) return;
         if (gen % 1 != 0) return ;
         std::cout << "Generation: " << gen << std::endl
                   << "Value: " << sd_n_index[0].first << std::endl;
-
+        
        // auto best_genes = best();
       //  std::cout << "Genes:";
        // for (auto &g: best_genes)
