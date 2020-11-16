@@ -502,18 +502,20 @@ void main_gen_algo(const char *configFilename)
         std::vector<std::pair<int, double>> error_per_gen;
         gen_algo_call(seed_source, problem, config, error_per_gen);
         //write error_per_gen to file
-        std::ostringstream crossrate_string, mutrate_string;
-        crossrate_string << std::noshowpoint << crossrate;
-        mutrate_string << std::noshowpoint << mutrate;
-        
-        std::string filename = crossrate_string.str() + 
-                               "_" + std::to_string(eta_crossover) + "_" +
-                               mutrate_string.str() + "_" + 
-                               std::to_string(eta_mutation) + "_" + std::to_string(i);
-        
-        std::ofstream file(filename);
-        for (const auto & p: error_per_gen)
-            file << p.first << " " << p.second << std::endl;
+        if (mpi_rank == 0) {
+            std::ostringstream crossrate_string, mutrate_string;
+            crossrate_string << std::noshowpoint << crossrate;
+            mutrate_string << std::noshowpoint << mutrate;
+            
+            std::string filename = crossrate_string.str() + 
+                                   "_" + std::to_string(eta_crossover) + "_" +
+                                   mutrate_string.str() + "_" + 
+                                   std::to_string(eta_mutation) + "_" + std::to_string(i);
+            
+            std::ofstream file(filename);
+            for (const auto & p: error_per_gen)
+                file << p.first << " " << p.second << std::endl;
+        }
     }
                 }
             }
