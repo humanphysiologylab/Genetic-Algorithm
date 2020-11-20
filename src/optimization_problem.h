@@ -242,7 +242,7 @@ public:
                      .parameter_position = number_parameters++,
                      .model_position = model_position,
                      .gamma = v["gamma"].get<double>(),
-                     .is_mutation_applicable = 1
+                     .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
                     });
                 }
             }
@@ -293,7 +293,7 @@ public:
                          .parameter_position = number_parameters++,
                          .model_position = model_position,
                          .gamma = v["gamma"].get<double>(),
-                         .is_mutation_applicable = 1
+                         .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
                         });
                     }
                 }
@@ -380,6 +380,29 @@ public:
       //  }
         //broadcast all this nonsense;
         //TODO
+    }
+    std::vector<double> get_gamma_vector() const
+    {
+        /*
+         * call it only after config read!
+         * zero for a gene which does not mutate
+         */
+        std::vector<double> v_gamma(number_parameters);
+        for (const Mutable & gl: globalVariables.mutableConstants) {
+            v_gamma[gl.parameter_position] = gl.gamma;
+        }
+        for (const Mutable & gl: globalVariables.mutableStates) {
+            v_gamma[gl.parameter_position] = gl.gamma;
+        }
+        for (const Variables & vars: baselineVariables) {
+            for (const Mutable & gl: vars.mutableConstants) {
+                v_gamma[gl.parameter_position] = gl.gamma;
+            }
+            for (const Mutable & gl: vars.mutableStates) {
+                v_gamma[gl.parameter_position] = gl.gamma;
+            }
+        }
+        return v_gamma;
     }
     template <typename It>
     int get_boundaries(It pmin, It pmax, int * is_mutation_applicable) const

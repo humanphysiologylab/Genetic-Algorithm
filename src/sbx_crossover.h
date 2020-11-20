@@ -102,7 +102,7 @@ class NoCrossover
 {
 public:
     void operator()(double *next_generation, double *left_border, double *right_border,
-                   int number_organisms, int number_genes)
+                   int number_organisms, int number_genes,const int * is_mutation_applicable = nullptr)
     {
         ;
     }

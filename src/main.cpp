@@ -441,7 +441,20 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
     if (mpi_rank == 0)
         std::cout << "time_population_init, s: " << time_population_init << std::endl;
     
-    genetic_algorithm(popMal,
+    if (config["mutation_type"].get<std::string>() == "Cauchy") {
+        std::cout << "Cauchy" << std::endl;
+        genetic_algorithm(popMal,
+            TournamentSelectionFast(pcg64(seed_source)),
+            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
+            CauchyMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>
+                                            (seed_source,
+                                            config["mutrate"].get<double>(),
+                                            config["gamma"].get<double>(),
+                                            problem.get_gamma_vector()),
+            config["n_generations"].get<unsigned>());
+            
+    } else if (config["mutation_type"].get<std::string>() == "Poly") {
+        genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
             SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
             PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>
@@ -449,6 +462,15 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
                                             config["mutrate"].get<double>(),
                                             config["eta_mutation"].get<int>()),
             config["n_generations"].get<unsigned>());
+    } else if (config["mutation_type"].get<std::string>() == "None") {
+        genetic_algorithm(popMal,
+            TournamentSelectionFast(pcg64(seed_source)),
+            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
+            NoMutation(),
+            config["n_generations"].get<unsigned>());
+    } else {
+        throw("Unknown mutation in config");
+    }
 
     error_per_gen = popMal.get_error_per_gen();
 }
@@ -483,7 +505,7 @@ void main_gen_algo(const char *configFilename)
     if (mpi_rank == 0) {
         std::cout << "time_read_config, s: " << time_read_config << std::endl;
     }
-    
+/* test Polynomial Mutation
     const double crossrates[] = {0.1, 0.5, 0.9};
     const int eta_crossovers[] = {10, 20, 200};
     const double mutrates[] = {0.1, 0.5, 0.9};
@@ -521,7 +543,17 @@ void main_gen_algo(const char *configFilename)
             }
         }
     }
+*/
 
+        std::vector<std::pair<int, double>> error_per_gen;
+        gen_algo_call(seed_source, problem, config, error_per_gen);
+        //write error_per_gen to file
+        if (mpi_rank == 0) {
+            std::string filename = "convergence_log.txt";
+            std::ofstream file(filename);
+            for (const auto & p: error_per_gen)
+                file << p.first << " " << p.second << std::endl;
+        }
 
 
     
@@ -532,7 +564,7 @@ void main_gen_algo(const char *configFilename)
             NoMutation(),
             100);
     */
-/*
+    
     if (mpi_rank == 0) {
         using Results = decltype(problem)::Results;
         using BaselineResult = decltype(problem)::BaselineResult;
@@ -541,7 +573,10 @@ void main_gen_algo(const char *configFilename)
         std::cout << "Printing relative to default results" << std::endl;
         for (const auto & cit: res.constantsResult)
             std::cout << cit.first << " " << cit.second << std::endl;
-    }*/
+        std::cout << "relative state" << std::endl;
+        for (const auto & sit: res.statesResult)
+            std::cout << sit.first << " " << sit.second << std::endl;
+    }
     /*
     if (mpi_rank == 0) {  
         //now try to simply solve ode model
@@ -555,10 +590,14 @@ void main_gen_algo(const char *configFilename)
         model.initState(state.data());
         std::vector<double> orig_state = state;
         int is_correct;
-        double t0 = 0, start_record = 1, tout = start_record + 1;
+        double t0 = 0, start_record = 999, tout = start_record + 1;
         std::vector<double> ap(1000);
         
         double st = MPI_Wtime();
+        solver.solve(model, state, is_correct, t0, start_record, tout, ap);
+        st = MPI_Wtime() - st;
+        std::cout << "TIME: " << st << std::endl;
+        st = MPI_Wtime();
         solver.solve(model, state, is_correct, t0, start_record, tout, ap);
         st = MPI_Wtime() - st;
         std::cout << "TIME: " << st << std::endl;
@@ -585,7 +624,8 @@ void main_gen_algo(const char *configFilename)
             std::cout << "Incorrect integration" << std::endl;
         delete [] constants;
         
-    }*/
+    }
+    */
 }
 
 
