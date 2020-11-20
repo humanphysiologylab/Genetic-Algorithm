@@ -29,6 +29,10 @@ public:
 
     double *all_genes;
     int genes_per_organism;
+    int get_genes_per_organism() const
+    {
+        return genes_per_organism;
+    }
     int all_genes_size;
 
     double *elite_genes_buffer;

@@ -18,6 +18,15 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    if (rank == 0) {
+        printf("Number of organisms: %d\n", pop.number_organisms);
+        printf("Number of elite organisms: %d\n", pop.number_elites);
+        printf("Number of optimized parameters: %d\n", pop.get_genes_per_organism());
+        printf("Number of generations: %d\n", generations);
+        printf("Number of MPI nodes: %d\n", size);
+        printf("Number of cores at root: %d\n", omp_get_max_threads());
+    }
+
     //timer
     const double start_time = MPI_Wtime();
 
