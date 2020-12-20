@@ -105,12 +105,12 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
 
             double crossover_time = MPI_Wtime();
             crossover(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants,
-                          pop.get_number_genes(), pop.is_mutation_applicable);
+                          pop.get_number_genes(), pop.get_is_mutation_applicable());
             crossover_time = MPI_Wtime() - crossover_time;
 
 
             double mutation_time = MPI_Wtime();
-            mutation(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants, pop.get_number_genes(), pop.is_mutation_applicable);
+            mutation(pop.get_mutant_buffer_genes(), pop.get_min_gene_value(), pop.get_max_gene_value(), pop.number_mutants, pop.get_number_genes(), pop.get_is_mutation_applicable());
             mutation_time = MPI_Wtime() - mutation_time;
 
             /*Genetic Operators for mutants DONE*/

@@ -11,7 +11,7 @@ class TournamentSelection
 {
     InitializedRandomGenerator rg;
 
-    void tournament_basic_half(int *mpool, int mpool_size, const std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
+    void tournament_basic_half(int *mpool, size_t mpool_size, const std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
     {
         /* sd_n_index is expected to be sorted by sd in increasing order.
          * tournament_basic_half fills in mpool with indices of organisms in mating pool according to the tournament selection without replacement.
@@ -23,14 +23,14 @@ class TournamentSelection
         /* We use forward_list as an array we will run through
          * picking winners and kicking out random losers.
          */
-        int list_size = sd_n_index.size() - number_of_ignored_losers;
+        size_t list_size = sd_n_index.size() - number_of_ignored_losers;
         std::forward_list<int> list_of_indices(list_size);
         
         /* First, copy indices from sd_n_index
          * to the list wrt the order
          */
         auto a = list_of_indices.begin();
-        for (int i = 0; i < list_size; i++) {
+        for (size_t i = 0; i < list_size; i++) {
             *a = sd_n_index[i].second;
             a++;
         }
@@ -39,7 +39,7 @@ class TournamentSelection
          * every organism after 'a' is inferior to it.
          */
         a = list_of_indices.begin();
-        for (int i = 0; i < mpool_size; i++) {
+        for (size_t i = 0; i < mpool_size; i++) {
             assert(a != list_of_indices.end());
             /* save current winner
              */

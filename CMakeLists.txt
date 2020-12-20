@@ -68,8 +68,8 @@ set(SOURCE_FILES
         src/basic_function_functor.cpp
         src/test_functions.cpp
         src/maleckar_model.cpp
+        src/kernik_clancy_model.cpp
         LSODA/LSODA.cpp
-        src/optimization_problem.h
         )
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)

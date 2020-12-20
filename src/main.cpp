@@ -30,8 +30,12 @@
 #include "cauchy_mutation.h"
 
 #include "maleckar_model.h"
+#include "kernik_clancy_model.h"
+
 #include "cellml_ode_solver.h"
 #include "optimization_problem.h"
+#include "nelder_mead.h"
+
 #include <json.hpp>
 
 
@@ -52,12 +56,12 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
     
     if (mpi_rank == 0)
         std::cout << "time_population_init, s: " << time_population_init << std::endl;
-    
+
     if (config["mutation_type"].get<std::string>() == "Cauchy") {
         genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
             SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
-            CauchyMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>
+            CauchyMutation<pcg64, SeedSource>
                                             (seed_source,
                                             config["mutrate"].get<double>(),
                                             config["gamma"].get<double>(),
@@ -68,7 +72,7 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
         genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
             SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
-            PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>
+            PolynomialMutation<pcg64, SeedSource>
                                             (seed_source,
                                             config["mutrate"].get<double>(),
                                             config["eta_mutation"].get<int>()),
@@ -93,7 +97,7 @@ void main_gen_algo(const char *configFilename)
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
     pcg_extras::seed_seq_from<std::random_device> seed_source;
-
+//const int seed_source = 42;
     std::ifstream configFile;
     configFile.open(configFilename);
     if (!configFile.is_open() && mpi_rank == 0) {
@@ -104,13 +108,23 @@ void main_gen_algo(const char *configFilename)
     configFile >> config;
     configFile.close();
 
-    MaleckarModel model;
+    
+    //MaleckarModel model;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    KernikClancyModel model;
+    
     ODESolver solver;
+    //MOCKODESolver solver;
     MinimizeAPbaselines obj;
     ODEoptimization problem(model, solver, obj);
 
     double time_read_config = MPI_Wtime();
-    problem.read_config(configFilename);
+    try {
+        problem.read_config(configFilename);
+    } catch(const char * err) {
+        std::cout << "catch in main:" << std::endl;
+        std::cout << err << std::endl;
+        throw;
+    }
     time_read_config = MPI_Wtime() - time_read_config;
 
     if (mpi_rank == 0) {
@@ -155,12 +169,27 @@ void main_gen_algo(const char *configFilename)
         }
     }
 */
-
+    return;
         std::vector<std::pair<int, double>> error_per_gen;
         gen_algo_call(seed_source, problem, config, error_per_gen);
+        if (mpi_rank == 0) {
+            std::string filename = "convergence_GA.txt";
+            std::ofstream file(filename);
+            for (const auto & p: error_per_gen)
+                file << p.first << " " << p.second << std::endl;
+        }
+        error_per_gen.clear();
+        if (mpi_rank == 0) {
+            //addition GD
+            error_per_gen = weirdSteepestGradientDescent(pcg64(seed_source), problem, config["n_generations_GD"].get<int>(), 1e-1, problem.get_results_optimizer_format());
+        }
+        
+     // error_per_gen = simpleGradientDescent(pcg64(seed_source), problem, config["n_generations"].get<int>());
+     //  error_per_gen = weirdSteepestGradientDescent(pcg64(seed_source), problem, config["n_generations"].get<int>(), 1e-3);
+
         //write error_per_gen to file
         if (mpi_rank == 0) {
-            std::string filename = "convergence_log.txt";
+            std::string filename = "convergence_GD.txt";
             std::ofstream file(filename);
             for (const auto & p: error_per_gen)
                 file << p.first << " " << p.second << std::endl;
@@ -184,7 +213,7 @@ void main_gen_algo(const char *configFilename)
         std::cout << "Printing relative to default results" << std::endl;
         for (const auto & cit: res.constantsResult)
             std::cout << cit.first << " " << cit.second << std::endl;
-        std::cout << "relative state" << std::endl;
+        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
         for (const auto & sit: res.statesResult)
             std::cout << sit.first << " " << sit.second << std::endl;
     }
@@ -240,6 +269,73 @@ void main_gen_algo(const char *configFilename)
 }
 
 
+
+
+void track_min_method(const char *configFilename)
+{
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+//    pcg_extras::seed_seq_from<std::random_device> seed_source;
+const int seed_source = 42;
+    std::ifstream configFile;
+    configFile.open(configFilename);
+    if (!configFile.is_open() && mpi_rank == 0) {
+        std::cerr << "Cannot open main config file" << std::endl;
+        throw;
+    }
+    json config;
+    configFile >> config;
+    configFile.close();
+
+    MaleckarModel model;
+    ODESolver solver;
+
+    MinimizeAPbaselines obj;
+    ODEoptimizationTrackVersion problem(model, solver, obj);///////////////////////////
+   // ODEoptimization problem(model, solver, obj);
+    
+    double time_read_config = MPI_Wtime();
+    try {
+        problem.read_config(configFilename);
+    } catch(const char * err) {
+        std::cout << "catch in main:" << std::endl;
+        std::cout << err << std::endl;
+        throw;
+    }
+    time_read_config = MPI_Wtime() - time_read_config;
+
+    if (mpi_rank == 0) {
+        std::cout << "time_read_config, s: " << time_read_config << std::endl;
+
+        const int global_steps = 10;
+        const int local_steps = 100;
+        const double r_eps = 1e-1;
+        std::vector<std::pair<int, double>> error_per_gen = weirdSteepestGradientDescentTrack(pcg64(seed_source), problem, r_eps, global_steps, local_steps);////////
+       //std::vector<std::pair<int, double>> error_per_gen = weirdSteepestGradientDescent(pcg64(seed_source), problem, 50, r_eps);
+
+        std::string filename = "convergence_TRACK.txt";
+        //std::string filename = "convergence_CG.txt";
+        std::ofstream file(filename);
+        for (const auto & p: error_per_gen)
+            file << p.first << " " << p.second << std::endl;
+
+        using Results = decltype(problem)::Results;
+        using BaselineResult = decltype(problem)::BaselineResult;
+        Results results = problem.get_relative_results();
+        BaselineResult res = results[0];
+        std::cout << "Printing relative to default results" << std::endl;
+        for (const auto & cit: res.constantsResult)
+            std::cout << cit.first << " " << cit.second << std::endl;
+        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
+        for (const auto & sit: res.statesResult)
+            std::cout << sit.first << " " << sit.second << std::endl;
+    }
+}
+
+
+
 void test_function_example()
 {
     int rank, size;
@@ -251,20 +347,37 @@ void test_function_example()
         "Problem with a test function will be solved now" << std::endl;
         
     pcg_extras::seed_seq_from<std::random_device> seed_source;
-        
-    using FuncToOptimize = RosenbrockFunction<10>;
+   // int seed_source = 42;
+    using FuncToOptimize = RosenbrockFunction<30>;
     FuncToOptimize func;
     FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
 
-    BasicPopulation pop(optim, 100, 10000);
 
-    pop.init(pcg64(seed_source));
+    auto res = nelder_mead(pcg64(seed_source), optim, 10000000, 1e-14, 100, 1e-1);
+    for (auto & p: res) {
+        std::cout << p.first << " " << p.second << std::endl;
+    }
+//    BasicPopulation pop(optim, 10, 100);
 
-    genetic_algorithm(pop,
-                    TournamentSelectionFast(pcg64(seed_source)),
-                    SBXcrossover(pcg64(seed_source)),
-                    PolynomialMutation<pcg64, pcg_extras::seed_seq_from<std::random_device>>(seed_source),
-                    1000);
+  //  pop.init(pcg64(seed_source));
+
+    //genetic_algorithm(pop,
+      //              TournamentSelectionFast(pcg64(seed_source)),
+        //            SBXcrossover(pcg64(seed_source), 0.1, 10),
+                 /*
+                    CauchyMutation<pcg64, decltype(seed_source)>
+                                            (seed_source,
+                                            0.1,
+                                            0.01,
+                                            optim.get_gamma_vector()),
+                   */
+                    //NoMutation(),
+          //         PolynomialMutation<pcg64, decltype(seed_source)>(seed_source, 0.1, 200),
+            //        100);
+
+
+ //   simpleGradientDescent(pcg64(seed_source), optim, 1000, 1e-6);
+//weirdSteepestGradientDescent(pcg64(seed_source), optim, 3000, 1e-3);
     if (rank == 0) {
         auto res = optim.get_result();
         std::cout << "Parameter error: " << func.solution_error(res) << std::endl;
@@ -277,6 +390,7 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
 
     if (argc == 2) {
+        //track_min_method(argv[1]);
         main_gen_algo(argv[1]);
     } else {
         test_function_example();

@@ -20,6 +20,7 @@ public:
 		assert(start_record <= tout);
 		assert(y0.size() > 0);
 
+
 		LSODA lsoda;
 		int istate = 1;//state to check if everything is fine
 
@@ -55,4 +56,35 @@ public:
 		}
 	}
 };
+
+
+
+
+class MOCKODESolver
+{
+public:
+	template <typename Model>
+	void solve(const Model & model, std::vector<double> & y0, int & is_correct,
+				double t0, double start_record, double tout, std::vector<double> & ap) const
+	{
+		assert(ap.size() > 0);
+		assert(t0 <= start_record);
+		assert(start_record <= tout);
+		assert(y0.size() > 0);
+
+		const double record_step = (tout - start_record) / (ap.size() - 1);
+		double t = t0;
+
+        t = start_record;
+        model(y0, t);
+		ap[0] = y0[0];
+		for (size_t i = 1; i < ap.size(); i++) {
+            model(y0, t + record_step);
+            t += record_step;
+			ap[i] = y0[0];
+		}
+        is_correct = 1;
+	}
+};
+
 #endif

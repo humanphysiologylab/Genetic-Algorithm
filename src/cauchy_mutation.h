@@ -139,7 +139,7 @@ public:
         const int openmp_threads = omp_get_max_threads();
         for (int i = 0; i < openmp_threads; i++)
             random_generators.push_back(RandomGenerator(seed));
-        num_mutation_applicable_genes = v_gamma.size();
+        num_mutation_applicable_genes = static_cast<int>(v_gamma.size());
         for (double g: v_gamma) {
             if (g == 0)
                 num_mutation_applicable_genes--;

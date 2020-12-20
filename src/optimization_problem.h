@@ -30,7 +30,7 @@ public:
         assert(a.size() == b.size());
         for (size_t i = 0; i < a.size(); i++)
             res += std::pow(std::abs(a[i] - b[i]), power);
-        res /= a.size();
+        res /= (double) a.size();
         return res;
     }
 
@@ -41,7 +41,7 @@ public:
         for (size_t i = 0; i < a.size(); i++) {
             res += distBaselines(a[i], b[i]);
         }
-        res = std::pow(res, 1.0/power);
+        res = std::pow(res / (double) a.size(), 1.0/power);
         if (std::isnan(res))
             res = std::numeric_limits<double>::max();
         return res;
@@ -51,6 +51,7 @@ public:
 template <typename Model, typename Solver, typename Objective>
 class ODEoptimization
 {
+protected:
     Model glob_model;//!!!!
     Solver solver;//!!!!
     Objective obj;//!!!!
@@ -107,7 +108,7 @@ public:
         StatesResult statesResult;
     };
     using Results = std::vector<BaselineResult>;
-private:
+protected:
     Results results, relative_results;//abs values and relative to default values
     std::vector<double> results_optimizer_format;
     
@@ -271,6 +272,8 @@ public:
                          .value = v["value"].get<double>(),
                          .model_position = model_position
                         });
+                    } catch (const char * const_isnt_a_value) {
+                        throw(const_isnt_a_value);
                     } catch (...) {
                         //name is not a constant
                         //so it is probably a state which can be mutated
@@ -314,7 +317,6 @@ public:
             
             //we may need to generate test baselines first
             bool run_type = (config.find("mode") != config.end());
-            apbaselines = BaselineVec(baselines_num); //sorry for this
             if (mpi_rank == 0 && run_type && config["mode"].get<std::string>() == "test") {
                 
                 std::cout << "Generating test baselines" << std::endl;
@@ -337,11 +339,15 @@ public:
                     const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
 
                     //now we need to resize apRecord according to period lenght and t_sampling
-                    Baseline apRecord(1 + std::ceil( period / t_sampling ));
+                    double num_rec = 1 + std::ceil( period / t_sampling );
+                    assert(num_rec < std::numeric_limits<unsigned int>::max());
+                    Baseline apRecord(static_cast<unsigned int> (num_rec));
                     model_eval(y0, model, beats_num, period, apRecord);
 
-                    if (std::isnan(apRecord[0])) {
-                        std::cout << "nan" << std::endl;
+                    bool if_nan_in_AP = (apRecord.end() != std::find_if(apRecord.begin(), apRecord.end(), [](double v) { 
+                                           return std::isnan(v); }));
+                    if (if_nan_in_AP) {
+                        std::cout << "NaN found in the generated baseline" << std::endl;
                         throw;
                     }
                     //save state and baseline
@@ -357,13 +363,15 @@ public:
                     baseline_number++;
                 }
             }
+            
+            //wait for a root node to complete baseline generation
             MPI_Barrier(MPI_COMM_WORLD);
 
             //read baselines
+            apbaselines = BaselineVec();
             for (auto baseline: config["baselines"].items()) {
                 auto b = baseline.value();
                 std::string apfilename = b["filename_phenotype"].get<std::string>();
-                apbaselines = BaselineVec();
                 apbaselines.emplace_back();
                 scan_baseline(apbaselines.back(), apfilename);
 
@@ -404,8 +412,8 @@ public:
         }
         return v_gamma;
     }
-    template <typename It>
-    int get_boundaries(It pmin, It pmax, int * is_mutation_applicable) const
+    template <typename T1, typename T2>
+    int get_boundaries(T1 & pmin, T1 & pmax, T2 & is_mutation_applicable) const
     {
         for (const Mutable & gl: globalVariables.mutableConstants) {
             pmin[gl.parameter_position] = gl.min_value;
@@ -453,8 +461,8 @@ public:
             }
             
             //finally, set mutable baseline parameters
-            for (size_t i = 0; i < apbaselines.size(); i++) {
-                for (const Mutable & m: baselineVariables[i].mutableStates) {
+            for (const Variables & vars: baselineVariables) {
+                for (const Mutable & m: vars.mutableStates) {
                     parameters_begin[m.parameter_position] = y0[m.model_position];
                 }
             }
@@ -508,7 +516,7 @@ public:
 
     void model_eval(std::vector<double> & y0, Model & model, int beats_number, double period, Baseline & apRecord) const
     {
-        int is_correct;
+        int is_correct = 0;
 
         const double t0 = 0, start_record = period * (beats_number - 1),
                 tout = period * beats_number;
@@ -522,9 +530,11 @@ public:
             throw("Solver failed");
     }
 
+
     template <typename It>
-    double genetic_algorithm_calls(It parameters_begin) const
+    BaselineVec genetic_algorithm_calls_general(It parameters_begin, int n_beats = -1) const
     {
+        if (n_beats == -1) n_beats = beats;
         BaselineVec apmodel;
         for (const auto & v: apbaselines)
             apmodel.push_back(Baseline(v.size()));
@@ -541,25 +551,33 @@ public:
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
 
-            model_eval(y0, model, beats, period, apRecord);
+            model_eval(y0, model, n_beats, period, apRecord);
             //save mutable variables from the state
             //since we let them to drift
             for (const Mutable & m: baselineVariables[i].mutableStates) {
                 parameters_begin[m.parameter_position] =  y0[m.model_position];
             }
         }
-        return obj.dist(apbaselines, apmodel);
+        return apmodel;
     }
+
     template <typename It>
-    void genetic_algorithm_result(It parameters_begin)
+    double genetic_algorithm_calls(It parameters_begin) const
+    {
+        return obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin));
+    }
+    template <typename V>
+    void genetic_algorithm_result(const V & parameters)
     {
         //mirror the stage of initialization before solver.solve call
         //but just save the final result
+        results = Results();
+        relative_results = Results();
         for (size_t i = 0; i < apbaselines.size(); i++) {
             BaselineResult res, relative_res;
             std::vector<double> y0(glob_model.state_size());
             std::vector<double> vconstants(glob_model.constants_size());
-            fill_constants_y0(parameters_begin, vconstants.data(), y0.data(), i);
+            fill_constants_y0(parameters.begin(), vconstants.data(), y0.data(), i);
 
             std::vector<double> y0_default(glob_model.state_size());
             std::vector<double> vconstants_default(glob_model.constants_size());
@@ -579,10 +597,66 @@ public:
             relative_results.push_back(relative_res);
         }
         results_optimizer_format = std::vector<double>(number_parameters);
-        std::copy(parameters_begin, parameters_begin + number_parameters, results_optimizer_format.begin());
+        std::copy(parameters.begin(), parameters.begin() + number_parameters, results_optimizer_format.begin());
     }
 };
 
+template <typename Model, typename Solver, typename Objective>
+class ODEoptimizationTrackVersion:
+    public ODEoptimization<Model, Solver, Objective>
+{
+protected:
+    using Base = ODEoptimization<Model, Solver, Objective>;
+    using typename Base::Baseline;
+    using typename Base::BaselineVec;
+    using Base::apbaselines;
+    using Base::obj;
+    using Base::write_baseline;
+    using Base::genetic_algorithm_calls_general;
+    BaselineVec initial_guess_baseline;
+    BaselineVec intermediate_baseline;
+    
+    double alpha;
+public:
+    ODEoptimizationTrackVersion(const Model & model, const Solver & solver, const Objective & obj)
+    : Base(model, solver, obj)
+    {}
+    
+    template <typename It>
+    void start_track(It parameters_begin)
+    {
+        intermediate_baseline = initial_guess_baseline = genetic_algorithm_calls_general(parameters_begin, 10000);
+        write_baseline(intermediate_baseline[0], "baseline_start.txt");
+        set_alpha(0);
+    }
+    void set_alpha(double alpha_)
+    {
+        //alpha = 0 then initial_guess_baseline
+        //alpha = 1 apbaselines
+        alpha = std::pow(alpha_, 1);
+        for (size_t i = 0; i < apbaselines.size(); i++)
+            for (size_t j = 0; j < apbaselines[i].size(); j++)
+                intermediate_baseline[i][j] = alpha * apbaselines[i][j]
+                            + (1 - alpha) * initial_guess_baseline[i][j];
+    }
+    template <typename It>
+    double genetic_algorithm_calls(It parameters_begin) const
+    {
+     //   write_baseline(intermediate_baseline[0], "baseline_1.txt");///////////////////////////////
+       // for (int i = 2; i < 10; i++) {///////////////////////////////////////////////////////////////////////
+            const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
+        //    write_baseline(tmp_b[0], std::string("baseline_") + std::to_string(i) + ".txt");/////////////////////////////////////////
+       // }/////////////////////////////////////////////////////////
+      //  auto tmp_b = intermediate_baseline;/////////////////////////////////////////////////////////////////////
+        return obj.dist(intermediate_baseline, tmp_b);
+    }
+    template <typename It>
+    void dump_ap(It parameters_begin, int i) const
+    {
+        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, 1);
+        write_baseline(tmp_b[0], std::string("ap") + std::to_string(i) + ".txt");
+    }
+};
 
 template <typename Func>
 class MinimizeFunc
@@ -627,14 +701,14 @@ public:
     {
         return func.get_xdim();
     }
-    template <typename It>
-    int get_boundaries(It pmin, It pmax, int * is_mutation_applicable) const
+    template <typename T1, typename T2>
+    int get_boundaries(T1 & pmin, T1 & pmax, T2 & is_mutation_applicable) const
     {
         auto ppmin = func.x_min();
-        std::copy(ppmin.begin(), ppmin.end(), pmin);
+        std::copy(ppmin.begin(), ppmin.end(), pmin.begin());
         auto ppmax = func.x_max();
-        std::copy(ppmax.begin(), ppmax.end(), pmax);
-        std::fill(is_mutation_applicable, is_mutation_applicable + get_number_parameters(), 1);
+        std::copy(ppmax.begin(), ppmax.end(), pmax.begin());
+        std::fill(is_mutation_applicable.begin(), is_mutation_applicable.end(), 1);
         return 0; //have boundaries
         //return -1; //no boundaries
     }
@@ -652,11 +726,20 @@ public:
             params[i] = *parameters_begin;
         return obj(func(params));
     }
-    template <typename It>
-    void genetic_algorithm_result(It parameters_begin)
+    template <typename V>
+    void genetic_algorithm_result(const V & parameters)
     {
-        for (int i = 0; i != func.get_xdim(); i++, parameters_begin++)
-            result[i] = *parameters_begin;
+        for (int i = 0; i != func.get_xdim(); i++)
+            result[i] = parameters[i];
+    }
+    std::vector<double> get_gamma_vector() const
+    {
+        /*
+         * call it only after config read!
+         * zero for a gene which does not mutate
+         */
+        std::vector<double> v_gamma(get_number_parameters(), 1);
+        return v_gamma;
     }
 };
 

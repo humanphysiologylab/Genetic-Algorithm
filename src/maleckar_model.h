@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cassert>
+#include <cmath>
 
 class MaleckarModel
 {
@@ -35,6 +36,22 @@ public:
     int get_alg_size() const
     {
         return alg_size;
+    }
+
+    void operator()(std::vector<double> & y0, double t) const
+    {
+        //mock problem for tests IT IS NOT RELATED TO MALECKAR AT ALL
+        std::vector<double> real_consts(const_size), real_state(states_size);
+        initConsts(real_consts.data());
+        initState(real_state.data());
+        double rt = std::fmod(t, constants[5]);
+        real_consts[5] = constants[5];
+        double s = 0;
+        for (int i = 0; i < const_size; i++)
+            s += std::pow(constants[i] - real_consts[i], 2);
+        for (int i = 1; i < states_size; i++)
+            s += std::pow(y0[i] - real_state[i], 2);
+        y0[0] = constants[5] + s;
     }
 
     void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const

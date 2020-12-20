@@ -42,7 +42,7 @@ public:
                         double y1 = next_generation[2 * i * number_genes + j],
                                y2 = next_generation[(2 * i + 1) * number_genes + j];
 
-                        if (fabs(y1 - y2) > 1e-14) {
+                        if (std::fabs(y1 - y2) > 1e-14) {
 
                             if (y1 > y2)
                                 std::swap(y1, y2);
