@@ -88,7 +88,7 @@ void KernikClancyModel::initConsts(double * constants) const
    0.0000000e+00,
    0.0000000e+00,
    0.0000000e+00,
-   0.0000000e+00,
+   1,
    0.0000000e+00,
    1000};
    
@@ -122,7 +122,9 @@ void KernikClancyModel::initState(double * states) const
     7.5603290e-01,
     1.1312036e-02,
     1.6504511e-04,
-    1.4215362e-02};
+    1.4215362e-02,
+    0.000367,
+    0.96729};
     
     for (int i = 0; i < states_size; i++)
         states[i] = initialState_array[i];
@@ -185,7 +187,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     //    Flags:
     const double stim_flag = model_parameter_inputs[82]; // (83);  // % dimensionless (in stim_mode)
     const double voltageclamp = model_parameter_inputs[84]; // (85); // %square pulses if =1
-    
+    const double g_kur_scaler = model_parameter_inputs[85];
     
     // -------------------------------------------------------------------------------
     //  Constants for flag protocols:
@@ -283,6 +285,21 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     // Current:
     double g_Kr = x_KR[0] * x_scale_conductance[1] ; // nS_per_pF (in i_Kr)
     double i_Kr = g_Kr * ( Y[0] - E_K ) * Y[9] * Y[10] * sqrt( Ko / 5.4 );
+    
+    // ----------------------------------------------------------------------------
+    // IKur from Maleckar
+    const double a_ur_infinity = 1.00000 / (1.00000 + exp(- (Y[0] + 6.00000) / 8.60000));
+    const double tau_a_ur = 1e3 * ( 0.00900000 / (1.00000 + exp((Y[0] + 5.00000) / 12.0000)) + 0.000500000 ); // ms
+    dY[23] = (a_ur_infinity - Y[23]) / tau_a_ur;
+
+    const double i_ur_infinity = 1.00000 / (1.00000 + exp((Y[0] + 7.50000) / 10.0000));
+    const double tau_i_ur = 1e3 * ( 0.590000 / (1.00000 + exp((Y[0] + 60.0000) / 10.0000)) + 3.05000 ); // ms
+    dY[24] = (i_ur_infinity - Y[24]) / tau_i_ur;
+
+    // Current:
+    const double g_Kur = model_parameter_inputs[86] * g_kur_scaler ; // nS_per_pF (in i_Kur)
+    const double i_Kur = g_Kur * ( Y[0] - E_K ) * Y[23] * Y[24];
+    
     
     // ----------------------------------------------------------------------------
     // Slow delayed rectifier current (IKs):
@@ -660,15 +677,15 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     // 4: Nai (millimolar) (in sodium_dynamics)
     dY[3] = -Cm * ( i_Na + i_b_Na + i_fNa + 3.0 * i_NaK + 3.0 * i_NaCa + i_CaL_Na ) / ( F * Vc );
     
-    if( stim_flag == 1 ) {
+    if (stim_flag == 1) {
        ;// dY[3] = 0;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     } // end
     
     //-------------------------------------------------------------------------------
-    // 5: Ki (millimolar) (in potatssium_dynamics)
-    dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Ks + i_fK - 2. * i_NaK + i_CaL_K ) / ( F * Vc );
+    // 5: Ki (millimolar) (in potassium_dynamics)
+    dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K ) / ( F * Vc );
     
-    if( stim_flag == 1 ) {
+    if (stim_flag == 1) {
        ;// dY[4] = 0;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     } // end
     
@@ -702,7 +719,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     
     const double i_voltageclamp = ( v_clamp - Y[0]  ) / R_clamp;
     
-    dY[0] = - (i_K1 + i_to + i_Kr + i_Ks + i_CaL
+    dY[0] = - (i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_CaL
               + i_CaT + i_NaK + i_Na + i_NaCa + i_PCa
               + i_f + i_b_Na + i_b_Ca - i_stim - i_voltageclamp);
     

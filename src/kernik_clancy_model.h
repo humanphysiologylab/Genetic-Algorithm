@@ -23,7 +23,7 @@ class KernikClancyModel
     //Colleen Clancy Lab @ UC davis
     //
 
-    static const int states_size = 23, alg_size = 0, const_size = 88;
+    static const int states_size = 25, alg_size = 0, const_size = 88;
     double * constants;
     void computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, double*  __restrict states) const;
 
@@ -70,7 +70,7 @@ public:
     void get_maps(Map1 & legend_states, Map2 & legend_constants, Map3 & legend_algebraic, Map4 & legend_rates) const
     {
         //simply copy it from python's version of cellml code
-        //there is no cellml code for Kernik-Clancy
+        //unfortunately, there is no cellml code for Kernik-Clancy
         
         legend_states[0] = "V in component membrane (millivolt)";
         
@@ -99,6 +99,9 @@ public:
         legend_states[20] = "R (in Irel)";
         legend_states[21] = "O (in Irel)";
         legend_states[22] = "I (in Irel)";
+        legend_states[23] = "a_ur (ultra_rapid_K_current_aur_gate)";
+        legend_states[24] = "i_ur (ultra_rapid_K_current_iur_gate)";
+        
         
         legend_rates[0] = "d/dt V in component membrane (millivolt)";
         //Ionic Flux
@@ -126,12 +129,29 @@ public:
         legend_rates[20] = "d/dt R (in Irel)";
         legend_rates[21] = "d/dt O (in Irel)";
         legend_rates[22] = "d/dt I (in Irel)";
-        
-        
-        for (int i = 0; i < 16; i++)
-            legend_constants[i] = std::string("x_scale_conductance_") + std::to_string(i) + " ";
-        
-        legend_constants[16] = "g_K1 (???)";
+        legend_rates[23] = "d/dt a_ur (ultra_rapid_K_current_aur_gate)";
+        legend_rates[24] = "d/dt i_ur (ultra_rapid_K_current_iur_gate)";
+
+
+
+        legend_constants[0] = "g_K1_scaler (dimensionless)";
+        legend_constants[1] = "g_Kr_scaler (dimensionless)";
+        legend_constants[2] = "g_Ks_scaler (dimensionless)";
+        legend_constants[3] = "g_to_scaler (dimensionless)";
+        legend_constants[4] = "g_CaL_scaler (dimensionless)";
+        legend_constants[5] = "g_CaT_scaler (dimensionless)";
+        legend_constants[6] = "g_Na_scaler (dimensionless)";
+        legend_constants[7] = "g_f_scaler (dimensionless)";
+        legend_constants[8] = "kNaCa_scaler (dimensionless)";
+        legend_constants[9] = "VmaxUp_scaler (dimensionless)";
+        legend_constants[10] = "ks_scaler (dimensionless)";
+        legend_constants[11] = "V_leak_scaler (dimensionless)";
+        legend_constants[12] = "PNaK_scaler (dimensionless)";
+        legend_constants[13] = "g_b_Na_scaler (dimensionless)";
+        legend_constants[14] = "g_b_Ca_scaler (dimensionless)";
+        legend_constants[15] = "g_PCa_scaler (dimensionless)";
+
+        legend_constants[16] = "g_K1 (nS_per_pF)";
         for (int i = 17; i < 22; i++)
             legend_constants[i] = std::string("x_K1_") + std::to_string(i - 17) + " ";
             
@@ -149,7 +169,7 @@ public:
             
         legend_constants[61] = "x_cat ";
         
-        legend_constants[62] = "g_Na (???)";
+        legend_constants[62] = "g_Na (nS_per_pF)";
         for (int i = 63; i < 76; i++)
             legend_constants[i] = std::string("x_NA_") + std::to_string(i - 63) + " ";
 
@@ -160,8 +180,8 @@ public:
         legend_constants[83] = "Unknown_0 ";
         legend_constants[84] = "voltageclamp ";
 
-        legend_constants[85] = "Unknown_1 ";
-        legend_constants[86] = "Unknown_2 ";
+        legend_constants[85] = "g_kur_scaler (dimensionless)";
+        legend_constants[86] = "g_kur (nS_per_pF)";
         legend_constants[87] = "stim_period (ms)";
     }
 };
