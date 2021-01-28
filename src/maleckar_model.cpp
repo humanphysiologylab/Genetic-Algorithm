@@ -1,11 +1,11 @@
 #include "maleckar_model.h"
 #include <cmath>
 #include <array>
-/*
-   There are a total of 70 entries in the algebraic variable array.
-   There are a total of 30 entries in each of the rate and state variable arrays.
-   There are a total of 51 entries in the constant variable array.
- */
+
+MaleckarModel::MaleckarModel()
+: constants(0)
+{}
+
 /*
  * VOI is time in component environment (second).
  * states[0] is V in component membrane (millivolt).
@@ -190,7 +190,56 @@
  * rates[26] is d/dt Ca_up in component Ca_handling_by_the_SR (millimolar).
  * rates[25] is d/dt Ca_rel in component Ca_handling_by_the_SR (millimolar).
  */
-
+void MaleckarModel::set_constants(double *c)
+{
+    constants = c;
+}
+double MaleckarModel::max_step() const
+{
+    return max_step_v;
+}
+int MaleckarModel::state_size() const
+{
+    return states_size;
+}
+int MaleckarModel::constants_size() const
+{
+    return const_size;
+}
+int MaleckarModel::get_alg_size() const
+{
+    return alg_size;
+}
+void MaleckarModel::operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const
+{
+    //the last parameter data was passed to lsoda_update (consider it null_ptr)
+    //basically it was poor man's functor
+    //here for real functor we do not need it
+    assert(constants != 0);
+    std::array<double, alg_size> algebraic;
+    computerates(t, constants, dxdt, x, algebraic.data()); 
+}
+void MaleckarModel::operator()(std::vector<double> & y0, double t) const
+{
+    //mock problem for tests IT IS NOT RELATED TO MALECKAR AT ALL
+    std::vector<double> real_consts(const_size), real_state(states_size);
+    initConsts(real_consts.data());
+    initState(real_state.data());
+    double rt = std::fmod(t, constants[5]);
+    real_consts[5] = constants[5];
+    double s = 0;
+    for (int i = 0; i < const_size; i++)
+        s += std::pow(constants[i] - real_consts[i], 2);
+    for (int i = 1; i < states_size; i++)
+        s += std::pow(y0[i] - real_state[i], 2);
+    y0[0] = constants[5] + s;
+}
+void MaleckarModel::compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const
+{   //TODO
+    assert(constants != 0);
+    std::array<double, states_size> dxdt;
+    computerates(t, constants, dxdt.data(), states, algebraic); 
+}
 void MaleckarModel::initState(double * states) const
 {
     states[0] = -74.031982;
@@ -280,9 +329,8 @@ void MaleckarModel::initConsts(double * constants) const
     constants[50] = 0.003;
 }
 
-void MaleckarModel::computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, double*  __restrict states) const
+void MaleckarModel::computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, const double*  __restrict states, double*  __restrict algebraic) const
 {
-    std::array<double, alg_size> algebraic;
     algebraic[12] =  2000.00*constants[32]*((1.00000 - states[22]) - states[23]) -  666.000*states[23];
     rates[23] = algebraic[12];
     algebraic[18] =  0.00350000*exp((( - states[0]*states[0])/30.0000)/30.0000)+0.00150000;

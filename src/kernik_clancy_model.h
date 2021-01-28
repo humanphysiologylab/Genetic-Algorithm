@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <string>
+#include <array>
 
 class KernikClancyModel
 {
@@ -23,45 +24,27 @@ class KernikClancyModel
     //Colleen Clancy Lab @ UC davis
     //
 
-    static const int states_size = 25, alg_size = 0, const_size = 88;
+    static const int states_size = 25, alg_size = 20, const_size = 89;
+    const double max_step_v = 1; //(ms)
     double * constants;
-    void computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, double*  __restrict states) const;
+    void computerates(const double VOI,
+                      const double *  __restrict constants,
+                      double *  __restrict rates,
+                      const double *  __restrict states,
+                      double * __restrict algebraic = nullptr) const;
 
 public:
-    void set_constants(double *c)
-    {
-        constants = c;
-    }
-   
-    KernikClancyModel()
-    : constants(0)
-    {}
-    
-    double max_step() const
-    {
-        return 1;
-    }
-    int state_size() const
-    {
-        return states_size;
-    }
-    int constants_size() const
-    {
-        return const_size;
-    }
-    int get_alg_size() const
-    {
-        return alg_size;
-    }
+    void compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const;
+    void set_constants(double *c);
 
-    void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const
-    {
-        //the last parameter data was passed to lsoda_update (consider it null_ptr)
-        //basically it was poor man's functor
-        //here for real functor we do not need it
-        assert(constants != 0);
-        computerates(t, constants, dxdt, x); 
-    }
+    KernikClancyModel();
+
+    double max_step() const;
+    int state_size() const;
+    int constants_size() const;
+    int get_alg_size() const;
+
+    void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const;
     void initConsts(double * constants) const;
     void initState(double * state) const;
 
@@ -71,16 +54,16 @@ public:
     {
         //simply copy it from python's version of cellml code
         //unfortunately, there is no cellml code for Kernik-Clancy
-        
+
         legend_states[0] = "V in component membrane (millivolt)";
-        
+
         //Ionic Flux
         legend_states[1] = "Ca_SR (millimolar)";
         legend_states[2] = "Cai (millimolar)";
         legend_states[3] = "Nai (millimolar)";
         legend_states[4] = "Ki (millimolar)";
         legend_states[5] = "Ca_ligand (millimolar)"; //see .cpp ????????????????????????????????????????????????????????????????????
-        
+
         //Current Gating (dimensionless)
         legend_states[6] = "d (activation in i_CaL)";
         legend_states[7] = "f1 (inactivation in i_CaL)";
@@ -101,8 +84,7 @@ public:
         legend_states[22] = "I (in Irel)";
         legend_states[23] = "a_ur (ultra_rapid_K_current_aur_gate)";
         legend_states[24] = "i_ur (ultra_rapid_K_current_iur_gate)";
-        
-        
+
         legend_rates[0] = "d/dt V in component membrane (millivolt)";
         //Ionic Flux
         legend_rates[1] = "d/dt Ca_SR (millimolar)";
@@ -110,7 +92,7 @@ public:
         legend_rates[3] = "d/dt Nai (millimolar)";
         legend_rates[4] = "d/dt Ki (millimolar)";
         legend_rates[5] = "d/dt Ca_ligand (millimolar)"; //see .cpp ????????????????????????????????????????????????????????????????????
-        
+
         //Current Gating (dimensionless)
         legend_rates[6] = "d/dt d (activation in i_CaL)";
         legend_rates[7] = "d/dt f1 (inactivation in i_CaL)";
@@ -154,10 +136,10 @@ public:
         legend_constants[16] = "g_K1 (nS_per_pF)";
         for (int i = 17; i < 22; i++)
             legend_constants[i] = std::string("x_K1_") + std::to_string(i - 17) + " ";
-            
+
         for (int i = 22; i < 33; i++)
             legend_constants[i] = std::string("x_KR_") + std::to_string(i - 22) + " ";
-            
+
         for (int i = 33; i < 39; i++)
             legend_constants[i] = std::string("x_IKS_") + std::to_string(i - 33) + " ";
 
@@ -166,23 +148,47 @@ public:
 
         for (int i = 50; i < 61; i++)
             legend_constants[i] = std::string("x_cal_") + std::to_string(i - 50) + " ";
-            
+
         legend_constants[61] = "x_cat ";
-        
+
         legend_constants[62] = "g_Na (nS_per_pF)";
         for (int i = 63; i < 76; i++)
             legend_constants[i] = std::string("x_NA_") + std::to_string(i - 63) + " ";
 
         for (int i = 76; i < 82; i++)
             legend_constants[i] = std::string("x_F_") + std::to_string(i - 76) + " ";
-            
-        legend_constants[82] = "stim_flag (boolean)";
-        legend_constants[83] = "Unknown_0 ";
+
+        legend_constants[82] = "stim_flag (int)"; //0 -- no stim, 1 -- rectangular pulse, 2 -- biphasic pulse
+        legend_constants[83] = "stim_shift (ms)";
         legend_constants[84] = "voltageclamp ";
 
         legend_constants[85] = "g_kur_scaler (dimensionless)";
         legend_constants[86] = "g_kur (nS_per_pF)";
         legend_constants[87] = "stim_period (ms)";
+        legend_constants[88] = "i_stim_Amplitude (pA/pF)";
+
+
+
+        legend_algebraic[0] = "i_K1 (pA/pF)";
+        legend_algebraic[1] = "i_to (pA/pF)";
+        legend_algebraic[2] = "i_Kr (pA/pF)";
+        legend_algebraic[3] = "i_Ks (pA/pF)";
+        legend_algebraic[4] = "i_CaL (pA/pF)";
+        legend_algebraic[5] = "i_NaK (pA/pF)";
+        legend_algebraic[6] = "i_Na (pA/pF)";
+        legend_algebraic[7] = "i_NaCa (pA/pF)";
+        legend_algebraic[8] = "i_PCa (pA/pF)";
+        legend_algebraic[9] = "i_f (pA/pF)";
+        legend_algebraic[10] = "i_b_Na (pA/pF)";
+        legend_algebraic[11] = "i_b_Ca (pA/pF)";
+        legend_algebraic[12] = "i_rel (pA/pF)";
+        legend_algebraic[13] = "i_up (pA/pF)";
+        legend_algebraic[14] = "i_leak (pA/pF)";
+        legend_algebraic[15] = "i_stim (pA/pF)";
+        legend_algebraic[16] = "i_CaT (pA/pF)";
+        legend_algebraic[17] = "i_Kur (pA/pF)";
+        legend_algebraic[18] = "i_voltageclamp (pA/pF)";
+        legend_algebraic[19] = "time (ms)";
     }
 };
 

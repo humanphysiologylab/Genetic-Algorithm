@@ -7,7 +7,8 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
-
+#include <mpi.h>
+#include <cmath>
 #include <json.hpp>
 #include <boost/bimap.hpp>
 #include <boost/bimap/unordered_set_of.hpp>
@@ -15,7 +16,39 @@
 #include <boost/bimap/list_of.hpp>
 #include <boost/bimap/unconstrained_set_of.hpp>
 
+#include <Eigen/Dense>
+
 using json = nlohmann::json;
+
+class BlockOfTable
+: public Eigen::DenseBase<Eigen::MatrixXd >::ColsBlockXpr
+{
+    int * model_indices;
+    using Base = Eigen::DenseBase<Eigen::MatrixXd >::ColsBlockXpr;
+public:
+    BlockOfTable(int * model_indices, Block xblock);
+    int get_model_pos(int col) const;
+};
+
+
+class Table
+: public Eigen::MatrixXd
+{
+    using Base = Eigen::MatrixXd;
+    int states_cols, alg_cols;
+    int * model_indices;
+    std::vector<std::string> header;
+public:
+    Table(int m, int n, std::vector<int> states_model_indices,
+            std::vector<int> alg_model_indices,
+            const std::vector<std::string> & states_names,
+            const std::vector<std::string> & alg_names);
+    ~Table();
+    BlockOfTable get_algebraic();
+    BlockOfTable get_states();
+    void export_csv(const std::string & filename);
+};
+
 
 template<int power = 2>
 class MinimizeAPbaselines
@@ -43,10 +76,141 @@ public:
         }
         res = std::pow(res / (double) a.size(), 1.0/power);
         if (std::isnan(res))
-            res = std::numeric_limits<double>::max();
+            res = 1e50;
         return res;
     }
 };
+
+
+template<int power = 2>
+class LeastSquaresMinimizeAPbaselines
+{
+public:
+    using Baseline = std::vector<double>;
+    using BaselineVec = std::vector<Baseline>;
+    
+    template<int p>
+    double sum_of_elements(const Baseline & b) const
+    {
+        double s = 0;
+        for (const auto & e: b)
+            s += std::pow(e, p);
+        return s;
+    }
+    double inner_product(const Baseline & a, const Baseline & b) const
+    {
+        double s = 0;
+        for (unsigned i = 0; i < a.size(); i++)
+            s += a[i] * b[i];
+        return s;
+    }
+    
+    double LSMdistBaselines(const Baseline & g, const Baseline & f) const
+    {
+        //watch for the correct order: g -- experimental optical mapping AP, f -- model
+        //solve least square problem for f(t) = A * g(t) + B
+        assert(g.size() == f.size());
+
+        const double c = g.size();
+        const double a = sum_of_elements<2>(g);
+        const double b = sum_of_elements<1>(g);
+        const double e = sum_of_elements<1>(f);
+        const double p = inner_product(f, g);
+
+        const double A = (c * p  - b * e) / (a * c - b * b);
+        const double B = (-b * p + a * e) / (a * c - b * b);
+
+        const double min_peak = 10;         // mV
+        const double max_peak = 60;         // mV
+        const double min_rest_potential = -100;   // mV
+        const double max_rest_potential = -60;   // mV
+        
+        const double peak = std::min(std::max(A + B, min_peak), max_peak);
+        const double rest_potential = std::min(std::max(B, min_rest_potential), max_rest_potential);
+
+        const double amplitude = peak - rest_potential;
+        std::cout << "     A+B: " << A + B << " A: " << amplitude << " B: " << rest_potential << " p: " << peak << std::endl;
+        if (std::isnan(amplitude)) {
+            std::cout << "         a:" << a <<
+            "         b:" << b <<
+            "         c:" << c <<
+            "         e:" << e <<
+            "         p:" << p <<
+            "         A:" << A <<
+            "         B:" << B << std::endl;
+            for (int i = 0; i < f.size(); i++) {
+                if (std::isnan(f[i])) {
+                    std::cout << "f is nan" << std::endl;
+                    break;
+                }
+            }
+        }
+        double res = 0;
+        for (size_t i = 0; i < f.size(); i++)
+            res += std::pow(std::abs(f[i] - (amplitude * g[i] + rest_potential)), power);
+            
+       // for (size_t i = 40; i < 80; i++)
+         //   res += std::pow(std::abs(f[i] - (amplitude * g[i] + rest_potential)), 4);
+
+        res /= (double) f.size();
+        return res;
+    }
+
+    double dist(const BaselineVec & a, const BaselineVec & b) const
+    {
+        //watch for the correct order: a -- experimental optical mapping AP, b -- model
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += LSMdistBaselines(a[i], b[i]);
+        }
+        res = std::pow(res / (double) a.size(), 1.0/power);
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+template<int power = 2>
+class MaximizeAPinnerProduct
+{
+public:
+    using Baseline = std::vector<double>;
+    using BaselineVec = std::vector<Baseline>;
+
+    double innerProduct(const Baseline & a, const Baseline & b) const
+    {
+        double res = 0, lena = 0, lenb = 0;
+        assert(a.size() == b.size());
+        for (size_t i = 0; i < a.size(); i++) {
+            res += a[i] * b[i];
+            lena += a[i] * a[i];
+            lenb += b[i] * b[i];
+        }
+        res /= sqrt(lena * lenb);
+        return res;
+    }
+
+    double dist(const BaselineVec & a, const BaselineVec & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += innerProduct(a[i], b[i]);
+        }
+        res = res / (double) a.size(); //mean value
+        if (res < -1 || res > 1)
+            std::cout << "ATTENTION: inner product: " << res << std::endl;
+        if (std::isnan(res))
+            return 1e50;//std::numeric_limits<double>::max();
+        return -res;
+    }
+};
+
+
+
+
+
 
 template <typename Model, typename Solver, typename Objective>
 class ODEoptimization
@@ -61,11 +225,18 @@ protected:
     BaselineVec apbaselines;
     
     //two types of variables
+    
+    //TODO
+    //maybe there should be a dict of parameters
+    //required only by a method, and a method provides the keys
+    //by itself
     struct Mutable
     {
         std::string name;
         double min_value;
         double max_value;
+        int init_from_config = 0;
+        double init_guess;
         int parameter_position;
         int model_position;
         double gamma;
@@ -95,10 +266,10 @@ protected:
     //number of mutable variables passed to an optimization algorithm
     int number_parameters = 0;
 
-    int mpi_rank;
-    int mpi_size;
+    int mpi_rank, mpi_size;
 
     int beats;
+    bool is_AP_normalized = 0; //normalize every baseline vector independently!!!
 public:
     using ConstantsResult = std::unordered_map<std::string, double>;
     using StatesResult = std::unordered_map<std::string, double>;
@@ -116,9 +287,41 @@ protected:
             boost::bimaps::unordered_set_of<int>,
             boost::bimaps::list_of_relation>;
             
-    BiMap constantsBiMapModel, statesBiMapModel;
-      //no need of algebraicBiMapModel, ratesBiMapModel;
+    BiMap constantsBiMapModel, statesBiMapModel, algebraicBiMapModel;
+    //no need of ratesBiMapModel
 public:
+    void unfreeze_global_variable(const std::string & name, double min_value, double max_value, std::vector<double> & params)
+    {//TODO more detailed!
+        globalVariables.valueConstants;//remove from valueConstants
+        bool is_found_in_valueConstants = 0;
+        Value v;
+        for (auto wi = globalVariables.valueConstants.begin();
+            wi != globalVariables.valueConstants.end(); wi++) {
+            if (wi->name == name) {
+                v = *wi;
+                is_found_in_valueConstants = 1;
+                globalVariables.valueConstants.erase(wi);
+                break;
+            }
+        }
+        if (!is_found_in_valueConstants)
+            throw("tried to unfreeze global variable not from valueConstants list");
+
+        globalVariables.mutableConstants.push_back(
+            {.name = name,
+             .min_value = min_value,
+             .max_value = max_value,
+             .init_from_config = 1,
+             .init_guess = v.value,
+             .parameter_position = number_parameters++, /////////////////////////////////////!!!!!!!!!!!!!!!!!!!!TODO
+             .model_position = v.model_position,
+             .gamma = 0, ////////////////////////////////////////////////////////////!!!!!!!!!!!TODO no gen algo for now
+             .is_mutation_applicable = 1////////////////////////////////////////////////////////////!!!!!!!!!!!TODO no gen algo for now
+        });
+        //also add it to old params vector 
+        //here we assume it is for restart of some method with unfrozen parameter
+        params.push_back(v.value);
+    }
 
     Results get_results() const
     {
@@ -154,6 +357,10 @@ public:
             s.second.resize(s.second.find(" "));
             constantsBiMapModel.left.insert(BiMap::left_value_type(s.second, s.first));
         }
+        for (auto & s: algMap) {
+            s.second.resize(s.second.find(" "));
+            algebraicBiMapModel.left.insert(BiMap::left_value_type(s.second, s.first));
+        }
     }
 
     int get_number_parameters() const
@@ -161,7 +368,24 @@ public:
         return number_parameters;
     }
 
-    void scan_baseline(Baseline & baseline, const std::string & filename)
+    void normalize_baseline(Baseline & baseline) const
+    {
+        const auto [min, max] = std::minmax_element(baseline.begin(), baseline.end());
+        const double vmin = *min, vmax = *max - vmin;
+        for (auto & e: baseline)
+            e = (e - vmin) / vmax;
+    }
+
+    void DEnormalize_baseline(Baseline & baseline) const
+    {
+        //TODO
+        //call it from a script only
+        const double vmin = -80, vmax = 34;
+        for (auto & e: baseline)
+            e =  e * (vmax - vmin) + vmin;
+    }
+
+    void read_baseline(Baseline & baseline, const std::string & filename)
     {
         std::ifstream file;
         file.open(filename);
@@ -170,9 +394,11 @@ public:
         double v;
         while (file >> v)
             baseline.push_back(v);
+        if (is_AP_normalized)
+            normalize_baseline(baseline);
     }
 
-    void scan_state()
+    void read_state()
     {
         //TODO
     }
@@ -198,17 +424,22 @@ public:
     }
     void read_config(const std::string & configFilename)
     {
+        std::ifstream configFile;
+        configFile.open(configFilename);
+        if (!configFile.is_open())
+            throw("Cannot open main config file");
+        json config;
+        configFile >> config;
+        configFile.close();
+        read_config(config);
+    }
+    void read_config(json & config)
+    {
         //lets make it plain, no MPI-IO, TODO
        // if (mpi_rank == 0) {
-            std::ifstream configFile;
-            configFile.open(configFilename);
-            if (!configFile.is_open())
-                throw("Cannot open main config file");
-            json config;
-            configFile >> config;
-            configFile.close();
 
-
+            is_AP_normalized = config["is_AP_normalized"].get<int>();
+            
             beats = config["n_beats"].get<int>();
 
             number_parameters = 0;
@@ -240,6 +471,8 @@ public:
                     {.name = name,
                      .min_value = v["bounds"][0].get<double>(),
                      .max_value = v["bounds"][1].get<double>(),
+                     .init_from_config = (v.find("init") != v.end()),
+                     .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
                      .parameter_position = number_parameters++,
                      .model_position = model_position,
                      .gamma = v["gamma"].get<double>(),
@@ -302,16 +535,18 @@ public:
                 }
                 //other state mutable variables for each baseline
                 //are drifting
-                for (const auto & sit: statesBiMapDrifting) {
-                    bVar.mutableStates.push_back(
-                    {.name = sit.left,
-                     .min_value = 0,
-                     .max_value = 0,
-                     .parameter_position = number_parameters++,
-                     .model_position = sit.right,
-                     .gamma = 0,
-                     .is_mutation_applicable = 0
-                    });
+                if (config["RESET_STATES"].get<int>() == 0) {
+                    for (const auto & sit: statesBiMapDrifting) {
+                        bVar.mutableStates.push_back(
+                        {.name = sit.left,
+                         .min_value = 0,
+                         .max_value = 0,
+                         .parameter_position = number_parameters++,
+                         .model_position = sit.right,
+                         .gamma = 0,
+                         .is_mutation_applicable = 0
+                        });
+                    }
                 }
             }
             
@@ -348,7 +583,7 @@ public:
                                            return std::isnan(v); }));
                     if (if_nan_in_AP) {
                         std::cout << "NaN found in the generated baseline" << std::endl;
-                        throw;
+                        throw 1;
                     }
                     //save state and baseline
                     auto b = baseline.value();
@@ -373,7 +608,7 @@ public:
                 auto b = baseline.value();
                 std::string apfilename = b["filename_phenotype"].get<std::string>();
                 apbaselines.emplace_back();
-                scan_baseline(apbaselines.back(), apfilename);
+                read_baseline(apbaselines.back(), apfilename);
 
                 //initial state may not be provided
                 bool initial_state = (b.find("filename_state") != b.end());
@@ -381,7 +616,7 @@ public:
                     std::string statefilename = b["filename_state"].get<std::string>();
 
                     //TODO
-                    //scan_state(..., statefilename);
+                    //read_state(..., statefilename);
                 }
             }
        //     std::cout << "Unknowns: " << number_parameters << std::endl;
@@ -458,6 +693,10 @@ public:
             //then, set mutable global parameters
             for (const Mutable & m: globalVariables.mutableConstants) {
                 parameters_begin[m.parameter_position] = vconstants[m.model_position];
+                if (m.init_from_config != 0) {
+                    std::cout << m.init_guess << std::endl;
+                    parameters_begin[m.parameter_position] = m.init_guess;
+                }
             }
             
             //finally, set mutable baseline parameters
@@ -514,22 +753,93 @@ public:
         }
     }
 
-    void model_eval(std::vector<double> & y0, Model & model, int beats_number, double period, Baseline & apRecord) const
+    void direct_problem(std::vector<double> & y0, Model & model, double start_record, double tout, Table & table) const
     {
         int is_correct = 0;
+        const double t0 = 0;
 
-        const double t0 = 0, start_record = period * (beats_number - 1),
-                tout = period * beats_number;
+        try {
+            solver.solve(model, y0, is_correct, t0, start_record, tout, table.get_states(), table.get_algebraic());
+        } catch(...) {
+            throw("Solver failed");
+        }
 
-        solver.solve(model, y0, is_correct,
-                        t0, start_record, tout, apRecord);
-
-        //maybe if a solver fails rarely then we may consider it
-        //as a really poor fitness
         if (!is_correct)
             throw("Solver failed");
     }
 
+    void run_direct_and_dump(double start_record_time, double time, double dump_period, std::string filename,
+        const std::vector<std::string> & dump_vars)
+    {
+        Model model(glob_model);
+
+        std::vector<double> y0(model.state_size());
+        std::vector<double> parameters(number_parameters);
+        initial_guess(parameters.begin());
+        std::vector<double> vconstants(model.constants_size());
+        double * constants = vconstants.data();
+        model.set_constants(constants);
+        fill_constants_y0(parameters.begin(), constants, y0.data(), 0);
+
+        std::vector<int> states_model_indices;
+        std::vector<int> alg_model_indices;
+        std::vector<std::string> states_names;
+        std::vector<std::string> alg_names;
+        //add dump_vars to a table
+        for (const auto & svar: dump_vars) {
+            int model_position;
+            try {
+                model_position = statesBiMapModel.left.at(svar);
+            } catch (...) {
+                continue;
+            }
+            std::cout << svar << std::endl;
+            states_model_indices.push_back(model_position);
+            states_names.push_back(svar);
+        }
+        for (const auto & svar: dump_vars) {
+            int model_position;
+            try {
+                model_position = algebraicBiMapModel.left.at(svar);
+            } catch (...) {
+                continue;
+            }
+            std::cout << svar << std::endl;
+            alg_model_indices.push_back(model_position);
+            alg_names.push_back(svar);
+        }
+        
+        
+
+        Table table(1 + std::ceil(time / dump_period),
+                    states_model_indices.size() + alg_model_indices.size(),
+                    states_model_indices, alg_model_indices,
+                    states_names, alg_names);
+        std::cout << "run model" << std::endl;
+        direct_problem(y0, model, start_record_time, time, table);
+        std::cout << "dump" << std::endl;
+        table.export_csv(filename);
+        std::cout << "dump complete" << std::endl;
+    }
+    void model_eval(std::vector<double> & y0, Model & model, int n_beats, double period, Baseline & apRecord) const
+    {
+        //TODO, this is temporary
+        std::vector<int> states_model_indices = {0};
+        std::vector<int> alg_model_indices;
+        std::vector<std::string> states_names = {"V"};
+        std::vector<std::string> alg_names;
+        Table table(apRecord.size(), 1, states_model_indices, alg_model_indices,
+                    states_names, alg_names);
+        
+        double start_record = period * (n_beats - 1);
+        double tout = period * n_beats;
+        direct_problem(y0, model, start_record, tout, table);
+
+        //TODO
+        //save to apRecord
+        for (int i = 0; i < apRecord.size(); i++)
+            apRecord[i] = table(i, 0);
+    }
 
     template <typename It>
     BaselineVec genetic_algorithm_calls_general(It parameters_begin, int n_beats = -1) const
@@ -540,6 +850,7 @@ public:
             apmodel.push_back(Baseline(v.size()));
         
         Model model(glob_model);
+        bool is_solver_failed = 0;
         for (size_t i = 0; i < apbaselines.size(); i++) {
             std::vector<double> y0(model.state_size());
             Baseline & apRecord = apmodel[i];
@@ -550,13 +861,26 @@ public:
             fill_constants_y0(parameters_begin, constants, y0.data(), i);
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
-
-            model_eval(y0, model, n_beats, period, apRecord);
+            try {
+                model_eval(y0, model, n_beats, period, apRecord);
+            } catch (...) {
+                //solver failed
+                is_solver_failed = 1;
+            }
+            if (is_solver_failed)
+                break;
             //save mutable variables from the state
             //since we let them to drift
             for (const Mutable & m: baselineVariables[i].mutableStates) {
                 parameters_begin[m.parameter_position] =  y0[m.model_position];
             }
+        }
+        if (is_solver_failed) {
+            //i dk ugly design
+            //just nullify apmodel for now
+            for (auto & b: apmodel)
+                for (auto & e: b)
+                    e = 1e6;
         }
         return apmodel;
     }
@@ -599,7 +923,18 @@ public:
         results_optimizer_format = std::vector<double>(number_parameters);
         std::copy(parameters.begin(), parameters.begin() + number_parameters, results_optimizer_format.begin());
     }
+    template <typename It>
+    void dump_ap(It parameters_begin, int i) const
+    {
+        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
+        const double dist = obj.dist(apbaselines, tmp_b);
+        std::cout << "final dist: " << dist << std::endl;
+        write_baseline(tmp_b[0], std::string("ap") + std::to_string(i) + ".txt");
+    }
 };
+
+
+
 
 template <typename Model, typename Solver, typename Objective>
 class ODEoptimizationTrackVersion:
@@ -613,11 +948,14 @@ protected:
     using Base::obj;
     using Base::write_baseline;
     using Base::genetic_algorithm_calls_general;
+
     BaselineVec initial_guess_baseline;
     BaselineVec intermediate_baseline;
     
     double alpha;
 public:
+    using Base::is_AP_normalized;
+    using Base::normalize_baseline;
     ODEoptimizationTrackVersion(const Model & model, const Solver & solver, const Objective & obj)
     : Base(model, solver, obj)
     {}
@@ -625,8 +963,15 @@ public:
     template <typename It>
     void start_track(It parameters_begin)
     {
-        intermediate_baseline = initial_guess_baseline = genetic_algorithm_calls_general(parameters_begin, 10000);
-        write_baseline(intermediate_baseline[0], "baseline_start.txt");
+        initial_guess_baseline = genetic_algorithm_calls_general(parameters_begin, 300);
+        write_baseline(initial_guess_baseline[0], "baseline_start.txt");        
+        intermediate_baseline = initial_guess_baseline; //to set size and check correctness of lsm
+
+        if (is_AP_normalized) {
+            for (auto & b: initial_guess_baseline)
+                normalize_baseline(b);
+        }
+        std::cout << "TEST: " << obj.dist(initial_guess_baseline, intermediate_baseline) << std::endl;
         set_alpha(0);
     }
     void set_alpha(double alpha_)
@@ -634,10 +979,13 @@ public:
         //alpha = 0 then initial_guess_baseline
         //alpha = 1 apbaselines
         alpha = std::pow(alpha_, 1);
-        for (size_t i = 0; i < apbaselines.size(); i++)
+        for (size_t i = 0; i < apbaselines.size(); i++) {
             for (size_t j = 0; j < apbaselines[i].size(); j++)
                 intermediate_baseline[i][j] = alpha * apbaselines[i][j]
                             + (1 - alpha) * initial_guess_baseline[i][j];
+            if (is_AP_normalized)
+                normalize_baseline(intermediate_baseline[i]);
+        }
     }
     template <typename It>
     double genetic_algorithm_calls(It parameters_begin) const
@@ -653,10 +1001,25 @@ public:
     template <typename It>
     void dump_ap(It parameters_begin, int i) const
     {
-        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, 1);
+        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
         write_baseline(tmp_b[0], std::string("ap") + std::to_string(i) + ".txt");
     }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 template <typename Func>
 class MinimizeFunc

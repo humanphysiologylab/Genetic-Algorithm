@@ -21,6 +21,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wconversion")
 find_package(MPI REQUIRED)
 
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+include_directories("Eigen")
 include_directories("./pcg-cpp-0.98")
 include_directories("LSODA")
 include_directories("json")
@@ -56,14 +57,13 @@ endif()
 
 
 set(SOURCE_FILES
-        src/initial_population.cpp
-        src/fitness_function.cpp
         src/tournament_selection.cpp
         src/sbx_crossover.cpp
         src/cauchy_mutation.cpp
         src/writing_to_output_files.cpp
         src/maleckar.cpp
-        src/basic_population.cpp
+        src/optimization_problem.cpp
+        src/gradient_descent.cpp
         src/polynomial_mutation.cpp
         src/basic_function_functor.cpp
         src/test_functions.cpp

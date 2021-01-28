@@ -1,5 +1,43 @@
 #include "kernik_clancy_model.h"
 
+KernikClancyModel::KernikClancyModel()
+: constants(0)
+{}
+    
+void KernikClancyModel::compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const
+{
+    assert(constants != 0);
+    std::array<double, states_size> dxdt;
+    computerates(t, constants, dxdt.data(), states, algebraic); 
+}
+void KernikClancyModel::set_constants(double *c)
+{
+    constants = c;
+}
+double KernikClancyModel::max_step() const
+{
+    return max_step_v;
+}
+int KernikClancyModel::state_size() const
+{
+    return states_size;
+}
+int KernikClancyModel::constants_size() const
+{
+    return const_size;
+}
+int KernikClancyModel::get_alg_size() const
+{
+    return alg_size;
+}
+void KernikClancyModel::operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const
+{
+    //the last parameter data was passed to lsoda_update (consider it null_ptr)
+    //basically it was poor man's functor
+    //here for real functor we do not need it
+    assert(constants != 0);
+    computerates(t, constants, dxdt, x); 
+}
 void KernikClancyModel::initConsts(double * constants) const
 {
    const double constants_array[const_size] = {
@@ -85,12 +123,13 @@ void KernikClancyModel::initConsts(double * constants) const
    2.0086650e+04,
    1.0202353e+01,
    2.3945291e+01,
-   0.0000000e+00,
-   0.0000000e+00,
+   0.0000000e+00,//stim_flag
+   50,//stim_shift (ms) was 100
    0.0000000e+00,
    1,
    0.0000000e+00,
-   1000};
+   1000,
+   3};
    
     for (int i = 0; i < const_size; i++)
         constants[i] = constants_array[i];
@@ -125,14 +164,18 @@ void KernikClancyModel::initState(double * states) const
     1.4215362e-02,
     0.000367,
     0.96729};
-    
+
     for (int i = 0; i < states_size; i++)
         states[i] = initialState_array[i];
 
 }
 
 
-void KernikClancyModel::computerates(double t, const double*  __restrict model_parameter_inputs, double*  __restrict dY, double*  __restrict Y) const
+void KernikClancyModel::computerates(const double t,
+                    const double *  __restrict model_parameter_inputs,
+                    double *  __restrict dY,
+                    const double *  __restrict Y,
+                    double * __restrict algebraic) const
 {
 
     //% differential equations for Kernik-Clancy iPSC-CM model
@@ -172,7 +215,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     //%% Parameter inputs:
     
     //%Current parameter values:
-    
+
     const double * x_scale_conductance = &model_parameter_inputs[0]; // (1:16);
     const double * x_K1 = &model_parameter_inputs[16]; // (17:22);
     const double * x_KR = &model_parameter_inputs[22]; // (23:33);
@@ -182,8 +225,8 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     const double * x_cat = &model_parameter_inputs[61]; // (62);
     const double * x_NA = &model_parameter_inputs[62]; // (63:76);
     const double * x_F = &model_parameter_inputs[76]; // (77:82);
-    
-    
+
+
     //    Flags:
     const double stim_flag = model_parameter_inputs[82]; // (83);  // % dimensionless (in stim_mode)
     const double voltageclamp = model_parameter_inputs[84]; // (85); // %square pulses if =1
@@ -195,11 +238,11 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     // for stim:
     //const double cyclelength = 800.;          // 1000ms = 1hz beating
     const double cyclelength = model_parameter_inputs[87];
-    const double i_stim_Amplitude = 3.;       // pA/pF (in stim_mode)
-    const double i_stim_End = 1000e3;           // milisecond (in stim_mode)
-    const double i_stim_PulseDuration = 5.;   // milisecond (in stim_mode)
-    const double i_stim_Start = 0;            // milisecond (in stim_mode)
-    
+    const double i_stim_Amplitude = model_parameter_inputs[88];// pA/pF (in stim_mode) (default 3) 50 fine for biphasic
+    const double i_stim_PulseDuration = 5;   // milisecond (in stim_mode)
+    const double stim_shift = model_parameter_inputs[83]; //ms (nonnegative, in stim_mode)///////////////////////////////////////
+
+
     // for square pulse voltage clamp:
     const double v_clamp_step = 0;
     const double v_clamp_rest = -65;
@@ -287,7 +330,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     double i_Kr = g_Kr * ( Y[0] - E_K ) * Y[9] * Y[10] * sqrt( Ko / 5.4 );
     
     // ----------------------------------------------------------------------------
-    // IKur from Maleckar
+    // IKur Current from Maleckar
     const double a_ur_infinity = 1.00000 / (1.00000 + exp(- (Y[0] + 6.00000) / 8.60000));
     const double tau_a_ur = 1e3 * ( 0.00900000 / (1.00000 + exp((Y[0] + 5.00000) / 12.0000)) + 0.000500000 ); // ms
     dY[23] = (a_ur_infinity - Y[23]) / tau_a_ur;
@@ -302,7 +345,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     
     
     // ----------------------------------------------------------------------------
-    // Slow delayed rectifier current (IKs):
+    // Slow delayed rectifier Current (IKs):
     // define parameters from x_IKS:
     double ks1 = x_IKS[1]; // (2);
     double ks2 = x_IKS[2]; // (3);
@@ -326,7 +369,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     double i_Ks = g_Ks * ( Y[0] - E_K ) * Y[11] * Y[11] ;
     
     // -------------------------------------------------------------------------------
-    // Transient outward current (Ito):
+    // Transient outward Current (Ito):
     // define parameters from xTO
     double r1 = xTO[1]; // (2);
     double r2 = xTO[2]; // (3);
@@ -364,7 +407,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     double i_to = g_to * ( Y[0] - E_K ) * Y[16] * Y[17] ;
     
     // -------------------------------------------------------------------------------
-    // L-type Ca2+ current (ICaL):
+    // L-type Ca2+ Current (ICaL):
     // define parameters from x_cal
     double d1=x_cal[1]; // (2);
     double d2=x_cal[2]; // (3);
@@ -530,7 +573,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     
     // -------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------
-    // Funny/HCN current (If):
+    // Funny/HCN Current (If):
     // define parameters from x_F
     double xF1 = x_F[1]; // (2);
     double xF2 = x_F[2]; // (3);
@@ -558,7 +601,7 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     double i_f = i_fNa + i_fK;
     
     // -------------------------------------------------------------------------------
-    // Na+/Ca2+ Exchanger current (INaCa):
+    // Na+/Ca2+ Exchanger Current (INaCa):
     // Ten Tusscher formulation
     double KmCa = 1.38;         // Cai half-saturation constant millimolar (in i_NaCa)
     double KmNai = 87.5;        // Nai half-saturation constnat millimolar (in i_NaCa)
@@ -694,53 +737,81 @@ void KernikClancyModel::computerates(double t, const double*  __restrict model_p
     
     // I_stim:
     double time = t;
-    double i_stim;
+    double i_stim = 0;
+
+    //rectangular pulse
+    if ( stim_flag == 1 && 
+         time >= stim_shift &&
+         fmod(time - stim_shift, cyclelength) < i_stim_PulseDuration )
+    {
+        i_stim = i_stim_Amplitude;
+    }
     
+    //biphasic pulse
+    if ( stim_flag == 2 &&
+         time >= stim_shift &&
+         fmod(time - stim_shift, cyclelength) < i_stim_PulseDuration )
+    {
+        i_stim = 2 * i_stim_Amplitude / M_PI * atan(tan((2 * M_PI * (t - stim_shift)) / (2 * i_stim_PulseDuration)));
+    }
+
+    /* old version of rectangular pulse
+    const double i_stim_End = 100000e3;           // milisecond (in stim_mode)
+    const double i_stim_Start = 0;            // milisecond (in stim_mode)
     if (time >= i_stim_Start && time <= i_stim_End &&
         fmod(time - i_stim_Start - 100, cyclelength) < i_stim_PulseDuration) {
+
         i_stim = stim_flag * i_stim_Amplitude;
+
     } else {
         i_stim = 0.0;
     } // end
-    
+    */
+
     // Voltage Clamp:
-    double v_clamp;
+    //TODO Please check voltage clamp mode before using it
+    double i_voltageclamp;
     if (voltageclamp == 0) {
-        v_clamp = Y[0] ; //set i_voltageclamp to 0
-    } else if (voltageclamp == 1) {   // train of square pulse:
+        i_voltageclamp = 0;
+    } else if (voltageclamp == 1) {// train of square pulse:
+        double v_clamp;
         if (fmod( time, cyclelength ) < cyclelength - steplength) {
             v_clamp = v_clamp_rest;
         } else {
             v_clamp = v_clamp_step;
-        } // end
+        }
+        i_voltageclamp = ( v_clamp - Y[0]  ) / R_clamp;
     } else {
         throw ("Wrong voltageclump value");
     }
-    
-    const double i_voltageclamp = ( v_clamp - Y[0]  ) / R_clamp;
-    
+
+
+    //Finally
     dY[0] = - (i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_CaL
               + i_CaT + i_NaK + i_Na + i_NaCa + i_PCa
               + i_f + i_b_Na + i_b_Ca - i_stim - i_voltageclamp);
-    
+
     // currents = [i_K1, i_to, i_Kr, i_Ks, i_CaL, i_NaK, i_Na, i_NaCa, i_PCa, i_f, i_b_Na, i_b_Ca, i_rel, i_up, i_leak, i_stim, i_CaT];
-    /*
-    currents[0] = i_K1;
-    currents[1] = i_to;
-    currents[2] = i_Kr;
-    currents[3] = i_Ks;
-    currents[4] = i_CaL;
-    currents[5] = i_NaK;
-    currents[6] = i_Na;
-    currents[7] = i_NaCa;
-    currents[8] = i_PCa;
-    currents[9] = i_f;
-    currents[10] = i_b_Na;
-    currents[11] = i_b_Ca;
-    currents[12] = i_rel;
-    currents[13] = i_up;
-    currents[14] = i_leak;
-    currents[15] = i_stim;
-    currents[16] = i_CaT;
-    */
+    if (algebraic != nullptr) {
+        algebraic[0] = i_K1;
+        algebraic[1] = i_to;
+        algebraic[2] = i_Kr;
+        algebraic[3] = i_Ks;
+        algebraic[4] = i_CaL;
+        algebraic[5] = i_NaK;
+        algebraic[6] = i_Na;
+        algebraic[7] = i_NaCa;
+        algebraic[8] = i_PCa;
+        algebraic[9] = i_f;
+        algebraic[10] = i_b_Na;
+        algebraic[11] = i_b_Ca;
+        algebraic[12] = i_rel;
+        algebraic[13] = i_up;
+        algebraic[14] = i_leak;
+        algebraic[15] = i_stim;
+        algebraic[16] = i_CaT;
+        algebraic[17] = i_Kur;
+        algebraic[18] = i_voltageclamp;
+        algebraic[19] = t;
+    }
 }

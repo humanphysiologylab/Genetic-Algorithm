@@ -7,65 +7,34 @@
 
 class MaleckarModel
 {
+    /*
+        Size of the algebraic variable array
+        Size of the rate and state variable arrays
+        Size of the constant variable array
+    */
     static const int states_size = 30, alg_size = 70, const_size = 51;
+    const double max_step_v = 1e-3; //(s)
     double * constants;
-    void computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, double*  __restrict states) const;
+    void computerates(double VOI, const double*  __restrict constants, double*  __restrict rates, const double*  __restrict states, double*  __restrict algebraic) const;
 
 public:
-    void set_constants(double *c)
-    {
-        constants = c;
-    }
+    void set_constants(double *c);
    
-    MaleckarModel()
-    : constants(0)
-    {}
+    MaleckarModel();
     
-    double max_step() const
-    {
-        return 1e-3;
-    }
-    int state_size() const
-    {
-        return states_size;
-    }
-    int constants_size() const
-    {
-        return const_size;
-    }
-    int get_alg_size() const
-    {
-        return alg_size;
-    }
+    double max_step() const;
+    int state_size() const;
+    int constants_size() const;
+    int get_alg_size() const;
 
-    void operator()(std::vector<double> & y0, double t) const
-    {
-        //mock problem for tests IT IS NOT RELATED TO MALECKAR AT ALL
-        std::vector<double> real_consts(const_size), real_state(states_size);
-        initConsts(real_consts.data());
-        initState(real_state.data());
-        double rt = std::fmod(t, constants[5]);
-        real_consts[5] = constants[5];
-        double s = 0;
-        for (int i = 0; i < const_size; i++)
-            s += std::pow(constants[i] - real_consts[i], 2);
-        for (int i = 1; i < states_size; i++)
-            s += std::pow(y0[i] - real_state[i], 2);
-        y0[0] = constants[5] + s;
-    }
+    void operator()(std::vector<double> & y0, double t) const;
 
-    void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const
-    {
-        //the last parameter data was passed to lsoda_update (consider it null_ptr)
-        //basically it was poor man's functor
-        //here for real functor we do not need it
-        assert(constants != 0);
-        computerates(t, constants, dxdt, x); 
-    }
+    void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const;
     void initConsts(double * constants) const;
     void initState(double * state) const;
 
-
+    void compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const;
+    
     template<typename Map1, typename Map2, typename Map3, typename Map4>
     void get_maps(Map1 & legend_states, Map2 & legend_constants, Map3 & legend_algebraic, Map4 & legend_rates) const
     {
