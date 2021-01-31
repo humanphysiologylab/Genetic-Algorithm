@@ -129,7 +129,9 @@ void KernikClancyModel::initConsts(double * constants) const
    1,
    0.0000000e+00,
    1000,
-   3};
+   3,
+   0,
+   0};
    
     for (int i = 0; i < const_size; i++)
         constants[i] = constants_array[i];
@@ -623,7 +625,7 @@ void KernikClancyModel::computerates(const double t,
     // Ten Tusscher formulation
     double Km_K = 1.0;   // Ko half-saturation constant millimolar (in i_NaK)
     double Km_Na = 40.0;   //  Nai half-saturation constant millimolar (in i_NaK)
-    double PNaK = 1.362 * 1.818 * x_scale_conductance[12] ;   // maxiaml nak pA_per_pF (in i_NaK)
+    double PNaK = 1.362 * 1.818 * x_scale_conductance[12] ;   // maximal nak pA_per_pF (in i_NaK)
     double i_NaK = ( PNaK * ( ( Ko * Y[3] )
                              / ( ( Ko + Km_K ) * ( Y[3] + Km_Na )
                                 * ( 1.0
@@ -720,16 +722,18 @@ void KernikClancyModel::computerates(const double t,
     // 4: Nai (millimolar) (in sodium_dynamics)
     dY[3] = -Cm * ( i_Na + i_b_Na + i_fNa + 3.0 * i_NaK + 3.0 * i_NaCa + i_CaL_Na ) / ( F * Vc );
     
-    if (stim_flag == 1) {
-       ;// dY[3] = 0;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if (model_parameter_inputs[89] == 1) {
+        //Nai is fixed
+        dY[3] = 0;
     } // end
     
     //-------------------------------------------------------------------------------
     // 5: Ki (millimolar) (in potassium_dynamics)
     dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K ) / ( F * Vc );
     
-    if (stim_flag == 1) {
-       ;// dY[4] = 0;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if (model_parameter_inputs[90] == 1) {
+        //Kai is fixed
+        dY[4] = 0;
     } // end
     
     // -------------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 #include "optimization_problem.h"
+#include <iomanip>
 
 BlockOfTable::BlockOfTable(int * model_indices, Block xblock)
     : Base(xblock), model_indices(model_indices)
@@ -47,7 +48,7 @@ void Table::export_csv(const std::string & filename)
     for (const auto & x: header)
         file << x << " ";
     file << std::endl;
-   
+    file << std::scientific << std::setprecision(12);
     for (int i = 0; i < Base::rows(); i++) {
         for(int j = 0; j < Base::cols(); j++) {
             file << Base::operator()(i, j) << " ";

@@ -317,7 +317,67 @@ void script_genetic_algorithm(json & config)
 
 void script_nelder_mead(json & config)
 {
-    
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+//    pcg_extras::seed_seq_from<std::random_device> seed_source;
+const int seed_source = 42;
+
+
+   // MaleckarModel model;
+    KernikClancyModel model;
+
+    ODESolver solver;
+//MaximizeAPinnerProduct obj;
+  //  MinimizeAPbaselines obj;
+   LeastSquaresMinimizeAPbaselines obj;
+  //  ODEoptimizationTrackVersion problem(model, solver, obj);///////////////////////////
+    ODEoptimization problem(model, solver, obj);
+
+    double time_read_config = MPI_Wtime();
+    try {
+        problem.read_config(config);
+    } catch(const char * err) {
+        std::cout << "catch in main:" << std::endl;
+        std::cout << err << std::endl;
+        throw;
+    }
+    time_read_config = MPI_Wtime() - time_read_config;
+
+    if (mpi_rank == 0) {
+        std::cout << "time_read_config, s: " << time_read_config << std::endl;
+        const int global_steps = 10;
+        const int local_steps = 20;
+        const double r_eps = 1e-1;
+
+        std::vector<std::pair<int, double>> error_per_gen = nelder_mead(problem, 500, 1e-14, 1, 1e-1);
+        auto res1 = problem.get_results_optimizer_format();
+
+        problem.dump_ap(res1.begin(), 5);
+        /*
+        problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
+        std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, 500, 1e-14, 1, 1e-1, res1);
+        error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
+        auto res2 = problem.get_results_optimizer_format();
+        problem.dump_ap(res2.begin(), 10);
+        */
+        std::string filename = "convergence_NM.txt";
+        std::ofstream file(filename);
+        for (const auto & p: error_per_gen)
+            file << p.first << " " << p.second << std::endl;
+
+        using Results = decltype(problem)::Results;
+        using BaselineResult = decltype(problem)::BaselineResult;
+        Results results = problem.get_relative_results();
+        BaselineResult res = results[0];
+        std::cout << "Printing relative to default results" << std::endl;
+        for (const auto & cit: res.constantsResult)
+            std::cout << cit.first << " " << cit.second << std::endl;
+        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
+        for (const auto & sit: res.statesResult)
+            std::cout << sit.first << " " << sit.second << std::endl;
+    }
 }
 
 void script_direct_problem(json & config)

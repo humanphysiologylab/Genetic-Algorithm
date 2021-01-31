@@ -811,7 +811,7 @@ public:
         
         
 
-        Table table(1 + std::ceil(time / dump_period),
+        Table table(1 + std::ceil((time - start_record_time) / dump_period),
                     states_model_indices.size() + alg_model_indices.size(),
                     states_model_indices, alg_model_indices,
                     states_names, alg_names);
