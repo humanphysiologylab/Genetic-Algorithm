@@ -129,7 +129,9 @@ public:
         const double rest_potential = std::min(std::max(B, min_rest_potential), max_rest_potential);
 
         const double amplitude = peak - rest_potential;
+        /*
         std::cout << "     A+B: " << A + B << " A: " << amplitude << " B: " << rest_potential << " p: " << peak << std::endl;
+        */
         if (std::isnan(amplitude)) {
             std::cout << "         a:" << a <<
             "         b:" << b <<
