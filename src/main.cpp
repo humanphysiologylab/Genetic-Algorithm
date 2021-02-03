@@ -302,6 +302,7 @@ void script_genetic_algorithm(json & config)
             file << p.first << " " << p.second << std::endl;
     }
     if (mpi_rank == 0) {
+        problem.dump_ap(problem.get_results_optimizer_format(), 0);
         using Results = decltype(problem)::Results;
         using BaselineResult = decltype(problem)::BaselineResult;
         Results results = problem.get_relative_results();
