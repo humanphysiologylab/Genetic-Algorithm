@@ -281,8 +281,9 @@ void script_genetic_algorithm(json & config)
     KernikClancyModel model;
     ODESolver solver;
 
-    //MinimizeAPbaselines obj;
-    LeastSquaresMinimizeAPbaselines obj;
+    MinimizeAPbaselines obj;
+    //MaximizeAPinnerProduct obj;
+    //LeastSquaresMinimizeAPbaselines obj;
     ODEoptimization problem(model, solver, obj);
     
     try {
@@ -392,7 +393,7 @@ void script_direct_problem(json & config)
 
     try {
         problem.read_config(config);
-    } catch(const char * err) {
+    } catch(const std::string & err) {
         std::cout << "catch in main:" << std::endl;
         std::cout << err << std::endl;
         throw;
@@ -403,6 +404,7 @@ void script_direct_problem(json & config)
                                 config["dump_period"].get<double>(),
                                 config["dump_filename"].get<std::string>(),
                                 config["dump_vars"].get<std::vector<std::string>>());
+
 }
 
 void script_gradient_descent(json & config)

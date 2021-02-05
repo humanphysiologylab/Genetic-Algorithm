@@ -931,7 +931,8 @@ public:
         const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
         const double dist = obj.dist(apbaselines, tmp_b);
         std::cout << "final dist: " << dist << std::endl;
-        write_baseline(tmp_b[0], std::string("ap") + std::to_string(i) + ".txt");
+        for (const auto &bs : tmp_b)
+            write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
     }
 };
 
