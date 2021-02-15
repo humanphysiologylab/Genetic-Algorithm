@@ -110,14 +110,18 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
   const double eps = 0.001; //??
   const double rcoeff = 1.0; //reflection coefficient
 
+  //default coeffs
+  /*
   const double ccoeff = 0.5; //contraction coefficient
   const double ecoeff = 2.0; //expansion coefficient
   const double shrink_coeff = 0.5; //shrink coefficient
-/*
+*/
+  //fancy coeffs
+  
   const double ccoeff = 0.75 - 1.0 / (2 * n); //contraction coefficient
   const double ecoeff = 1 + 2.0 / n; //expansion coefficient
   const double shrink_coeff = 1 - 1.0 / n; //shrink coefficient
-*/
+  
 
   double initial_simplex_scale = 1;
 

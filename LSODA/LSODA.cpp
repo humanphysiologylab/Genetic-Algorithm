@@ -6,8 +6,7 @@
  * http://www.ccl.net/cca/software/SOURCES/C/kinetics2/index.shtml and modified
  by
  * Heng Li <lh3lh3@gmail.com>. Heng merged several C files into one and added a
- * simpler interface. [Available
- here](http://lh3lh3.users.sourceforge.net/download/lsoda.c)
+ * simpler interface. [Available here](http://lh3lh3.users.sourceforge.net/download/lsoda.c)
 
  * The original source code came with no license or copyright
  * information. Heng Li released his modification under the MIT/X11 license. I
@@ -143,8 +142,7 @@ void LSODA::dgesl(const vector<vector<double>> &a, const size_t n,
     {
         j = ipvt[k];
         t = b[j];
-        if (j != k)
-        {
+        if (j != k) {
             b[j] = b[k];
             b[k] = t;
         }

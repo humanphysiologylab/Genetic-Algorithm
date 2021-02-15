@@ -34,7 +34,7 @@
 
 class ODESolver
 {
-	const double rtol = 1e-9, atol = 1e-6;
+	const double rtol = 1e-8, atol = 1e-5;
 public:
 	template <typename Model, typename Table>
 	void solve(const Model & model, std::vector<double> & y0, int & is_correct,

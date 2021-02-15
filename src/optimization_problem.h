@@ -30,7 +30,6 @@ public:
     int get_model_pos(int col) const;
 };
 
-
 class Table
 : public Eigen::MatrixXd
 {
@@ -218,7 +217,7 @@ template <typename Model, typename Solver, typename Objective>
 class ODEoptimization
 {
 protected:
-    Model glob_model;//!!!!
+    Model glob_model;//!!!!//Maybe not to use it at all due to the multithreading?
     Solver solver;//!!!!
     Objective obj;//!!!!
     using Baseline = typename Objective::Baseline;
@@ -291,9 +290,97 @@ protected:
             
     BiMap constantsBiMapModel, statesBiMapModel, algebraicBiMapModel;
     //no need of ratesBiMapModel
+
+    double log_scale(double x, double minOrig, double maxOrig) const
+    {
+        if (minOrig < 0) {
+            throw("minOrig < 0");
+        } else if (minOrig == 0) {
+            return log(x + 1.0 / maxOrig) / log(maxOrig + 1.0 / maxOrig);
+        } else {
+            const double a = log(minOrig);
+            const double b = log(maxOrig);
+            return (log(x) - (a + b) / 2) / ((b - a) / 2);
+        }
+    }
+    double log_scale_back(double x, double minOrig, double maxOrig) const
+    {
+        if (minOrig < 0) {
+            throw("minOrig < 0");
+        } else if (minOrig == 0) {
+            return exp(x * log(maxOrig + 1.0 / maxOrig)) - 1.0 / maxOrig;
+        } else {
+            const double a = log(minOrig);
+            const double b = log(maxOrig);
+            return exp(x * ((b - a) / 2) + (a + b) / 2);
+        }
+    }
+    double lin_scale(double x, double minOrig, double maxOrig) const
+    {
+        return (x - minOrig) / (maxOrig - minOrig);
+    }
+    double lin_scale_back(double x, double minOrig, double maxOrig) const
+    {
+        return (maxOrig - minOrig) * x + minOrig;
+    }
+    template <typename It, typename It2>
+    void optimizer_model_scale(It optim_param_start, It2 model_param_start) const
+    {
+        //from optimizer to model
+        for (const Mutable & m: globalVariables.mutableConstants) {
+            const int pos = m.parameter_position;
+            if (m.is_mutation_applicable == 1) {
+                model_param_start[pos] = lin_scale_back(optim_param_start[pos], m.min_value, m.max_value);   
+            } else if (m.is_mutation_applicable == 2) {
+                model_param_start[pos] = log_scale_back(optim_param_start[pos], m.min_value, m.max_value); 
+            } else {
+                throw(m.name + ": unknown scale type");
+            }
+        }
+        for (const auto & bv: baselineVariables) {
+            for (const Mutable & m: bv.mutableStates) {
+                const int pos = m.parameter_position;
+                if (m.is_mutation_applicable == 1) {
+                    model_param_start[pos] = lin_scale_back(optim_param_start[pos], m.min_value, m.max_value);   
+                } else if (m.is_mutation_applicable == 2) {
+                    model_param_start[pos] = log_scale_back(optim_param_start[pos], m.min_value, m.max_value); 
+                } else {
+                    throw(m.name + ": unknown scale type");
+                }
+            }
+        }
+    }
+
+    template <typename It, typename It2>
+    void model_optimizer_scale(It model_param_start, It2 optim_param_start) const
+    {
+        //from model to optimizer
+        for (const Mutable & m: globalVariables.mutableConstants) {
+            const int pos = m.parameter_position;
+            if (m.is_mutation_applicable == 1) {
+                optim_param_start[pos] = lin_scale(model_param_start[pos], m.min_value, m.max_value);   
+            } else if (m.is_mutation_applicable == 2) {
+                optim_param_start[pos] = log_scale(model_param_start[pos], m.min_value, m.max_value); 
+            } else {
+                throw(m.name + ": unknown scale type");
+            }
+        }
+        for (const auto & bv: baselineVariables) {
+            for (const Mutable & m: bv.mutableStates) {
+                const int pos = m.parameter_position;
+                if (m.is_mutation_applicable == 1) {
+                    optim_param_start[pos] = lin_scale(model_param_start[pos], m.min_value, m.max_value);   
+                } else if (m.is_mutation_applicable == 2) {
+                    optim_param_start[pos] = log_scale(model_param_start[pos], m.min_value, m.max_value); 
+                } else {
+                    throw(m.name + ": unknown scale type");
+                }
+            }
+        }
+    }
 public:
     void unfreeze_global_variable(const std::string & name, double min_value, double max_value, std::vector<double> & params)
-    {//TODO more detailed!
+    {//TODO more detailed! Use it at your own risk!
         globalVariables.valueConstants;//remove from valueConstants
         bool is_found_in_valueConstants = 0;
         Value v;
@@ -567,7 +654,7 @@ public:
                     std::vector<double> y0(glob_model.state_size());
                     Model model(glob_model);
                     std::vector<double> parameters(number_parameters);
-                    initial_guess(parameters.begin());
+                    initial_guess(parameters.begin(), 0);
 
                     std::vector<double> vconstants(model.constants_size());
                     double * constants = vconstants.data();
@@ -650,8 +737,11 @@ public:
         return v_gamma;
     }
     template <typename T1, typename T2>
-    int get_boundaries(T1 & pmin, T1 & pmax, T2 & is_mutation_applicable) const
+    int get_boundaries(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
     {
+        std::vector<double> pmin(number_parameters), pmax(number_parameters),
+                            optpmin(number_parameters), optpmax(number_parameters);
+
         for (const Mutable & gl: globalVariables.mutableConstants) {
             pmin[gl.parameter_position] = gl.min_value;
             pmax[gl.parameter_position] = gl.max_value;
@@ -674,10 +764,19 @@ public:
                 is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
             }
         }
+
+        //find borders for optimizer
+        model_optimizer_scale(pmin.begin(), optpmin.begin());
+        model_optimizer_scale(pmax.begin(), optpmax.begin());
+
+        for (int i = 0; i < number_parameters; i++) {
+            Optpmin[i] = optpmin[i];
+            Optpmax[i] = optpmax[i];
+        }
         return 0;
     }
     template <typename It>
-    int initial_guess(It parameters_begin) const
+    int initial_guess(It parameters_begin, const bool optimizer_called = 1) const
     {
         if (0) {
             //read from a file
@@ -692,20 +791,28 @@ public:
             glob_model.initConsts(vconstants.data());
             glob_model.initState(y0.data());
             
+            
+            std::vector<double> parameters(number_parameters);
             //then, set mutable global parameters
             for (const Mutable & m: globalVariables.mutableConstants) {
-                parameters_begin[m.parameter_position] = vconstants[m.model_position];
+                parameters[m.parameter_position] = vconstants[m.model_position];
                 if (m.init_from_config != 0) {
                     std::cout << m.init_guess << std::endl;
-                    parameters_begin[m.parameter_position] = m.init_guess;
+                    parameters[m.parameter_position] = m.init_guess;
                 }
             }
             
             //finally, set mutable baseline parameters
             for (const Variables & vars: baselineVariables) {
                 for (const Mutable & m: vars.mutableStates) {
-                    parameters_begin[m.parameter_position] = y0[m.model_position];
+                    parameters[m.parameter_position] = y0[m.model_position];
                 }
+            }
+            
+            if (optimizer_called) {
+                model_optimizer_scale(parameters.begin(), parameters_begin);
+            } else {
+                std::copy(parameters.begin(), parameters.end(), parameters_begin);
             }
             return 0;
         } else {
@@ -754,7 +861,7 @@ public:
             throw("Wait, that's illegal. Please contact us if you want it.");
         }
     }
-
+protected:
     void direct_problem(std::vector<double> & y0, Model & model, double start_record, double tout, Table & table) const
     {
         int is_correct = 0;
@@ -769,7 +876,7 @@ public:
         if (!is_correct)
             throw("Solver failed");
     }
-
+public:
     void run_direct_and_dump(double start_record_time, double time, double dump_period, std::string filename,
         const std::vector<std::string> & dump_vars)
     {
@@ -777,7 +884,7 @@ public:
 
         std::vector<double> y0(model.state_size());
         std::vector<double> parameters(number_parameters);
-        initial_guess(parameters.begin());
+        initial_guess(parameters.begin(), 0);
         std::vector<double> vconstants(model.constants_size());
         double * constants = vconstants.data();
         model.set_constants(constants);
@@ -823,6 +930,7 @@ public:
         table.export_csv(filename);
         std::cout << "dump complete" << std::endl;
     }
+protected:
     void model_eval(std::vector<double> & y0, Model & model, int n_beats, double period, Baseline & apRecord) const
     {
         //TODO, this is temporary
@@ -842,10 +950,13 @@ public:
         for (int i = 0; i < apRecord.size(); i++)
             apRecord[i] = table(i, 0);
     }
-
+public:
     template <typename It>
-    BaselineVec genetic_algorithm_calls_general(It parameters_begin, int n_beats = -1) const
+    BaselineVec genetic_algorithm_calls_general(It optimizer_parameters_begin, int n_beats = -1) const
     {
+        std::vector<double> model_scaled_parameters(number_parameters);
+        optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
+        
         if (n_beats == -1) n_beats = beats;
         BaselineVec apmodel;
         for (const auto & v: apbaselines)
@@ -860,7 +971,7 @@ public:
             std::vector<double> vconstants(model.constants_size());
             double * constants = vconstants.data();
             model.set_constants(constants);//!!!!!!!
-            fill_constants_y0(parameters_begin, constants, y0.data(), i);
+            fill_constants_y0(model_scaled_parameters.begin(), constants, y0.data(), i);
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
             
             try {
@@ -874,15 +985,17 @@ public:
             //save mutable variables from the state
             //since we let them to drift
             for (const Mutable & m: baselineVariables[i].mutableStates) {
-                parameters_begin[m.parameter_position] =  y0[m.model_position];
+                model_scaled_parameters[m.parameter_position] =  y0[m.model_position];
             }
         }
         if (is_solver_failed) {
             //i dk ugly design
-            //just nullify apmodel for now
             for (auto & b: apmodel)
                 for (auto & e: b)
                     e = 1e6;
+        } else {
+            //hope its fine and no side effects
+            model_optimizer_scale(model_scaled_parameters.begin(), optimizer_parameters_begin);
         }
         return apmodel;
     }
@@ -895,6 +1008,8 @@ public:
     template <typename V>
     void genetic_algorithm_result(const V & parameters)
     {
+        std::vector<double> model_scaled_parameters(number_parameters);
+        optimizer_model_scale(parameters.begin(), model_scaled_parameters.begin());
         //mirror the stage of initialization before solver.solve call
         //but just save the final result
         results = Results();
@@ -903,7 +1018,7 @@ public:
             BaselineResult res, relative_res;
             std::vector<double> y0(glob_model.state_size());
             std::vector<double> vconstants(glob_model.constants_size());
-            fill_constants_y0(parameters.begin(), vconstants.data(), y0.data(), i);
+            fill_constants_y0(model_scaled_parameters.begin(), vconstants.data(), y0.data(), i);
 
             std::vector<double> y0_default(glob_model.state_size());
             std::vector<double> vconstants_default(glob_model.constants_size());
@@ -1001,12 +1116,15 @@ public:
       //  auto tmp_b = intermediate_baseline;/////////////////////////////////////////////////////////////////////
         return obj.dist(intermediate_baseline, tmp_b);
     }
+    
+    /*
     template <typename It>
     void dump_ap(It parameters_begin, int i) const
     {
         const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
         write_baseline(tmp_b[0], std::string("ap") + std::to_string(i) + ".txt");
     }
+    */
 };
 
 

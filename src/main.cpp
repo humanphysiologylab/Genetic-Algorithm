@@ -323,8 +323,8 @@ void script_nelder_mead(json & config)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-//    pcg_extras::seed_seq_from<std::random_device> seed_source;
-const int seed_source = 42;
+    pcg_extras::seed_seq_from<std::random_device> seed_source;
+//const int seed_source = 42;
 
 
    // MaleckarModel model;
@@ -332,8 +332,8 @@ const int seed_source = 42;
 
     ODESolver solver;
 //MaximizeAPinnerProduct obj;
-  //  MinimizeAPbaselines obj;
-   LeastSquaresMinimizeAPbaselines obj;
+    MinimizeAPbaselines obj;
+  // LeastSquaresMinimizeAPbaselines obj;
   //  ODEoptimizationTrackVersion problem(model, solver, obj);///////////////////////////
     ODEoptimization problem(model, solver, obj);
 
@@ -349,11 +349,8 @@ const int seed_source = 42;
 
     if (mpi_rank == 0) {
         std::cout << "time_read_config, s: " << time_read_config << std::endl;
-        const int global_steps = 10;
-        const int local_steps = 20;
-        const double r_eps = 1e-1;
 
-        std::vector<std::pair<int, double>> error_per_gen = nelder_mead(problem, 500, 1e-14, 1, 1e-1);
+        std::vector<std::pair<int, double>> error_per_gen = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>());
         auto res1 = problem.get_results_optimizer_format();
 
         problem.dump_ap(res1.begin(), 5);
