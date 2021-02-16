@@ -736,53 +736,75 @@ public:
         }
         return v_gamma;
     }
+    
+    
+    template <typename T1, typename T2>
+    int get_boundaries_updated(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
+    {
+        const double eps = 0.01;
+        for (const Mutable & gl: globalVariables.mutableConstants) {
+            Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
+            Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
+            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable; //no need to know that it was log scaled
+        }
+        for (const Mutable & gl: globalVariables.mutableStates) {
+            Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
+            Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
+            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+        }
+        for (const Variables & vars: baselineVariables) {
+            for (const Mutable & gl: vars.mutableConstants) {
+                Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
+                Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
+                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+            }
+            for (const Mutable & gl: vars.mutableStates) {
+                Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
+                Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
+                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+            }
+        }
+        return 0;
+    }
+
     template <typename T1, typename T2>
     int get_boundaries(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
     {
-        std::vector<double> pmin(number_parameters), pmax(number_parameters),
-                            optpmin(number_parameters), optpmax(number_parameters);
+        std::vector<double> pmin(number_parameters), pmax(number_parameters);
 
         for (const Mutable & gl: globalVariables.mutableConstants) {
             pmin[gl.parameter_position] = gl.min_value;
             pmax[gl.parameter_position] = gl.max_value;
-            is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
+            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable; //no need to know that it was log scaled
         }
         for (const Mutable & gl: globalVariables.mutableStates) {
             pmin[gl.parameter_position] = gl.min_value;
             pmax[gl.parameter_position] = gl.max_value;
-            is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
+            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
         }
         for (const Variables & vars: baselineVariables) {
             for (const Mutable & gl: vars.mutableConstants) {
                 pmin[gl.parameter_position] = gl.min_value;
                 pmax[gl.parameter_position] = gl.max_value;
-                is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
+                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
             }
             for (const Mutable & gl: vars.mutableStates) {
                 pmin[gl.parameter_position] = gl.min_value;
                 pmax[gl.parameter_position] = gl.max_value;
-                is_mutation_applicable[gl.parameter_position] = gl.is_mutation_applicable;
+                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
             }
         }
 
         //find borders for optimizer
-        model_optimizer_scale(pmin.begin(), optpmin.begin());
-        model_optimizer_scale(pmax.begin(), optpmax.begin());
+        model_optimizer_scale(pmin.begin(), Optpmin.begin());
+        model_optimizer_scale(pmax.begin(), Optpmax.begin());
 
-        for (int i = 0; i < number_parameters; i++) {
-            Optpmin[i] = optpmin[i];
-            Optpmax[i] = optpmax[i];
-        }
         return 0;
     }
     template <typename It>
     int initial_guess(It parameters_begin, const bool optimizer_called = 1) const
     {
-        if (0) {
-            //read from a file
-            //TODO
-            return 0;
-        } else if (1) {
+        if (1) {
             //use model's default
             std::vector<double> y0(glob_model.state_size());
             std::vector<double> vconstants(glob_model.constants_size());
@@ -880,6 +902,7 @@ public:
     void run_direct_and_dump(double start_record_time, double time, double dump_period, std::string filename,
         const std::vector<std::string> & dump_vars)
     {
+        //Runs only one baseline!
         Model model(glob_model);
 
         std::vector<double> y0(model.state_size());
@@ -963,7 +986,7 @@ public:
             apmodel.push_back(Baseline(v.size()));
         
         Model model(glob_model);
-        bool is_solver_failed = 0;
+        bool solver_failed = 0;
         for (size_t i = 0; i < apbaselines.size(); i++) {
             std::vector<double> y0(model.state_size());
             Baseline & apRecord = apmodel[i];
@@ -978,9 +1001,9 @@ public:
                 model_eval(y0, model, n_beats, period, apRecord);
             } catch (...) {
                 //solver failed
-                is_solver_failed = 1;
+                solver_failed = 1;
             }
-            if (is_solver_failed)
+            if (solver_failed)
                 break;
             //save mutable variables from the state
             //since we let them to drift
@@ -988,7 +1011,7 @@ public:
                 model_scaled_parameters[m.parameter_position] =  y0[m.model_position];
             }
         }
-        if (is_solver_failed) {
+        if (solver_failed) {
             //i dk ugly design
             for (auto & b: apmodel)
                 for (auto & e: b)
@@ -1048,6 +1071,47 @@ public:
         std::cout << "final dist: " << dist << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
+    }
+    
+    double loglikelihood(std::vector<double> pars)
+    {
+        double ll = 0;
+        BaselineVec res = genetic_algorithm_calls_general(pars.begin());
+        assert(apbaselines.size() == res.size());
+        for (size_t i = 0; i < apbaselines.size(); i++) {
+            Baseline & a = apbaselines[i];
+            Baseline & r = res[i];
+            double p = 0;
+            //maybe i should use sizes of these vectors...
+            for (size_t j = 0; j < a.size(); j++) {
+                const double sigma = 1e-2 * std::fabs(a[j]); //it is just an assumption, need to find sigma from experimental data TODO
+                const double arg = (a[j] - r[j]) / sigma;
+                p += (- 0.5 * arg * arg - 0.5 * log(2 * M_PI) - log(sigma)); //with normalization
+            }
+            ll += p ;// a.size();
+        }
+        return ll;
+    }
+    std::vector<std::string> get_unique_parameter_names()
+    {
+        std::vector<std::string> names(number_parameters);
+        for (const Mutable & gl: globalVariables.mutableConstants) {
+            names[gl.parameter_position] = gl.name;
+        }
+        for (const Mutable & gl: globalVariables.mutableStates) {
+            names[gl.parameter_position] = gl.name;
+        }
+        int i = 0;//TODO
+        for (const Variables & vars: baselineVariables) {
+            std::string unique_suffix = std::to_string(i++);//TODO
+            for (const Mutable & gl: vars.mutableConstants) {
+                names[gl.parameter_position] = gl.name + unique_suffix;
+            }
+            for (const Mutable & gl: vars.mutableStates) {
+                names[gl.parameter_position] = gl.name + unique_suffix;
+            }
+        }
+        return names;
     }
 };
 
