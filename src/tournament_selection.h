@@ -5,6 +5,7 @@
 #include <forward_list>
 #include <random>
 #include <cassert>
+#include <iostream>
 
 template<typename InitializedRandomGenerator>
 class TournamentSelection
@@ -139,7 +140,23 @@ public:
         //trim losers
         assert(sd_n_index.size() - number_of_ignored_losers >= mpool_size);
         sd_n_index.resize(sd_n_index.size() - number_of_ignored_losers);
-        
+
+        //replace the rest of really bad losers by random fine species
+        const double threshold = 1e2;//TODO
+        int first_bad_index;
+        for (first_bad_index = sd_n_index.size(); first_bad_index > 0; first_bad_index--) {
+            if (sd_n_index[first_bad_index - 1].first < threshold)
+                break;
+        }
+        std::cout << "really bad filtered by tournament (sd > " << threshold << ")" << ": " << sd_n_index.size() - first_bad_index << std::endl;
+        if (first_bad_index == 0)
+            throw("Tournament: all species are bad!");
+        for (int i = first_bad_index; i < sd_n_index.size(); i++) {
+            int j = std::uniform_int_distribution<int>(0,  first_bad_index - 1)(rg);
+            sd_n_index[i] = sd_n_index[j];
+        }
+        //probably sd_n_index is not sorted now
+        //but anyway we gonna shuffle it
         tournament_basic_half_fast(mpool                 , mpool_size / 2, sd_n_index);
         tournament_basic_half_fast(mpool + mpool_size / 2, mpool_size / 2, sd_n_index);
     }
