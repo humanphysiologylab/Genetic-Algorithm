@@ -1598,7 +1598,7 @@ C              solver again.
     void lsoda_update(Ode & f, const size_t neq,
                       vector<double> &y, std::vector<double> &yout, double *t,
                       const double tout, int *istate, void *const _data,
-                      double rtol = 1e-6, double atol = 1e-6, double max_step = 0, int itask = 1,
+                      const std::vector<std::pair<double,double>> & r_a_tol, double max_step = 0, int itask = 1,
                       int max_number_of_iter = INT_MAX - 1)
     {
         array<int, 7> iworks = {{0}};
@@ -1614,10 +1614,15 @@ C              solver again.
         yout.resize(neq + 1);
 
         // Set the tolerance. We should do it only once.
-        rtol_.resize(neq + 1, rtol);
-        atol_.resize(neq + 1, atol);
+        rtol_.resize(neq + 1);
+        atol_.resize(neq + 1);
         rtol_[0] = 0;
         atol_[0] = 0;
+        for (int i = 0; i < r_a_tol.size(); i++) {
+            rtol_[i+1] = r_a_tol[i].first;
+            atol_[i+1] = r_a_tol[i].second;
+        }
+
 
         // Fill-in values.
 

@@ -137,6 +137,37 @@ void KernikClancyModel::initConsts(double * constants) const
         constants[i] = constants_array[i];
 }
 
+std::vector<std::pair<double, double>>  KernikClancyModel::get_r_a_tol() const
+{
+    std::vector<std::pair<double, double>> r_a_tol({
+    {1e-3, 1e-3},//V
+    {1e-3, 1e-5},//CaSR
+    {1e-3, 1e-7},//Cai
+    {1e-3, 1e-4},//Nai
+    {1e-3, 1e-4},//Ki
+    {1e-3, 1e-3},//Ca_ligand
+    {1e-3, 1e-3},//d
+    {1e-3, 1e-3},//f1
+    {1e-3, 1e-3},//fCa
+    {1e-3, 1e-3},//Xr1
+    {1e-3, 1e-3},//Xr2
+    {1e-3, 1e-3},//Xs
+    {1e-3, 1e-3},//h
+    {1e-3, 1e-3},//j
+    {1e-3, 1e-3},//m
+    {1e-3, 1e-4},//Xf
+    {1e-3, 1e-3},//s
+    {1e-3, 1e-3},//r
+    {1e-3, 1e-3},//dCaT
+    {1e-3, 1e-3},//fCaT
+    {1e-3, 1e-4},//R
+    {1e-3, 1e-5},//O
+    {1e-3, 1e-4},//I
+    {1e-3, 1e-3},//a_ur
+    {1e-3, 1e-3}//i_ur
+    });
+    return r_a_tol;
+}
 
 void KernikClancyModel::initState(double * states) const
 {

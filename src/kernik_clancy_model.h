@@ -34,6 +34,7 @@ class KernikClancyModel
                       double * __restrict algebraic = nullptr) const;
 
 public:
+    std::vector<std::pair<double, double>> get_r_a_tol() const;
     void compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const;
     void set_constants(double *c);
 

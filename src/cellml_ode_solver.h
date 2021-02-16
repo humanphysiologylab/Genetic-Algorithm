@@ -34,11 +34,10 @@
 
 class ODESolver
 {
-	const double rtol = 1e-8, atol = 1e-5;
 public:
 	template <typename Model, typename Table>
 	void solve(const Model & model, std::vector<double> & y0, int & is_correct,
-				double t0, double start_record, double tout, Table recorded_states, Table recorded_algs) const
+                double t0, double start_record, double tout, Table recorded_states, Table recorded_algs) const
 	{
         //TODO for now Table is expected to be Eigen::Block, that's why it is passed by value
         //TODO throw reasonable exceptions
@@ -61,7 +60,7 @@ public:
 
 		if (start_record > t)
 			lsoda.lsoda_update(model, model.state_size(), y0,
-				state_out, &t, start_record, &istate, nullptr, rtol, atol, max_step, itask);
+				state_out, &t, start_record, &istate, nullptr, model.get_r_a_tol(), max_step, itask);
 		else
 			state_out = y0;
 
@@ -75,7 +74,7 @@ public:
             }
 
 			lsoda.lsoda_update(model, model.state_size(), y0,
-				state_out, &t, t + record_step, &istate, nullptr, rtol, atol, max_step, itask);
+				state_out, &t, t + record_step, &istate, nullptr, model.get_r_a_tol(), max_step, itask);
 
 			y0 = state_out;
             make_a_record(t, model, recorded_states, recorded_algs, y0, i);
@@ -93,7 +92,6 @@ public:
 
 class ODESolverCheckLSODA
 {
-	const double rtol = 1e-9, atol = 1e-6;
 public:
 	template <typename Model, typename Table>
 	void solve(const Model & model, std::vector<double> & y0, int & is_correct,
@@ -119,7 +117,7 @@ public:
 
 		if (start_record > t)
 			lsoda.lsoda_update(model, model.state_size(), y0,
-				state_out, &t, start_record, &istate, nullptr, rtol, atol, max_step, itask);
+				state_out, &t, start_record, &istate, nullptr, model.get_r_a_tol(), max_step, itask);
 		else
 			state_out = y0;
 
@@ -140,7 +138,7 @@ public:
                 if (t == tdone)
                     break;
                 lsoda.lsoda_update(model, model.state_size(), y0,
-                    state_out, &t, tdone, &istate, nullptr, rtol, atol, max_step, itask);
+                    state_out, &t, tdone, &istate, nullptr, model.get_r_a_tol(), max_step, itask);
                 y0 = state_out;
                 make_a_record(t, model, recorded_states, recorded_algs, y0, i);
                 i++;
