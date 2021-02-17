@@ -138,8 +138,7 @@ public:
     void prja(const size_t neq, vector<double> &y, Ode & f,
               void *_data)
     {
-        size_t i = 0, ier = 0, j = 0;
-        double fac = 0.0, hl0 = 0.0, r = 0.0, r0 = 0.0, yj = 0.0;
+        size_t ier = 0;
         /*
            prja is called by stoda to compute and process the matrix
            P = I - h_ * el[1] * J, where J is an approximation to the Jacobian.
@@ -154,7 +153,7 @@ public:
         nje++;
         ierpj = 0;
         jcur = 1;
-        hl0 = h_ * el0;
+        const double hl0 = h_ * el0;
         /*
            If miter = 2, make n calls to f to approximate J.
         */
@@ -165,19 +164,19 @@ public:
         }
         if (miter == 2)
         {
-            fac = vmnorm(n, savf, ewt);
-            r0 = 1000. * fabs(h_) * ETA * ((double)n) * fac;
+            const double fac = vmnorm(n, savf, ewt);
+            double r0 = 1000. * fabs(h_) * ETA * ((double)n) * fac;
             if (r0 == 0.)
                 r0 = 1.;
-            for (j = 1; j <= n; j++)
+            for (size_t j = 1; j <= n; j++)
             {
-                yj = y[j];
-                r = max(sqrteta * fabs(yj), r0 / ewt[j]);
+                const double yj = y[j];
+                const double r = max(sqrteta * fabs(yj), r0 / ewt[j]);
                 y[j] += r;
-                fac = -hl0 / r;
+                const double fac2 = -hl0 / r;
                 f(tn_, &y[1], &acor[1], _data);
-                for (i = 1; i <= n; i++)
-                    wm_[i][j] = (acor[i] - savf[i]) * fac;
+                for (size_t i = 1; i <= n; i++)
+                    wm_[i][j] = (acor[i] - savf[i]) * fac2;
                 y[j] = yj;
             }
             nfe += n;
@@ -188,7 +187,7 @@ public:
             /*
                Add identity matrix.
             */
-            for (i = 1; i <= n; i++)
+            for (size_t i = 1; i <= n; i++)
                 wm_[i][i] += 1.;
             /*
                Do LU decomposition on P.
