@@ -329,7 +329,9 @@ protected:
         //from optimizer to model
         for (const Mutable & m: globalVariables.mutableConstants) {
             const int pos = m.parameter_position;
-            if (m.is_mutation_applicable == 1) {
+            if (m.is_mutation_applicable == 0) {
+                throw(m.name + ": mutableConstants cannot drift");
+            } else if (m.is_mutation_applicable == 1) {
                 model_param_start[pos] = lin_scale_back(optim_param_start[pos], m.min_value, m.max_value);   
             } else if (m.is_mutation_applicable == 2) {
                 model_param_start[pos] = log_scale_back(optim_param_start[pos], m.min_value, m.max_value); 
@@ -340,7 +342,9 @@ protected:
         for (const auto & bv: baselineVariables) {
             for (const Mutable & m: bv.mutableStates) {
                 const int pos = m.parameter_position;
-                if (m.is_mutation_applicable == 1) {
+                if (m.is_mutation_applicable == 0) {
+                    model_param_start[pos] = optim_param_start[pos];
+                } else if (m.is_mutation_applicable == 1) {
                     model_param_start[pos] = lin_scale_back(optim_param_start[pos], m.min_value, m.max_value);   
                 } else if (m.is_mutation_applicable == 2) {
                     model_param_start[pos] = log_scale_back(optim_param_start[pos], m.min_value, m.max_value); 
@@ -357,7 +361,9 @@ protected:
         //from model to optimizer
         for (const Mutable & m: globalVariables.mutableConstants) {
             const int pos = m.parameter_position;
-            if (m.is_mutation_applicable == 1) {
+            if (m.is_mutation_applicable == 0) {
+                throw(m.name + ": mutableConstants cannot drift");
+            } else if (m.is_mutation_applicable == 1) {
                 optim_param_start[pos] = lin_scale(model_param_start[pos], m.min_value, m.max_value);   
             } else if (m.is_mutation_applicable == 2) {
                 optim_param_start[pos] = log_scale(model_param_start[pos], m.min_value, m.max_value); 
@@ -368,7 +374,9 @@ protected:
         for (const auto & bv: baselineVariables) {
             for (const Mutable & m: bv.mutableStates) {
                 const int pos = m.parameter_position;
-                if (m.is_mutation_applicable == 1) {
+                if (m.is_mutation_applicable == 0) {
+                    optim_param_start[pos] = model_param_start[pos];
+                } else if (m.is_mutation_applicable == 1) {
                     optim_param_start[pos] = lin_scale(model_param_start[pos], m.min_value, m.max_value);   
                 } else if (m.is_mutation_applicable == 2) {
                     optim_param_start[pos] = log_scale(model_param_start[pos], m.min_value, m.max_value); 
@@ -762,6 +770,8 @@ public:
                 Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
                 Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
                 is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+                //TODO
+                //tricky place
             }
         }
         return 0;
@@ -791,7 +801,10 @@ public:
             for (const Mutable & gl: vars.mutableStates) {
                 pmin[gl.parameter_position] = gl.min_value;
                 pmax[gl.parameter_position] = gl.max_value;
-                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+                if (gl.is_mutation_applicable == 0)
+                    is_mutation_applicable[gl.parameter_position] = 0;
+                else
+                    is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
             }
         }
 
