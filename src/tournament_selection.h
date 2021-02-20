@@ -127,7 +127,7 @@ public:
     : rg(rg)
     {}
 
-    void operator()(int *mpool, size_t mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers)
+    void operator()(int *mpool, size_t mpool_size, std::vector<std::pair<double, int>> & sd_n_index, int number_of_ignored_losers, double threshold)
     {
         /* FAST version!
          * sd_n_index is expected to be partially sorted by sd
@@ -135,14 +135,15 @@ public:
          * tournament selection fills in mpool with indices of organisms in mating pool.
          * each call of tournament_basic_half fills half of mating pool.
          * sd_n_index will be permutated!
+         * any specie with error larger than threshold is filtered 
          */
+        
         assert(mpool_size % 2 == 0);
         //trim losers
         assert(sd_n_index.size() - number_of_ignored_losers >= mpool_size);
         sd_n_index.resize(sd_n_index.size() - number_of_ignored_losers);
 
         //replace the rest of really bad losers by random fine species
-        const double threshold = 1e2;//TODO
         int first_bad_index;
         for (first_bad_index = sd_n_index.size(); first_bad_index > 0; first_bad_index--) {
             if (sd_n_index[first_bad_index - 1].first < threshold)
