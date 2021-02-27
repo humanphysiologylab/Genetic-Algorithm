@@ -14,19 +14,19 @@ void KernikClancyModel::set_constants(double *c)
 {
     constants = c;
 }
-double KernikClancyModel::max_step() const
+double KernikClancyModel::max_step()
 {
     return max_step_v;
 }
-int KernikClancyModel::state_size() const
+int KernikClancyModel::state_size()
 {
     return states_size;
 }
-int KernikClancyModel::constants_size() const
+int KernikClancyModel::constants_size()
 {
     return const_size;
 }
-int KernikClancyModel::get_alg_size() const
+int KernikClancyModel::get_alg_size()
 {
     return alg_size;
 }
@@ -38,7 +38,7 @@ void KernikClancyModel::operator()(double t, double * __restrict x, double * __r
     assert(constants != 0);
     computerates(t, constants, dxdt, x); 
 }
-void KernikClancyModel::initConsts(double * constants) const
+void KernikClancyModel::initConsts(double * constants)
 {
    const double constants_array[const_size] = {
    1.0000000e+00,
@@ -137,7 +137,7 @@ void KernikClancyModel::initConsts(double * constants) const
         constants[i] = constants_array[i];
 }
 
-std::vector<std::pair<double, double>>  KernikClancyModel::get_r_a_tol() const
+std::vector<std::pair<double, double>>  KernikClancyModel::get_r_a_tol()
 {
     std::vector<std::pair<double, double>> r_a_tol({
     {1e-3, 1e-3},//V
@@ -169,7 +169,7 @@ std::vector<std::pair<double, double>>  KernikClancyModel::get_r_a_tol() const
     return r_a_tol;
 }
 
-void KernikClancyModel::initState(double * states) const
+void KernikClancyModel::initState(double * states)
 {
     const double initialState_array[states_size] = {
     -7.5596602e+01,

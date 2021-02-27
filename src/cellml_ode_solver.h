@@ -5,32 +5,32 @@
 #include <iostream>
 
 
-    template <typename Model, typename Table>
-    void make_a_record(double t, const Model & model, Table recorded_states, Table recorded_algs, const std::vector<double> & y0, int i)
-    {
-        for (int j = 0; j < recorded_states.cols(); j++) {
-            const double r = y0[recorded_states.get_model_pos(j)];
-            if (isnan(r)) {
-                throw -100;
-            }
-            recorded_states(i, j) = r;
+template <typename Model, typename Table>
+void make_a_record(double t, const Model & model, Table recorded_states, Table recorded_algs, const std::vector<double> & y0, int i)
+{
+    for (int j = 0; j < recorded_states.cols(); j++) {
+        const double r = y0[recorded_states.get_model_pos(j)];
+        if (isnan(r)) {
+            throw -100;
         }
-
-        if (recorded_algs.cols() == 0)
-            return;
-
-        //if so then compute algebraics
-        std::vector<double> algebraic(model.get_alg_size());
-        model.compute_algebraic(t, y0.data(), algebraic.data());
-
-        for (int j = 0; j < recorded_algs.cols(); j++) {
-            const double r = algebraic[recorded_algs.get_model_pos(j)];
-            if (isnan(r)) {
-                throw -100;
-            }
-            recorded_algs(i, j) = r;
-        }
+        recorded_states(i, j) = r;
     }
+
+    if (recorded_algs.cols() == 0)
+        return;
+
+    //if so then compute algebraics
+    std::vector<double> algebraic(model.get_alg_size());
+    model.compute_algebraic(t, y0.data(), algebraic.data());
+
+    for (int j = 0; j < recorded_algs.cols(); j++) {
+        const double r = algebraic[recorded_algs.get_model_pos(j)];
+        if (isnan(r)) {
+            throw -100;
+        }
+        recorded_algs(i, j) = r;
+    }
+}
 
 class ODESolver
 {

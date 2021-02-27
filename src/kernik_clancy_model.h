@@ -25,7 +25,7 @@ class KernikClancyModel
     //
 
     static const int states_size = 25, alg_size = 20, const_size = 91;
-    const double max_step_v = 1; //(ms)
+    static constexpr double max_step_v = 1; //(ms)
     double * constants;
     void computerates(const double VOI,
                       const double *  __restrict constants,
@@ -34,24 +34,24 @@ class KernikClancyModel
                       double * __restrict algebraic = nullptr) const;
 
 public:
-    std::vector<std::pair<double, double>> get_r_a_tol() const;
+    static std::vector<std::pair<double, double>> get_r_a_tol();
     void compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const;
     void set_constants(double *c);
 
     KernikClancyModel();
 
-    double max_step() const;
-    int state_size() const;
-    int constants_size() const;
-    int get_alg_size() const;
+    static double max_step();
+    static int state_size();
+    static int constants_size();
+    static int get_alg_size();
 
     void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const;
-    void initConsts(double * constants) const;
-    void initState(double * state) const;
+    static void initConsts(double * constants);
+    static void initState(double * state);
 
 
     template<typename Map1, typename Map2, typename Map3, typename Map4>
-    void get_maps(Map1 & legend_states, Map2 & legend_constants, Map3 & legend_algebraic, Map4 & legend_rates) const
+    static void get_maps(Map1 & legend_states, Map2 & legend_constants, Map3 & legend_algebraic, Map4 & legend_rates)
     {
         //simply copy it from python's version of cellml code
         //unfortunately, there is no cellml code for Kernik-Clancy
@@ -114,8 +114,6 @@ public:
         legend_rates[22] = "d/dt I (in Irel)";
         legend_rates[23] = "d/dt a_ur (ultra_rapid_K_current_aur_gate)";
         legend_rates[24] = "d/dt i_ur (ultra_rapid_K_current_iur_gate)";
-
-
 
         legend_constants[0] = "g_K1_scaler (dimensionless)";
         legend_constants[1] = "g_Kr_scaler (dimensionless)";

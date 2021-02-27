@@ -114,7 +114,7 @@ public:
     void init(InitializedRandomGenerator rg)
     {
         std::vector<double> init_vector(genes_per_organism, nan(""));
-        int init_status = problem.initial_guess(init_vector.begin());
+        int init_status = problem.initial_guess_for_optimizer(init_vector.begin());
         
         for (int i = 0; i < number_organisms; i++) {
             for (int j = 0; j < genes_per_organism; j++) {
@@ -201,7 +201,7 @@ public:
     {
         return error_per_gen;
     }
-    void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen)
+    void log(const std::vector<std::pair<double, int>> & sd_n_index, int gen, int total_gen)
     {
         error_per_gen.push_back({gen, sd_n_index[0].first});
         if (mpi_rank != 0) return;
@@ -209,7 +209,7 @@ public:
         std::cout << "Generation: " << gen << std::endl
                   << "Best: " << sd_n_index[0].first << std::endl
                   << "Worst: " << sd_n_index.back().first << std::endl;
-        
+        problem.gen_algo_stats(sd_n_index, all_genes, gen, total_gen);
        // auto best_genes = best();
       //  std::cout << "Genes:";
        // for (auto &g: best_genes)
@@ -316,7 +316,7 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             save_elite_time = MPI_Wtime() - save_elite_time;
             
             double log_time = MPI_Wtime();
-            pop.log(sd_n_index, index_generation);
+            pop.log(sd_n_index, index_generation, generations);
             log_time = MPI_Wtime() - log_time;
             
             

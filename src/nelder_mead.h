@@ -115,7 +115,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
   const double ccoeff = 0.5; //contraction coefficient
   const double ecoeff = 2.0; //expansion coefficient
   const double shrink_coeff = 0.5; //shrink coefficient
-*/
+  */
   //fancy coeffs
   
   const double ccoeff = 0.75 - 1.0 / (2 * n); //contraction coefficient
@@ -124,7 +124,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
   
 
   double initial_simplex_scale = 1;
-
+  double eps_Scale = 0.1;
 //
 //  Check the input parameters.
 //
@@ -475,7 +475,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
     for (int i = 0; i < n; i++)
       start[i] = xmin[i];
 
-    initial_simplex_scale = eps; //why?
+    initial_simplex_scale = eps_Scale; //why?
     restart_number += 1;
     std::cout << "****************" <<  "RESTART" << "****************" << std::endl;
   }
@@ -487,7 +487,7 @@ std::vector<std::pair<int, double>> nelder_mead(OptimizationProblem & problem, i
 {
     int param_num = problem.get_number_parameters();
     std::vector<double> init_vector(param_num);
-    int init_status = problem.initial_guess(init_vector.begin());
+    int init_status = problem.initial_guess_for_optimizer(init_vector.begin());
     if (init_status == -1)
         throw("NM requires initial guess from problem");
     return nelder_mead(problem, max_evals, stop_crit, check_period, simplex_scale, init_vector);

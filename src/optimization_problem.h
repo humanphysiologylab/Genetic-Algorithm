@@ -17,6 +17,7 @@
 #include <boost/bimap/unconstrained_set_of.hpp>
 
 #include <Eigen/Dense>
+#include <Eigen/StdVector>
 
 using json = nlohmann::json;
 
@@ -34,18 +35,27 @@ class Table
 : public Eigen::MatrixXd
 {
     using Base = Eigen::MatrixXd;
-    int states_cols, alg_cols;
-    int * model_indices;
+protected:
     std::vector<std::string> header;
 public:
-    Table(int m, int n, std::vector<int> states_model_indices,
+    Table(int m, int n, const std::vector<std::string> & header);
+    void export_csv(const std::string & filename);
+};
+
+class TableSplit
+: public Table
+{
+    using Base = Table;
+    int states_cols, alg_cols;
+    int * model_indices;
+public:
+    TableSplit(int m, int n, std::vector<int> states_model_indices,
             std::vector<int> alg_model_indices,
             const std::vector<std::string> & states_names,
             const std::vector<std::string> & alg_names);
-    ~Table();
+    ~TableSplit();
     BlockOfTable get_algebraic();
     BlockOfTable get_states();
-    void export_csv(const std::string & filename);
 };
 
 
@@ -54,7 +64,7 @@ class MinimizeAPbaselines
 {
 public:
     using Baseline = std::vector<double>;
-    using BaselineVec = std::vector<Baseline>;
+    using ListOfBaselines = std::vector<Baseline>;
 
     double distBaselines(const Baseline & a, const Baseline & b) const
     {
@@ -66,7 +76,7 @@ public:
         return res;
     }
 
-    double dist(const BaselineVec & a, const BaselineVec & b) const
+    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
     {
         assert(a.size() == b.size());
         double res = 0;
@@ -86,7 +96,7 @@ class LeastSquaresMinimizeAPbaselines
 {
 public:
     using Baseline = std::vector<double>;
-    using BaselineVec = std::vector<Baseline>;
+    using ListOfBaselines = std::vector<Baseline>;
     
     template<int p>
     double sum_of_elements(const Baseline & b) const
@@ -157,7 +167,7 @@ public:
         return res;
     }
 
-    double dist(const BaselineVec & a, const BaselineVec & b) const
+    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
     {
         //watch for the correct order: a -- experimental optical mapping AP, b -- model
         assert(a.size() == b.size());
@@ -177,7 +187,7 @@ class MaximizeAPinnerProduct
 {
 public:
     using Baseline = std::vector<double>;
-    using BaselineVec = std::vector<Baseline>;
+    using ListOfBaselines = std::vector<Baseline>;
 
     double innerProduct(const Baseline & a, const Baseline & b) const
     {
@@ -192,7 +202,7 @@ public:
         return res;
     }
 
-    double dist(const BaselineVec & a, const BaselineVec & b) const
+    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
     {
         assert(a.size() == b.size());
         double res = 0;
@@ -209,69 +219,75 @@ public:
 };
 
 
-
-
-
-
 template <typename Model, typename Solver, typename Objective>
 class ODEoptimization
 {
 protected:
-    Model glob_model;//!!!!//Maybe not to use it at all due to the multithreading?
     Solver solver;//!!!!
     Objective obj;//!!!!
     using Baseline = typename Objective::Baseline;
-    using BaselineVec = typename Objective::BaselineVec;
-    
-    BaselineVec apbaselines;
-    
-    //two types of variables
-    
-    //TODO
-    //maybe there should be a dict of parameters
-    //required only by a method, and a method provides the keys
-    //by itself
-    struct Mutable
+    using ListOfBaselines = typename Objective::ListOfBaselines;
+
+    ListOfBaselines apbaselines;
+
+
+    // There are two types of values:
+    // 1. Unknowns
+    // 2. Knowns
+
+    // Each of the model parameters or model state variable
+    // can be either unknown or known
+
+    // Unknown parameters / variables
+    struct Unknown
     {
         std::string name;
+        std::string unique_name;
         double min_value;
         double max_value;
-        int init_from_config = 0;
+        int init_guess_available = 0;
         double init_guess;
-        int parameter_position;
+        int optimizer_position;
         int model_position;
         double gamma;
         int is_mutation_applicable;
     };
-    struct Value
+
+    struct Known
     {
         std::string name;
+        std::string unique_name;
         double value;
         int model_position;
     };
-
-    struct Variables
+    
+    // we group different values together
+    struct Values
     {
-        std::vector<Mutable> mutableConstants;
-        std::vector<Mutable> mutableStates;
-        std::vector<Value>   valueConstants;
-        std::vector<Value>   valueStates;
+        std::string groupName;
+        std::vector<Unknown> unknownConstants;
+        std::vector<Unknown> unknownStates;
+        std::vector<Known>   knownConstants;
+        std::vector<Known>   knownStates;
     };
 
-    //global section of config
-    Variables globalVariables;
+    // global section of config
+    Values globalValues;
 
-    //baseline sections of config
-    std::vector<Variables> baselineVariables;
+    // baselines section of config
+    // apbaselines[i] corresponds to baselineValues[i]
+    std::vector<Values> baselineValues;
 
-    //number of mutable variables passed to an optimization algorithm
-    int number_parameters = 0;
+    //number of unknown values passed to an optimization algorithm
+    int number_unknowns = 0;
+    //pointers are evil!!!
+    std::vector<Unknown *> pointers_unknowns;
 
     int mpi_rank, mpi_size;
 
-    int beats;
     bool is_AP_normalized = 0; //normalize every baseline vector independently!!!
 public:
+int beats;
     using ConstantsResult = std::unordered_map<std::string, double>;
     using StatesResult = std::unordered_map<std::string, double>;
     struct BaselineResult
@@ -327,10 +343,10 @@ protected:
     void optimizer_model_scale(It optim_param_start, It2 model_param_start) const
     {
         //from optimizer to model
-        for (const Mutable & m: globalVariables.mutableConstants) {
-            const int pos = m.parameter_position;
+        for (const Unknown & m: globalValues.unknownConstants) {
+            const int pos = m.optimizer_position;
             if (m.is_mutation_applicable == 0) {
-                throw(m.name + ": mutableConstants cannot drift");
+                throw(m.name + ": unknownConstants cannot drift");
             } else if (m.is_mutation_applicable == 1) {
                 model_param_start[pos] = lin_scale_back(optim_param_start[pos], m.min_value, m.max_value);   
             } else if (m.is_mutation_applicable == 2) {
@@ -339,9 +355,9 @@ protected:
                 throw(m.name + ": unknown scale type");
             }
         }
-        for (const auto & bv: baselineVariables) {
-            for (const Mutable & m: bv.mutableStates) {
-                const int pos = m.parameter_position;
+        for (const auto & bv: baselineValues) {
+            for (const Unknown & m: bv.unknownStates) {
+                const int pos = m.optimizer_position;
                 if (m.is_mutation_applicable == 0) {
                     model_param_start[pos] = optim_param_start[pos];
                 } else if (m.is_mutation_applicable == 1) {
@@ -359,10 +375,10 @@ protected:
     void model_optimizer_scale(It model_param_start, It2 optim_param_start) const
     {
         //from model to optimizer
-        for (const Mutable & m: globalVariables.mutableConstants) {
-            const int pos = m.parameter_position;
+        for (const Unknown & m: globalValues.unknownConstants) {
+            const int pos = m.optimizer_position;
             if (m.is_mutation_applicable == 0) {
-                throw(m.name + ": mutableConstants cannot drift");
+                throw(m.name + ": unknownConstants cannot drift");
             } else if (m.is_mutation_applicable == 1) {
                 optim_param_start[pos] = lin_scale(model_param_start[pos], m.min_value, m.max_value);   
             } else if (m.is_mutation_applicable == 2) {
@@ -371,9 +387,9 @@ protected:
                 throw(m.name + ": unknown scale type");
             }
         }
-        for (const auto & bv: baselineVariables) {
-            for (const Mutable & m: bv.mutableStates) {
-                const int pos = m.parameter_position;
+        for (const auto & bv: baselineValues) {
+            for (const Unknown & m: bv.unknownStates) {
+                const int pos = m.optimizer_position;
                 if (m.is_mutation_applicable == 0) {
                     optim_param_start[pos] = model_param_start[pos];
                 } else if (m.is_mutation_applicable == 1) {
@@ -388,29 +404,30 @@ protected:
     }
 public:
     void unfreeze_global_variable(const std::string & name, double min_value, double max_value, std::vector<double> & params)
-    {//TODO more detailed! Use it at your own risk!
-        globalVariables.valueConstants;//remove from valueConstants
-        bool is_found_in_valueConstants = 0;
-        Value v;
-        for (auto wi = globalVariables.valueConstants.begin();
-            wi != globalVariables.valueConstants.end(); wi++) {
+    {//TODO a lot! Use it at your own risk!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        globalValues.knownConstants;//remove from knownConstants
+        bool is_found_in_knownConstants = 0;
+        Known v;
+        for (auto wi = globalValues.knownConstants.begin();
+            wi != globalValues.knownConstants.end(); wi++) {
             if (wi->name == name) {
                 v = *wi;
-                is_found_in_valueConstants = 1;
-                globalVariables.valueConstants.erase(wi);
+                is_found_in_knownConstants = 1;
+                globalValues.knownConstants.erase(wi);
                 break;
             }
         }
-        if (!is_found_in_valueConstants)
-            throw("tried to unfreeze global variable not from valueConstants list");
+        if (!is_found_in_knownConstants)
+            throw("tried to unfreeze global variable not from knownConstants list");
 
-        globalVariables.mutableConstants.push_back(
+        globalValues.unknownConstants.push_back(
             {.name = name,
+             .unique_name = name + "_global",
              .min_value = min_value,
              .max_value = max_value,
-             .init_from_config = 1,
+             .init_guess_available = 1,
              .init_guess = v.value,
-             .parameter_position = number_parameters++, /////////////////////////////////////!!!!!!!!!!!!!!!!!!!!TODO
+             .optimizer_position = number_unknowns++, /////////////////////////////////////!!!!!!!!!!!!!!!!!!!!TODO
              .model_position = v.model_position,
              .gamma = 0, ////////////////////////////////////////////////////////////!!!!!!!!!!!TODO no gen algo for now
              .is_mutation_applicable = 1////////////////////////////////////////////////////////////!!!!!!!!!!!TODO no gen algo for now
@@ -433,7 +450,7 @@ public:
         return results_optimizer_format;
     }
     ODEoptimization(const Model & model, const Solver & solver, const Objective & obj)
-    : glob_model(model), solver(solver), obj(obj)
+    : solver(solver), obj(obj)
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -462,7 +479,7 @@ public:
 
     int get_number_parameters() const
     {
-        return number_parameters;
+        return number_unknowns;
     }
 
     void normalize_baseline(Baseline & baseline) const
@@ -536,15 +553,14 @@ public:
        // if (mpi_rank == 0) {
 
             is_AP_normalized = config["is_AP_normalized"].get<int>();
-            
             beats = config["n_beats"].get<int>();
-
-            number_parameters = 0;
-            //read global variables
+            number_unknowns = 0;
+            //read global values
+            globalValues.groupName = "global";
             for (auto variable: config["global"].items()) {
                 auto v = variable.value();
                 std::string name = v["name"].get<std::string>();
-                
+
                 int model_position;
                 try {
                     //usually in global we have constants
@@ -557,20 +573,22 @@ public:
                 }
                 bool is_value = (v.find("value") != v.end());
                 if (is_value) {
-                    globalVariables.valueConstants.push_back(
+                    globalValues.knownConstants.push_back(
                     {.name = name,
+                     .unique_name = name + "_global",
                      .value = v["value"].get<double>(),
                      .model_position = model_position
                     });
                 } else {
-                    //parameter
-                    globalVariables.mutableConstants.push_back(
+                    //unknown constant
+                    globalValues.unknownConstants.push_back(
                     {.name = name,
+                     .unique_name = name + "_global",
                      .min_value = v["bounds"][0].get<double>(),
                      .max_value = v["bounds"][1].get<double>(),
-                     .init_from_config = (v.find("init") != v.end()),
+                     .init_guess_available = (v.find("init") != v.end()),
                      .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
-                     .parameter_position = number_parameters++,
+                     .optimizer_position = number_unknowns++,
                      .model_position = model_position,
                      .gamma = v["gamma"].get<double>(),
                      .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
@@ -579,14 +597,17 @@ public:
             }
             //constants not listed in config will have default values
 
+
+            //now lets read baseline values
             int baselines_num = 0;
             for (auto baseline: config["baselines"].items()) {
                 baselines_num++;
                 auto b = baseline.value();
 
-                baselineVariables.emplace_back();
-                Variables & bVar = baselineVariables.back();
+                baselineValues.emplace_back();
+                Values & bVar = baselineValues.back();
                 BiMap statesBiMapDrifting = statesBiMapModel;
+                bVar.groupName = b["name"].get<std::string>();
                 for (auto variable: b["params"].items()) {
                     auto v = variable.value();
                     std::string name = v["name"].get<std::string>();
@@ -597,8 +618,9 @@ public:
                         bool is_value = (v.find("value") != v.end());
                         if (!is_value)
                             throw(name + " in baseline config is required to be a value");
-                        bVar.valueConstants.push_back(
+                        bVar.knownConstants.push_back(
                         {.name = name,
+                         .unique_name = name + "_" + bVar.groupName,
                          .value = v["value"].get<double>(),
                          .model_position = model_position
                         });
@@ -619,26 +641,32 @@ public:
                         //remove it from statesBiMapDrifting
                         statesBiMapDrifting.left.erase(name);
 
-                        bVar.mutableStates.push_back(
+                        bVar.unknownStates.push_back(
                         {.name = name,
+                         .unique_name = name + "_" + bVar.groupName,
                          .min_value = v["bounds"][0].get<double>(),
                          .max_value = v["bounds"][1].get<double>(),
-                         .parameter_position = number_parameters++,
+                         .optimizer_position = number_unknowns++,
                          .model_position = model_position,
                          .gamma = v["gamma"].get<double>(),
                          .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
                         });
                     }
                 }
-                //other state mutable variables for each baseline
-                //are drifting
+                // statesBiMapDrifting may not be empty
+                // if RESET_STATES == 1 then statesBiMapDrifting states
+                // are reset to default before model runs
+                //
+                // if RESET_STATES == 0 then statesBiMapDrifting states
+                // drift (values are overwritten by model)
                 if (config["RESET_STATES"].get<int>() == 0) {
                     for (const auto & sit: statesBiMapDrifting) {
-                        bVar.mutableStates.push_back(
+                        bVar.unknownStates.push_back(
                         {.name = sit.left,
+                         .unique_name = sit.left + "_" + bVar.groupName,
                          .min_value = 0,
                          .max_value = 0,
-                         .parameter_position = number_parameters++,
+                         .optimizer_position = number_unknowns++,
                          .model_position = sit.right,
                          .gamma = 0,
                          .is_mutation_applicable = 0
@@ -647,21 +675,43 @@ public:
                 }
             }
             
+            //fill pointers_unknowns!!!!!!!!!!!!!!!!!!!!!
+            pointers_unknowns.resize(number_unknowns);
+            for (Unknown & gl: globalValues.unknownConstants) {
+                pointers_unknowns[gl.optimizer_position] = &gl;
+            }
+            for (Unknown & gl: globalValues.unknownStates) {
+                pointers_unknowns[gl.optimizer_position] = &gl;
+            }
+
+            for (Values & vars: baselineValues) {
+                for (Unknown & gl: vars.unknownConstants) {
+                    pointers_unknowns[gl.optimizer_position] = &gl;
+                }
+                for (Unknown & gl: vars.unknownStates) {
+                    pointers_unknowns[gl.optimizer_position] = &gl;
+                }
+            }
+            
+
+
+/*obsolete since we can call direct problem directly
             //we may need to generate test baselines first
             bool run_type = (config.find("mode") != config.end());
-            if (mpi_rank == 0 && run_type && config["mode"].get<std::string>() == "test") {
-                
-                std::cout << "Generating test baselines" << std::endl;
+            if (mpi_rank == 0 && run_type && config["mode"].get<std::string>() == "Generate synthetic baselines") {
+
+                std::cout << "Generating synthetic baselines" << std::endl;
                 std::cout << "ATTENTION! ALL BASELINES FROM CONFIG WILL BE OVERWRITTEN" << std::endl;
                 const double t_sampling = config["t_sampling"].get<double>();
-                const int beats_num = config["test_beats"].get<int>();//run model long enough to get a steady state
+                const int beats_num = config["generator_beats"].get<int>();//run model long enough to get a steady state
 
                 int baseline_number = 0;
 
                 for (auto baseline: config["baselines"].items()) {
-                    std::vector<double> y0(glob_model.state_size());
-                    Model model(glob_model);
-                    std::vector<double> parameters(number_parameters);
+                    Model model;
+                    std::vector<double> y0(model.state_size());
+                    
+                    std::vector<double> parameters(number_unknowns);
                     initial_guess(parameters.begin(), 0);
 
                     std::vector<double> vconstants(model.constants_size());
@@ -695,31 +745,33 @@ public:
                     baseline_number++;
                 }
             }
-            
+
             //wait for a root node to complete baseline generation
             MPI_Barrier(MPI_COMM_WORLD);
+*/
 
-            //read baselines
-            apbaselines = BaselineVec();
-            for (auto baseline: config["baselines"].items()) {
-                auto b = baseline.value();
-                std::string apfilename = b["filename_phenotype"].get<std::string>();
-                apbaselines.emplace_back();
-                read_baseline(apbaselines.back(), apfilename);
-
-                //initial state may not be provided
-                bool initial_state = (b.find("filename_state") != b.end());
-                if (initial_state) {
-                    std::string statefilename = b["filename_state"].get<std::string>();
-
-                    //TODO
-                    //read_state(..., statefilename);
-                }
-            }
-       //     std::cout << "Unknowns: " << number_parameters << std::endl;
       //  }
         //broadcast all this nonsense;
         //TODO
+    }
+    void read_baselines(json & config)
+    {
+        apbaselines = ListOfBaselines();
+        for (auto baseline: config["baselines"].items()) {
+            auto b = baseline.value();
+            std::string apfilename = b["filename_phenotype"].get<std::string>();
+            apbaselines.emplace_back();
+            read_baseline(apbaselines.back(), apfilename);
+
+            //initial state may not be provided
+            bool initial_state = (b.find("filename_state") != b.end());
+            if (initial_state) {
+                std::string statefilename = b["filename_state"].get<std::string>();
+
+                //TODO
+                //read_state(..., statefilename);
+            }
+        }
     }
     std::vector<double> get_gamma_vector() const
     {
@@ -727,49 +779,49 @@ public:
          * call it only after config read!
          * zero for a gene which does not mutate
          */
-        std::vector<double> v_gamma(number_parameters);
-        for (const Mutable & gl: globalVariables.mutableConstants) {
-            v_gamma[gl.parameter_position] = gl.gamma;
+        std::vector<double> v_gamma(number_unknowns);
+        for (const Unknown & gl: globalValues.unknownConstants) {
+            v_gamma[gl.optimizer_position] = gl.gamma;
         }
-        for (const Mutable & gl: globalVariables.mutableStates) {
-            v_gamma[gl.parameter_position] = gl.gamma;
+        for (const Unknown & gl: globalValues.unknownStates) {
+            v_gamma[gl.optimizer_position] = gl.gamma;
         }
-        for (const Variables & vars: baselineVariables) {
-            for (const Mutable & gl: vars.mutableConstants) {
-                v_gamma[gl.parameter_position] = gl.gamma;
+        for (const Values & vars: baselineValues) {
+            for (const Unknown & gl: vars.unknownConstants) {
+                v_gamma[gl.optimizer_position] = gl.gamma;
             }
-            for (const Mutable & gl: vars.mutableStates) {
-                v_gamma[gl.parameter_position] = gl.gamma;
+            for (const Unknown & gl: vars.unknownStates) {
+                v_gamma[gl.optimizer_position] = gl.gamma;
             }
         }
         return v_gamma;
     }
-    
-    
+
+
     template <typename T1, typename T2>
     int get_boundaries_updated(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
     {
-        const double eps = 0.01;
-        for (const Mutable & gl: globalVariables.mutableConstants) {
-            Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
-            Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
-            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable; //no need to know that it was log scaled
+        const double eps = 0.1;
+        for (const Unknown & gl: globalValues.unknownConstants) {
+            Optpmin[gl.optimizer_position] = (1 - eps) * results_optimizer_format[gl.optimizer_position];
+            Optpmax[gl.optimizer_position] = (1 + eps) * results_optimizer_format[gl.optimizer_position];
+            is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable; //no need to know that it was log scaled
         }
-        for (const Mutable & gl: globalVariables.mutableStates) {
-            Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
-            Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
-            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+        for (const Unknown & gl: globalValues.unknownStates) {
+            Optpmin[gl.optimizer_position] = (1 - eps) * results_optimizer_format[gl.optimizer_position];
+            Optpmax[gl.optimizer_position] = (1 + eps) * results_optimizer_format[gl.optimizer_position];
+            is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
         }
-        for (const Variables & vars: baselineVariables) {
-            for (const Mutable & gl: vars.mutableConstants) {
-                Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
-                Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
-                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+        for (const Values & vars: baselineValues) {
+            for (const Unknown & gl: vars.unknownConstants) {
+                Optpmin[gl.optimizer_position] = (1 - eps) * results_optimizer_format[gl.optimizer_position];
+                Optpmax[gl.optimizer_position] = (1 + eps) * results_optimizer_format[gl.optimizer_position];
+                is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
             }
-            for (const Mutable & gl: vars.mutableStates) {
-                Optpmin[gl.parameter_position] = (1 - eps) * results_optimizer_format[gl.parameter_position];
-                Optpmax[gl.parameter_position] = (1 + eps) * results_optimizer_format[gl.parameter_position];
-                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+            for (const Unknown & gl: vars.unknownStates) {
+                Optpmin[gl.optimizer_position] = (1 - eps) * results_optimizer_format[gl.optimizer_position];
+                Optpmax[gl.optimizer_position] = (1 + eps) * results_optimizer_format[gl.optimizer_position];
+                is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
                 //TODO
                 //tricky place
             }
@@ -780,31 +832,31 @@ public:
     template <typename T1, typename T2>
     int get_boundaries(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
     {
-        std::vector<double> pmin(number_parameters), pmax(number_parameters);
+        std::vector<double> pmin(number_unknowns), pmax(number_unknowns);
 
-        for (const Mutable & gl: globalVariables.mutableConstants) {
-            pmin[gl.parameter_position] = gl.min_value;
-            pmax[gl.parameter_position] = gl.max_value;
-            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable; //no need to know that it was log scaled
+        for (const Unknown & gl: globalValues.unknownConstants) {
+            pmin[gl.optimizer_position] = gl.min_value;
+            pmax[gl.optimizer_position] = gl.max_value;
+            is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable; //no need to know that it was log scaled
         }
-        for (const Mutable & gl: globalVariables.mutableStates) {
-            pmin[gl.parameter_position] = gl.min_value;
-            pmax[gl.parameter_position] = gl.max_value;
-            is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+        for (const Unknown & gl: globalValues.unknownStates) {
+            pmin[gl.optimizer_position] = gl.min_value;
+            pmax[gl.optimizer_position] = gl.max_value;
+            is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
         }
-        for (const Variables & vars: baselineVariables) {
-            for (const Mutable & gl: vars.mutableConstants) {
-                pmin[gl.parameter_position] = gl.min_value;
-                pmax[gl.parameter_position] = gl.max_value;
-                is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+        for (const Values & vars: baselineValues) {
+            for (const Unknown & gl: vars.unknownConstants) {
+                pmin[gl.optimizer_position] = gl.min_value;
+                pmax[gl.optimizer_position] = gl.max_value;
+                is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
             }
-            for (const Mutable & gl: vars.mutableStates) {
-                pmin[gl.parameter_position] = gl.min_value;
-                pmax[gl.parameter_position] = gl.max_value;
+            for (const Unknown & gl: vars.unknownStates) {
+                pmin[gl.optimizer_position] = gl.min_value;
+                pmax[gl.optimizer_position] = gl.max_value;
                 if (gl.is_mutation_applicable == 0)
-                    is_mutation_applicable[gl.parameter_position] = 0;
+                    is_mutation_applicable[gl.optimizer_position] = 0;
                 else
-                    is_mutation_applicable[gl.parameter_position] = 1;//gl.is_mutation_applicable;
+                    is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
             }
         }
 
@@ -814,90 +866,91 @@ public:
 
         return 0;
     }
+
+protected:   
+    void get_default_values(double * constants, double * y0) const
+    {
+        Model::initConsts(constants);
+        Model::initState(y0);
+    }
+
+
     template <typename It>
-    int initial_guess(It parameters_begin, const bool optimizer_called = 1) const
+    void initial_guess(It parameters_begin) const
+    {
+        std::vector<double> y0(Model::state_size());
+        std::vector<double> vconstants(Model::constants_size());
+        
+        //first, find model's default values
+        get_default_values(vconstants.data(), y0.data()); 
+
+        //then, set mutable global parameters
+        for (const Unknown & m: globalValues.unknownConstants) {
+            if (m.init_guess_available) {
+                parameters_begin[m.optimizer_position] = m.init_guess;
+            } else {
+                parameters_begin[m.optimizer_position] = vconstants[m.model_position];
+            }
+        }
+
+        //finally, set mutable baseline parameters
+        for (const Values & vars: baselineValues) {
+            for (const Unknown & m: vars.unknownStates) {
+                parameters_begin[m.optimizer_position] = y0[m.model_position];
+            }
+        }
+    }
+public:
+    template <typename It>
+    int initial_guess_for_optimizer(It parameters_begin) const
     {
         if (1) {
-            //use model's default
-            std::vector<double> y0(glob_model.state_size());
-            std::vector<double> vconstants(glob_model.constants_size());
-
-            //first, find it
-            glob_model.initConsts(vconstants.data());
-            glob_model.initState(y0.data());
-            
-            
-            std::vector<double> parameters(number_parameters);
-            //then, set mutable global parameters
-            for (const Mutable & m: globalVariables.mutableConstants) {
-                parameters[m.parameter_position] = vconstants[m.model_position];
-                if (m.init_from_config != 0) {
-                    std::cout << m.init_guess << std::endl;
-                    parameters[m.parameter_position] = m.init_guess;
-                }
-            }
-            
-            //finally, set mutable baseline parameters
-            for (const Variables & vars: baselineVariables) {
-                for (const Mutable & m: vars.mutableStates) {
-                    parameters[m.parameter_position] = y0[m.model_position];
-                }
-            }
-            
-            if (optimizer_called) {
-                model_optimizer_scale(parameters.begin(), parameters_begin);
-            } else {
-                std::copy(parameters.begin(), parameters.end(), parameters_begin);
-            }
+            std::vector<double> parameters(number_unknowns);
+            initial_guess(parameters.begin());
+            model_optimizer_scale(parameters.begin(), parameters_begin);
             return 0;
         } else {
             //or just not provide anything
-            return -1;//initial parameters are not provided
+            return -1;
         }
     }
-
-    void get_default_values(double * constants, double * y0) const
-    {
-        glob_model.initConsts(constants);
-        glob_model.initState(y0);
-    }
-
+protected:
     template <typename It>
-    void fill_constants_y0(It parameters_begin, double * constants, double * y0, size_t i) const
+    void fill_constants_y0(It parameters_begin, double * constants, double * y0, size_t baseline_index) const
     {
         //first, default
         get_default_values(constants, y0);
 
         //global section of config overwrites default
-        for (const Mutable & m: globalVariables.mutableConstants) {
-            constants[m.model_position] = parameters_begin[m.parameter_position];
+        for (const Unknown & m: globalValues.unknownConstants) {
+            constants[m.model_position] = parameters_begin[m.optimizer_position];
         }
-        for (const Mutable & m: globalVariables.mutableStates) {
+        for (const Unknown & m: globalValues.unknownStates) {
             throw("Wait, that's illegal. Please contact us if you want it.");
         }
-        for (const Value & v: globalVariables.valueConstants) {
+        for (const Known & v: globalValues.knownConstants) {
             constants[v.model_position] = v.value;
         }
-        for (const Value & v: globalVariables.valueStates) {
+        for (const Known & v: globalValues.knownStates) {
             throw("Wait, that's illegal. Please contact us if you want it.");
         }
 
         //baseline sections of config overwrites global and default
-        for (const Mutable & m: baselineVariables[i].mutableConstants) {
+        for (const Unknown & m: baselineValues[baseline_index].unknownConstants) {
             throw("Wait, that's illegal. Please contact us if you want it.");
         }
-        for (const Mutable & m: baselineVariables[i].mutableStates) {
-            y0[m.model_position] = parameters_begin[m.parameter_position];
+        for (const Unknown & m: baselineValues[baseline_index].unknownStates) {
+            y0[m.model_position] = parameters_begin[m.optimizer_position];
         }
-        for (const Value & v: baselineVariables[i].valueConstants) {
+        for (const Known & v: baselineValues[baseline_index].knownConstants) {
             constants[v.model_position] = v.value;
         }
-        for (const Value & v: baselineVariables[i].valueStates) {
+        for (const Known & v: baselineValues[baseline_index].knownStates) {
             throw("Wait, that's illegal. Please contact us if you want it.");
         }
     }
-protected:
-    void direct_problem(std::vector<double> & y0, Model & model, double start_record, double tout, Table & table) const
+
+    void direct_problem(std::vector<double> & y0, Model & model, double start_record, double tout, TableSplit & table) const
     {
         int is_correct = 0;
         const double t0 = 0;
@@ -915,66 +968,70 @@ public:
     void run_direct_and_dump(double start_record_time, double time, double dump_period, std::string filename,
         const std::vector<std::string> & dump_vars)
     {
-        //Runs only one baseline!
-        Model model(glob_model);
+        for (int baseline_index = 0; baseline_index < baselineValues.size(); baseline_index++) {
+            
+            const auto & baseline = baselineValues[baseline_index];
+            Model model;
 
-        std::vector<double> y0(model.state_size());
-        std::vector<double> parameters(number_parameters);
-        initial_guess(parameters.begin(), 0);
-        std::vector<double> vconstants(model.constants_size());
-        double * constants = vconstants.data();
-        model.set_constants(constants);
-        fill_constants_y0(parameters.begin(), constants, y0.data(), 0);
+            std::vector<double> y0(model.state_size());
+            
+            std::vector<double> parameters(number_unknowns);
+            //Initial guess from config file will be respected!
+            initial_guess(parameters.begin());
+            
+            std::vector<double> vconstants(model.constants_size());
+            double * constants = vconstants.data();
+            model.set_constants(constants);
+            
+            fill_constants_y0(parameters.begin(), constants, y0.data(), baseline_index);
 
-        std::vector<int> states_model_indices;
-        std::vector<int> alg_model_indices;
-        std::vector<std::string> states_names;
-        std::vector<std::string> alg_names;
-        //add dump_vars to a table
-        for (const auto & svar: dump_vars) {
-            int model_position;
-            try {
-                model_position = statesBiMapModel.left.at(svar);
-            } catch (...) {
-                continue;
+            std::vector<int> states_model_indices;
+            std::vector<int> alg_model_indices;
+            std::vector<std::string> states_names;
+            std::vector<std::string> alg_names;
+            //add dump_vars to a table
+            for (const auto & svar: dump_vars) {
+                int model_position;
+                try {
+                    model_position = statesBiMapModel.left.at(svar);
+                } catch (...) {
+                    continue;
+                }
+                std::cout << svar << std::endl;
+                states_model_indices.push_back(model_position);
+                states_names.push_back(svar);
             }
-            std::cout << svar << std::endl;
-            states_model_indices.push_back(model_position);
-            states_names.push_back(svar);
-        }
-        for (const auto & svar: dump_vars) {
-            int model_position;
-            try {
-                model_position = algebraicBiMapModel.left.at(svar);
-            } catch (...) {
-                continue;
+            for (const auto & svar: dump_vars) {
+                int model_position;
+                try {
+                    model_position = algebraicBiMapModel.left.at(svar);
+                } catch (...) {
+                    continue;
+                }
+                std::cout << svar << std::endl;
+                alg_model_indices.push_back(model_position);
+                alg_names.push_back(svar);
             }
-            std::cout << svar << std::endl;
-            alg_model_indices.push_back(model_position);
-            alg_names.push_back(svar);
-        }
-        
-        
 
-        Table table(1 + std::ceil((time - start_record_time) / dump_period),
-                    states_model_indices.size() + alg_model_indices.size(),
-                    states_model_indices, alg_model_indices,
-                    states_names, alg_names);
-        std::cout << "run model" << std::endl;
-        direct_problem(y0, model, start_record_time, time, table);
-        std::cout << "dump" << std::endl;
-        table.export_csv(filename);
-        std::cout << "dump complete" << std::endl;
+
+            TableSplit table(1 + std::ceil((time - start_record_time) / dump_period),
+                        states_model_indices.size() + alg_model_indices.size(),
+                        states_model_indices, alg_model_indices,
+                        states_names, alg_names);
+            direct_problem(y0, model, start_record_time, time, table);
+            table.export_csv(filename + "_" + baseline.groupName);
+        }
     }
 protected:
     void model_eval(std::vector<double> & y0, Model & model, int n_beats, double period, Baseline & apRecord) const
     {
-        //TODO, this is temporary
+        // called while solving optimization problem
+        // when we try to fit AP curves
         std::vector<int> states_model_indices = {0};
         std::vector<int> alg_model_indices;
         std::vector<std::string> states_names = {"V"};
         std::vector<std::string> alg_names;
-        Table table(apRecord.size(), 1, states_model_indices, alg_model_indices,
+        TableSplit table(apRecord.size(), 1, states_model_indices, alg_model_indices,
                     states_names, alg_names);
         
         double start_record = period * (n_beats - 1);
@@ -988,17 +1045,17 @@ protected:
     }
 public:
     template <typename It>
-    BaselineVec genetic_algorithm_calls_general(It optimizer_parameters_begin, int n_beats = -1) const
+    ListOfBaselines genetic_algorithm_calls_general(It optimizer_parameters_begin, int n_beats = -1) const
     {
-        std::vector<double> model_scaled_parameters(number_parameters);
+        std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
-        
+
         if (n_beats == -1) n_beats = beats;
-        BaselineVec apmodel;
+        ListOfBaselines apmodel;
         for (const auto & v: apbaselines)
             apmodel.push_back(Baseline(v.size()));
-        
-        Model model(glob_model);
+
+        Model model;
         bool solver_failed = 0;
         for (size_t i = 0; i < apbaselines.size(); i++) {
             std::vector<double> y0(model.state_size());
@@ -1009,7 +1066,7 @@ public:
             model.set_constants(constants);//!!!!!!!
             fill_constants_y0(model_scaled_parameters.begin(), constants, y0.data(), i);
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
-            
+
             try {
                 model_eval(y0, model, n_beats, period, apRecord);
             } catch (...) {
@@ -1020,8 +1077,8 @@ public:
                 break;
             //save mutable variables from the state
             //since we let them to drift
-            for (const Mutable & m: baselineVariables[i].mutableStates) {
-                model_scaled_parameters[m.parameter_position] =  y0[m.model_position];
+            for (const Unknown & m: baselineValues[i].unknownStates) {
+                model_scaled_parameters[m.optimizer_position] =  y0[m.model_position];
             }
         }
         if (solver_failed) {
@@ -1044,7 +1101,7 @@ public:
     template <typename V>
     void genetic_algorithm_result(const V & parameters)
     {
-        std::vector<double> model_scaled_parameters(number_parameters);
+        std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(parameters.begin(), model_scaled_parameters.begin());
         //mirror the stage of initialization before solver.solve call
         //but just save the final result
@@ -1052,12 +1109,12 @@ public:
         relative_results = Results();
         for (size_t i = 0; i < apbaselines.size(); i++) {
             BaselineResult res, relative_res;
-            std::vector<double> y0(glob_model.state_size());
-            std::vector<double> vconstants(glob_model.constants_size());
+            std::vector<double> y0(Model::state_size());
+            std::vector<double> vconstants(Model::constants_size());
             fill_constants_y0(model_scaled_parameters.begin(), vconstants.data(), y0.data(), i);
 
-            std::vector<double> y0_default(glob_model.state_size());
-            std::vector<double> vconstants_default(glob_model.constants_size());
+            std::vector<double> y0_default(Model::state_size());
+            std::vector<double> vconstants_default(Model::constants_size());
             get_default_values(vconstants_default.data(), y0_default.data());
             //TODO y0_default should be specific for each baseline
             //not really from a default model
@@ -1073,33 +1130,35 @@ public:
             results.push_back(res);
             relative_results.push_back(relative_res);
         }
-        results_optimizer_format = std::vector<double>(number_parameters);
-        std::copy(parameters.begin(), parameters.begin() + number_parameters, results_optimizer_format.begin());
+        results_optimizer_format = std::vector<double>(number_unknowns);
+        std::copy(parameters.begin(), parameters.begin() + number_unknowns, results_optimizer_format.begin());
     }
+
     template <typename It>
-    void dump_ap(It parameters_begin, int i) const
+    void dump_ap(It parameters_begin, int i, int num_beats = -1) const
     {
-        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
+        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, num_beats);
         const double dist = obj.dist(apbaselines, tmp_b);
         std::cout << "final dist: " << dist << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
     }
-    
+
     double loglikelihood(std::vector<double> pars)
     {
         double ll = 0;
-        BaselineVec res = genetic_algorithm_calls_general(pars.begin());
+        ListOfBaselines res = genetic_algorithm_calls_general(pars.begin());
         assert(apbaselines.size() == res.size());
+        const double sigma = 100;//it is just an assumption, need to find sigma from experimental data TODO
+        const double add = -log(sqrt(2*M_PI) * sigma);//with normalization
         for (size_t i = 0; i < apbaselines.size(); i++) {
-            Baseline & a = apbaselines[i];
-            Baseline & r = res[i];
+            const Baseline & a = apbaselines[i];
+            const Baseline & r = res[i];
             double p = 0;
             //maybe i should use sizes of these vectors...
             for (size_t j = 0; j < a.size(); j++) {
-                const double sigma = 1e-2 * std::fabs(a[j]); //it is just an assumption, need to find sigma from experimental data TODO
                 const double arg = (a[j] - r[j]) / sigma;
-                p += (- 0.5 * arg * arg - 0.5 * log(2 * M_PI) - log(sigma)); //with normalization
+                p += (- 0.5 * arg * arg + add); 
             }
             ll += p ;// a.size();
         }
@@ -1107,24 +1166,84 @@ public:
     }
     std::vector<std::string> get_unique_parameter_names()
     {
-        std::vector<std::string> names(number_parameters);
-        for (const Mutable & gl: globalVariables.mutableConstants) {
-            names[gl.parameter_position] = gl.name;
+        std::vector<std::string> names(number_unknowns);
+        for (int i = 0; i < number_unknowns; i++) {
+            names[i] = pointers_unknowns[i]->unique_name;
         }
-        for (const Mutable & gl: globalVariables.mutableStates) {
-            names[gl.parameter_position] = gl.name;
+        /*
+        for (const Unknown & gl: globalValues.unknownConstants) {
+            names[gl.optimizer_position] = gl.name;
         }
-        int i = 0;//TODO
-        for (const Variables & vars: baselineVariables) {
-            std::string unique_suffix = std::to_string(i++);//TODO
-            for (const Mutable & gl: vars.mutableConstants) {
-                names[gl.parameter_position] = gl.name + unique_suffix;
+        for (const Unknown & gl: globalValues.unknownStates) {
+            names[gl.optimizer_position] = gl.name;
+        }
+
+        for (const Values & vars: baselineValues) {
+            std::string unique_suffix = vars.groupName;
+            for (const Unknown & gl: vars.unknownConstants) {
+                names[gl.optimizer_position] = gl.name + unique_suffix;
             }
-            for (const Mutable & gl: vars.mutableStates) {
-                names[gl.parameter_position] = gl.name + unique_suffix;
+            for (const Unknown & gl: vars.unknownStates) {
+                names[gl.optimizer_position] = gl.name + unique_suffix;
             }
-        }
+        }*/
         return names;
+    }
+
+    std::vector<Table,Eigen::aligned_allocator<Table>> gen_algo_tables;
+
+    void gen_algo_stats(const std::vector<std::pair<double, int>> & sd_n_index, const std::vector<double> & all_genes, int gen, int total_gen)
+    {
+        const int percentile_step = 5;
+        if (gen == 0) {
+            for (int i = 0; i < number_unknowns; i++) {
+                std::vector<std::string> header;
+                header.push_back("best_organism");
+                for (int p = percentile_step; p <= 100; p += percentile_step) {
+                    header.push_back(std::string("mean_") + std::to_string(p));
+                    header.push_back(std::string("var_") + std::to_string(p));
+                }
+                gen_algo_tables.push_back(Table(total_gen, header.size(), header));
+            }
+        }
+
+        const int number_organisms = all_genes.size() / number_unknowns;
+
+        // first save best organism's parameters
+        for (int i = 0; i < number_unknowns; i++) {
+            std::vector<double> model_params(number_unknowns);
+            optimizer_model_scale(all_genes.data() + sd_n_index[0].second * number_unknowns, model_params.begin());
+            gen_algo_tables[i](gen, 0) = model_params[i];
+        }
+
+        // now write statistics by percentiles
+        std::vector<double> sums_x2(number_unknowns), sums_x(number_unknowns);
+        const double sz = (double) percentile_step * number_organisms / 100;
+
+        for (int i = 0, percentile = 0; i < number_organisms; i++) {
+            std::vector<double> model_params(number_unknowns);
+            optimizer_model_scale(all_genes.data() + sd_n_index[i].second * number_unknowns, model_params.begin());
+            for (int j = 0; j < number_unknowns; j++) {
+                const double v = model_params[j];
+                sums_x[j] += v;
+                sums_x2[j] += std::pow(v, 2);
+            }
+            if ((int) std::floor((i + 1) / sz) > percentile) {
+                percentile += 1;
+                for (int j = 0; j < number_unknowns; j++) {
+                    const double i_th_median = sums_x[j] / (i + 1);
+                    const double i_th_var = sums_x2[j] / (i + 1) - std::pow(i_th_median, 2);
+                    gen_algo_tables[j](gen, 1 + 2 * (percentile - 1)     ) = i_th_median;
+                    gen_algo_tables[j](gen, 1 + 2 * (percentile - 1)  + 1) = i_th_var;
+                }
+            }
+        }
+    }
+    void export_gen_algo_tables()
+    {
+        for (int i = 0; i < number_unknowns; i++) {
+            gen_algo_tables[i].export_csv(std::string("table_") + pointers_unknowns[i]->unique_name);
+        }
     }
 };
 
@@ -1138,14 +1257,14 @@ class ODEoptimizationTrackVersion:
 protected:
     using Base = ODEoptimization<Model, Solver, Objective>;
     using typename Base::Baseline;
-    using typename Base::BaselineVec;
+    using typename Base::ListOfBaselines;
     using Base::apbaselines;
     using Base::obj;
     using Base::write_baseline;
     using Base::genetic_algorithm_calls_general;
 
-    BaselineVec initial_guess_baseline;
-    BaselineVec intermediate_baseline;
+    ListOfBaselines initial_guess_baseline;
+    ListOfBaselines intermediate_baseline;
     
     double alpha;
 public:

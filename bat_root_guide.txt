@@ -1,0 +1,37 @@
+1. download and install ROOT following instructions how to build it from source from https://root.cern/install/
+  install ALL dependencies!!!
+
+# substitute `v6-22-00-patches` with the patches branch of the latest release
+$ git clone --branch v6-22-00-patches https://github.com/root-project/root.git root_src
+$ mkdir root_build root_install && cd root_build
+$ cmake -Dmathmore=ON -DCMAKE_CXX_STANDARD=17 -DCMAKE_INSTALL_PREFIX=../root_install ../root_src # && check cmake configuration output for warnings or errors
+$ cmake --build . -- install -j4 # if you have 4 cores available for compilation
+$ source ../root_install/bin/thisroot.sh # or thisroot.{fish,csh}
+
+2. Clone BAT repo https://github.com/bat/bat
+3. Add -std=c++17 to configure.ac
+4. Follow INSTALL.md
+  cd bat
+  ./autogen.sh
+  ./configure --with-rootsys=$HOME/root_install --enable-roostats --enable-parallel --prefix=$HOME
+  make
+  make install
+  
+  dont forget to add to .bashrc:
+	export PATH="$HOME/bin:$PATH"
+	export LD_LIBRARY_PATH="$HOME/lib:$LD_LIBRARY_PATH"
+	export CPATH="$HOME/include:$CPATH"
+	export PKG_CONFIG_PATH="$HOME/lib/pkgconfig:$PKG_CONFIG_PATH"
+	
+	source $HOME/root_install/bin/thisroot.sh
+
+then do 
+source ~/.bashrc
+
+IF you face some problems during make or make install for BAT, just try everything in new directory
+
+How to build the project with BAT as a dependence:
+Do all these steps, and then provide MCMC_ENABLED flag to CMake before building
+the project:
+cmake -DMCMC_ENABLED=ON ..
+make

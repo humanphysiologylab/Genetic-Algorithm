@@ -35,7 +35,7 @@
 #include "nelder_mead.h"
 
 #include <json.hpp>
-
+#include "mcmc.h"
 
 template <typename SeedSource, typename Problem>
 void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen)
@@ -118,6 +118,7 @@ void main_gen_algo(const char *configFilename)
     double time_read_config = MPI_Wtime();
     try {
         problem.read_config(configFilename);
+        problem.read_baselines(config);
     } catch(const char * err) {
         std::cout << "catch in main:" << std::endl;
         std::cout << err << std::endl;
@@ -288,6 +289,7 @@ void script_genetic_algorithm(json & config)
     
     try {
         problem.read_config(config);
+        problem.read_baselines(config);
     } catch (const char * err) {
         std::cout << "catch in main:" << std::endl;
         std::cout << err << std::endl;
@@ -301,6 +303,7 @@ void script_genetic_algorithm(json & config)
         std::ofstream file(filename);
         for (const auto & p: error_per_gen)
             file << p.first << " " << p.second << std::endl;
+        problem.export_gen_algo_tables();
     }
     if (mpi_rank == 0) {
         problem.dump_ap(problem.get_results_optimizer_format(), 0);
@@ -340,6 +343,7 @@ void script_nelder_mead(json & config)
     double time_read_config = MPI_Wtime();
     try {
         problem.read_config(config);
+        problem.read_baselines(config);
     } catch(const char * err) {
         std::cout << "catch in main:" << std::endl;
         std::cout << err << std::endl;
@@ -353,14 +357,17 @@ void script_nelder_mead(json & config)
         std::vector<std::pair<int, double>> error_per_gen = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>());
         auto res1 = problem.get_results_optimizer_format();
 
-        problem.dump_ap(res1.begin(), 5);
-        /*
-        problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
-        std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, 500, 1e-14, 1, 1e-1, res1);
+        problem.dump_ap(res1.begin(), 5, 1000);
+        
+        
+       // problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
+        problem.beats = 100;
+        std::cout << "stage 2" << std::endl;
+        std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>()/10, res1);
         error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
         auto res2 = problem.get_results_optimizer_format();
         problem.dump_ap(res2.begin(), 10);
-        */
+        
         std::string filename = "convergence_NM.txt";
         std::ofstream file(filename);
         for (const auto & p: error_per_gen)
@@ -480,6 +487,7 @@ const int seed_source = 42;
     double time_read_config = MPI_Wtime();
     try {
         problem.read_config(config);
+        problem.read_baselines(config);
     } catch(const char * err) {
         std::cout << "catch in main:" << std::endl;
         std::cout << err << std::endl;
@@ -532,6 +540,88 @@ return;
     }
 }
 
+
+void script_mcmc(json & config)
+{
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+
+#ifdef MCMC_ENABLED
+    pcg_extras::seed_seq_from<std::random_device> seed_source;
+//const int seed_source = 42;
+
+
+   // MaleckarModel model;
+    KernikClancyModel model;
+
+    ODESolver solver;
+//MaximizeAPinnerProduct obj;
+    MinimizeAPbaselines obj;
+  // LeastSquaresMinimizeAPbaselines obj;
+  //  ODEoptimizationTrackVersion problem(model, solver, obj);///////////////////////////
+    ODEoptimization problem(model, solver, obj);
+
+    double time_read_config = MPI_Wtime();
+    try {
+        problem.read_config(config);
+        problem.read_baselines(config);
+    } catch(const char * err) {
+        std::cout << "catch in main:" << std::endl;
+        std::cout << err << std::endl;
+        throw;
+    }
+    time_read_config = MPI_Wtime() - time_read_config;
+
+
+    std::vector<double> res(problem.get_number_parameters());
+    problem.initial_guess_for_optimizer(res.begin());
+    mcmc(problem, config["output_name"].get<std::string>(), res);
+
+return;
+    if (mpi_rank == 0) {
+        std::cout << "time_read_config, s: " << time_read_config << std::endl;
+
+        std::vector<std::pair<int, double>> error_per_gen = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>());
+        auto res1 = problem.get_results_optimizer_format();
+
+        problem.dump_ap(res1.begin(), 5);
+        /*
+        problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
+        std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, 500, 1e-14, 1, 1e-1, res1);
+        error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
+        auto res2 = problem.get_results_optimizer_format();
+        problem.dump_ap(res2.begin(), 10);
+        */
+        std::string filename = "convergence_NM.txt";
+        std::ofstream file(filename);
+        for (const auto & p: error_per_gen)
+            file << p.first << " " << p.second << std::endl;
+
+        using Results = decltype(problem)::Results;
+        using BaselineResult = decltype(problem)::BaselineResult;
+        Results results = problem.get_relative_results();
+        BaselineResult res = results[0];
+        std::cout << "Printing relative to default results" << std::endl;
+        for (const auto & cit: res.constantsResult)
+            std::cout << cit.first << " " << cit.second << std::endl;
+        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
+        for (const auto & sit: res.statesResult)
+            std::cout << sit.first << " " << sit.second << std::endl;
+
+
+
+        mcmc(problem, config["output_name"].get<std::string>(), res1);
+
+    }
+#else
+    if (mpi_rank == 0)
+        std::cerr << "Build with no MCMC support" << std::endl;
+#endif
+
+}
+
 int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
@@ -554,22 +644,28 @@ int main(int argc, char *argv[])
     configFile >> config;
 
     const std::string sname = config["script"].get<std::string>();
-    if (sname == "Genetic Algorithm") {
-        script_genetic_algorithm(config);
-    } else if (sname == "Nelder Mead") {
-        script_nelder_mead(config);
-    } else if (sname == "Direct Problem") {
-        script_direct_problem(config);
-    } else if (sname == "Gradient Descent") {
-        script_gradient_descent(config);
-    } else if (sname == "Test Function") {
-        script_test_function(config);
-    } else if (sname == "Track Minimum") {
-        script_track_minimum(config);
-    } else {
-        std::cout << "Unknown script name: " << sname << std::endl;
+    try {
+        if (sname == "Genetic Algorithm") {
+            script_genetic_algorithm(config);
+        } else if (sname == "Nelder Mead") {
+            script_nelder_mead(config);
+        } else if (sname == "Direct Problem") {
+            script_direct_problem(config);
+        } else if (sname == "Gradient Descent") {
+            script_gradient_descent(config);
+        } else if (sname == "Test Function") {
+            script_test_function(config);
+        } else if (sname == "Track Minimum") {
+            script_track_minimum(config);
+        } else if (sname == "MCMC") {
+            script_mcmc(config);
+        } else {
+            std::cout << "Unknown script name: " << sname << std::endl;
+        }
+    } catch(const std::string & e) {
+        if (mpi_rank == 0)
+            std::cout << e << std::endl;
     }
-
     MPI_Finalize();
     return 0;
 }
