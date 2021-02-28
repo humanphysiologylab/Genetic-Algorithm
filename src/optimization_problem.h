@@ -343,30 +343,17 @@ protected:
     void optimizer_model_scale(It optim_param_start, It2 model_param_start) const
     {
         //from optimizer to model
-        for (const Unknown & m: globalValues.unknownConstants) {
-            const int pos = m.optimizer_position;
-            if (m.is_mutation_applicable == 0) {
-                throw(m.name + ": unknownConstants cannot drift");
-            } else if (m.is_mutation_applicable == 1) {
-                model_param_start[pos] = lin_scale_back(optim_param_start[pos], m.min_value, m.max_value);   
-            } else if (m.is_mutation_applicable == 2) {
-                model_param_start[pos] = log_scale_back(optim_param_start[pos], m.min_value, m.max_value); 
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            const int pos = u.optimizer_position;
+            if (u.is_mutation_applicable == 0) {
+                model_param_start[pos] = optim_param_start[pos];
+            } else if (u.is_mutation_applicable == 1) {
+                model_param_start[pos] = lin_scale_back(optim_param_start[pos], u.min_value, u.max_value);
+            } else if (u.is_mutation_applicable == 2) {
+                model_param_start[pos] = log_scale_back(optim_param_start[pos], u.min_value, u.max_value);
             } else {
-                throw(m.name + ": unknown scale type");
-            }
-        }
-        for (const auto & bv: baselineValues) {
-            for (const Unknown & m: bv.unknownStates) {
-                const int pos = m.optimizer_position;
-                if (m.is_mutation_applicable == 0) {
-                    model_param_start[pos] = optim_param_start[pos];
-                } else if (m.is_mutation_applicable == 1) {
-                    model_param_start[pos] = lin_scale_back(optim_param_start[pos], m.min_value, m.max_value);   
-                } else if (m.is_mutation_applicable == 2) {
-                    model_param_start[pos] = log_scale_back(optim_param_start[pos], m.min_value, m.max_value); 
-                } else {
-                    throw(m.name + ": unknown scale type");
-                }
+                throw(u.name + ": unknown scale type");
             }
         }
     }
@@ -375,36 +362,24 @@ protected:
     void model_optimizer_scale(It model_param_start, It2 optim_param_start) const
     {
         //from model to optimizer
-        for (const Unknown & m: globalValues.unknownConstants) {
-            const int pos = m.optimizer_position;
-            if (m.is_mutation_applicable == 0) {
-                throw(m.name + ": unknownConstants cannot drift");
-            } else if (m.is_mutation_applicable == 1) {
-                optim_param_start[pos] = lin_scale(model_param_start[pos], m.min_value, m.max_value);   
-            } else if (m.is_mutation_applicable == 2) {
-                optim_param_start[pos] = log_scale(model_param_start[pos], m.min_value, m.max_value); 
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            const int pos = u.optimizer_position;
+            if (u.is_mutation_applicable == 0) {
+                optim_param_start[pos] = model_param_start[pos];
+            } else if (u.is_mutation_applicable == 1) {
+                optim_param_start[pos] = lin_scale(model_param_start[pos], u.min_value, u.max_value);
+            } else if (u.is_mutation_applicable == 2) {
+                optim_param_start[pos] = log_scale(model_param_start[pos], u.min_value, u.max_value);
             } else {
-                throw(m.name + ": unknown scale type");
-            }
-        }
-        for (const auto & bv: baselineValues) {
-            for (const Unknown & m: bv.unknownStates) {
-                const int pos = m.optimizer_position;
-                if (m.is_mutation_applicable == 0) {
-                    optim_param_start[pos] = model_param_start[pos];
-                } else if (m.is_mutation_applicable == 1) {
-                    optim_param_start[pos] = lin_scale(model_param_start[pos], m.min_value, m.max_value);   
-                } else if (m.is_mutation_applicable == 2) {
-                    optim_param_start[pos] = log_scale(model_param_start[pos], m.min_value, m.max_value); 
-                } else {
-                    throw(m.name + ": unknown scale type");
-                }
+                throw(u.name + ": unknown scale type");
             }
         }
     }
 public:
     void unfreeze_global_variable(const std::string & name, double min_value, double max_value, std::vector<double> & params)
     {//TODO a lot! Use it at your own risk!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        throw("unfreeze_global_variable not ready yet");
         globalValues.knownConstants;//remove from knownConstants
         bool is_found_in_knownConstants = 0;
         Known v;
@@ -616,16 +591,29 @@ public:
                         //constant can be listed as a baseline value
                         model_position = constantsBiMapModel.left.at(name);
                         bool is_value = (v.find("value") != v.end());
-                        if (!is_value)
-                            throw(name + " in baseline config is required to be a value");
-                        bVar.knownConstants.push_back(
-                        {.name = name,
-                         .unique_name = name + "_" + bVar.groupName,
-                         .value = v["value"].get<double>(),
-                         .model_position = model_position
-                        });
-                    } catch (const char * const_isnt_a_value) {
-                        throw(const_isnt_a_value);
+                        if (is_value) {
+                            bVar.knownConstants.push_back(
+                            {.name = name,
+                             .unique_name = name + "_" + bVar.groupName,
+                             .value = v["value"].get<double>(),
+                             .model_position = model_position
+                            });
+                        } else {
+                            //unknown constant specified for this baseline
+                            //i.e. stimulation shift
+                            bVar.unknownConstants.push_back(
+                            {.name = name,
+                             .unique_name = name + "_" + bVar.groupName,
+                             .min_value = v["bounds"][0].get<double>(),
+                             .max_value = v["bounds"][1].get<double>(),
+                             .init_guess_available = (v.find("init") != v.end()),
+                             .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
+                             .optimizer_position = number_unknowns++,
+                             .model_position = model_position,
+                             .gamma = v["gamma"].get<double>(),
+                             .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
+                            });
+                        }
                     } catch (...) {
                         //name is not a constant
                         try {
@@ -698,8 +686,6 @@ public:
                     pointers_unknowns[gl.optimizer_position] = &gl;
                 }
             }
-            
-
 
 /*obsolete since we can call direct problem directly
             //we may need to generate test baselines first
@@ -786,19 +772,9 @@ public:
          * zero for a gene which does not mutate
          */
         std::vector<double> v_gamma(number_unknowns);
-        for (const Unknown & gl: globalValues.unknownConstants) {
-            v_gamma[gl.optimizer_position] = gl.gamma;
-        }
-        for (const Unknown & gl: globalValues.unknownStates) {
-            v_gamma[gl.optimizer_position] = gl.gamma;
-        }
-        for (const Values & vars: baselineValues) {
-            for (const Unknown & gl: vars.unknownConstants) {
-                v_gamma[gl.optimizer_position] = gl.gamma;
-            }
-            for (const Unknown & gl: vars.unknownStates) {
-                v_gamma[gl.optimizer_position] = gl.gamma;
-            }
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            v_gamma[u.optimizer_position] = u.gamma;
         }
         return v_gamma;
     }
@@ -840,32 +816,20 @@ public:
     template <typename T1, typename T2>
     int get_boundaries(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
     {
+        //why we pass is_mutation_applicable = 1 ?
+        //because some optimization methods still assume they
+        //need to scale unknowns on their own
         std::vector<double> pmin(number_unknowns), pmax(number_unknowns);
 
-        for (const Unknown & gl: globalValues.unknownConstants) {
-            pmin[gl.optimizer_position] = gl.min_value;
-            pmax[gl.optimizer_position] = gl.max_value;
-            is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable; //no need to know that it was log scaled
-        }
-        for (const Unknown & gl: globalValues.unknownStates) {
-            pmin[gl.optimizer_position] = gl.min_value;
-            pmax[gl.optimizer_position] = gl.max_value;
-            is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
-        }
-        for (const Values & vars: baselineValues) {
-            for (const Unknown & gl: vars.unknownConstants) {
-                pmin[gl.optimizer_position] = gl.min_value;
-                pmax[gl.optimizer_position] = gl.max_value;
-                is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
-            }
-            for (const Unknown & gl: vars.unknownStates) {
-                pmin[gl.optimizer_position] = gl.min_value;
-                pmax[gl.optimizer_position] = gl.max_value;
-                if (gl.is_mutation_applicable == 0)
-                    is_mutation_applicable[gl.optimizer_position] = 0;
-                else
-                    is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
-            }
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            pmin[u.optimizer_position] = u.min_value;
+            pmax[u.optimizer_position] = u.max_value;
+            if (u.is_mutation_applicable == 0)
+                is_mutation_applicable[u.optimizer_position] = 0;
+            else //no need to know that it was log scaled
+                is_mutation_applicable[u.optimizer_position] = 1;
+            
         }
 
         //find borders for optimizer
@@ -889,22 +853,26 @@ protected:
         std::vector<double> y0(Model::state_size());
         std::vector<double> vconstants(Model::constants_size());
         
-        //first, find model's default values
+        //first, set model's default values
         get_default_values(vconstants.data(), y0.data()); 
 
-        //then, set mutable global parameters
         for (const Unknown & m: globalValues.unknownConstants) {
-            if (m.init_guess_available) {
-                parameters_begin[m.optimizer_position] = m.init_guess;
-            } else {
+            parameters_begin[m.optimizer_position] = vconstants[m.model_position];
+        }
+        for (const Values & vars: baselineValues) {
+            for (const Unknown & m: vars.unknownStates) {
+                parameters_begin[m.optimizer_position] = y0[m.model_position];
+            }
+            for (const Unknown & m: vars.unknownConstants) {
                 parameters_begin[m.optimizer_position] = vconstants[m.model_position];
             }
         }
 
-        //finally, set mutable baseline parameters
-        for (const Values & vars: baselineValues) {
-            for (const Unknown & m: vars.unknownStates) {
-                parameters_begin[m.optimizer_position] = y0[m.model_position];
+        //then, set unknowns initial guesses if available
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            if (u.init_guess_available) {
+                parameters_begin[u.optimizer_position] = u.init_guess;
             }
         }
     }
@@ -945,7 +913,7 @@ protected:
 
         //baseline sections of config overwrites global and default
         for (const Unknown & m: baselineValues[baseline_index].unknownConstants) {
-            throw("Wait, that's illegal. Please contact us if you want it.");
+            constants[m.model_position] = parameters_begin[m.optimizer_position];
         }
         for (const Unknown & m: baselineValues[baseline_index].unknownStates) {
             y0[m.model_position] = parameters_begin[m.optimizer_position];
@@ -955,7 +923,6 @@ protected:
         }
         for (const Known & v: baselineValues[baseline_index].knownStates) {
             y0[v.model_position] = v.value;
-            //throw("Wait, that's illegal. Please contact us if you want it.");
         }
     }
 
@@ -986,6 +953,7 @@ public:
             
             std::vector<double> parameters(number_unknowns);
             //Initial guess from config file will be respected!
+            //Maybe user would like to verify that initial guess is a correct model
             initial_guess(parameters.begin());
             
             std::vector<double> vconstants(model.constants_size());
