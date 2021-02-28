@@ -628,29 +628,35 @@ public:
                         throw(const_isnt_a_value);
                     } catch (...) {
                         //name is not a constant
-                        //so it is probably a state which can be mutated
                         try {
                             model_position = statesBiMapModel.left.at(name);
                         } catch (...) {
                             //or it is neither a constant nor a state variable
                             throw(name + " in baseline config is neither constant nor state variable");
                         }
-                        bool is_value = (v.find("value") != v.end());
-                        if (is_value)
-                            throw(name + "cannot be a value");
                         //remove it from statesBiMapDrifting
                         statesBiMapDrifting.left.erase(name);
-
-                        bVar.unknownStates.push_back(
-                        {.name = name,
-                         .unique_name = name + "_" + bVar.groupName,
-                         .min_value = v["bounds"][0].get<double>(),
-                         .max_value = v["bounds"][1].get<double>(),
-                         .optimizer_position = number_unknowns++,
-                         .model_position = model_position,
-                         .gamma = v["gamma"].get<double>(),
-                         .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
-                        });
+                        
+                        bool is_value = (v.find("value") != v.end());
+                        if (is_value) {
+                            bVar.knownStates.push_back(
+                            {.name = name,
+                             .unique_name = name + "_" + bVar.groupName,
+                             .value = v["value"].get<double>(),
+                             .model_position = model_position
+                            });
+                        } else {
+                            bVar.unknownStates.push_back(
+                            {.name = name,
+                             .unique_name = name + "_" + bVar.groupName,
+                             .min_value = v["bounds"][0].get<double>(),
+                             .max_value = v["bounds"][1].get<double>(),
+                             .optimizer_position = number_unknowns++,
+                             .model_position = model_position,
+                             .gamma = v["gamma"].get<double>(),
+                             .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
+                            });
+                        }
                     }
                 }
                 // statesBiMapDrifting may not be empty
@@ -824,6 +830,8 @@ public:
                 is_mutation_applicable[gl.optimizer_position] = 1;//gl.is_mutation_applicable;
                 //TODO
                 //tricky place
+                //we have two types of unknownStates
+                //for drifting states we probably don't have max and min
             }
         }
         return 0;
@@ -946,7 +954,8 @@ protected:
             constants[v.model_position] = v.value;
         }
         for (const Known & v: baselineValues[baseline_index].knownStates) {
-            throw("Wait, that's illegal. Please contact us if you want it.");
+            y0[v.model_position] = v.value;
+            //throw("Wait, that's illegal. Please contact us if you want it.");
         }
     }
 
