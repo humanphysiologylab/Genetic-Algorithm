@@ -125,13 +125,14 @@ void KernikClancyModel::initConsts(double * constants)
    2.3945291e+01,
    0.0000000e+00,//stim_flag
    50,//stim_shift (ms) was 100
-   0.0000000e+00,
-   1,
-   0.0000000e+00,
+   0.0000000e+00, //voltageclump
+   0, //g_kur_scaler
+   0.0375, //gkur
    1000,
    3,
    0,
-   0};
+   0,
+   5};
    
     for (int i = 0; i < const_size; i++)
         constants[i] = constants_array[i];
@@ -272,7 +273,7 @@ void KernikClancyModel::computerates(const double t,
     //const double cyclelength = 800.;          // 1000ms = 1hz beating
     const double cyclelength = model_parameter_inputs[87];
     const double i_stim_Amplitude = model_parameter_inputs[88];// pA/pF (in stim_mode) (default 3) 50 fine for biphasic
-    const double i_stim_PulseDuration = 5;   // milisecond (in stim_mode)
+    const double i_stim_PulseDuration = model_parameter_inputs[91];   // default: 5 milisecond (in stim_mode)
     const double stim_shift = model_parameter_inputs[83]; //ms (nonnegative, in stim_mode)///////////////////////////////////////
 
 
@@ -774,20 +775,21 @@ void KernikClancyModel::computerates(const double t,
     double time = t;
     double i_stim = 0;
 
+    const double fmt = fmod(t, cyclelength) - stim_shift;
     //rectangular pulse
     if ( stim_flag == 1 && 
-         time >= stim_shift &&
-         fmod(time - stim_shift, cyclelength) < i_stim_PulseDuration )
+         fmt >= 0 &&
+         fmt < i_stim_PulseDuration)
     {
         i_stim = i_stim_Amplitude;
     }
     
     //biphasic pulse
     if ( stim_flag == 2 &&
-         time >= stim_shift &&
-         fmod(time - stim_shift, cyclelength) < i_stim_PulseDuration )
+         fmt >= 0 &&
+         fmt < i_stim_PulseDuration )
     {
-        i_stim = 2 * i_stim_Amplitude / M_PI * atan(tan((2 * M_PI * (t - stim_shift)) / (2 * i_stim_PulseDuration)));
+        i_stim = 2 * i_stim_Amplitude / M_PI * atan(tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
     }
 
     /* old version of rectangular pulse

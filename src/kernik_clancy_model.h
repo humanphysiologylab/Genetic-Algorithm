@@ -24,7 +24,7 @@ class KernikClancyModel
     //Colleen Clancy Lab @ UC davis
     //
 
-    static const int states_size = 25, alg_size = 20, const_size = 91;
+    static const int states_size = 25, alg_size = 20, const_size = 92;
     static constexpr double max_step_v = 1; //(ms)
     double * constants;
     void computerates(const double VOI,
@@ -167,7 +167,7 @@ public:
         legend_constants[88] = "i_stim_Amplitude (pA/pF)";
         legend_constants[89] = "Na_fixed (boolean)";
         legend_constants[90] = "K_fixed (boolean)";
-
+        legend_constants[91] = "i_stim_PulseDuration (ms)";
 
         legend_algebraic[0] = "i_K1 (pA/pF)";
         legend_algebraic[1] = "i_to (pA/pF)";
