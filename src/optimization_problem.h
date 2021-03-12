@@ -1021,8 +1021,25 @@ protected:
             apRecord[i] = table(i, 0);
     }
 public:
+
+    double parameter_penalty(std::vector<double> & parameters) const
+    {
+        double penalty = 0;
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            const int pos = u.optimizer_position;
+            const double val = parameters[pos];
+            if (!u.is_mutation_applicable)
+                continue;
+            if (u.min_value > val)
+                penalty += std::pow(20 * (val - u.min_value) / u.min_value, 2);///////////// is div by zero possible? TODO
+            if (u.max_value < val)
+                penalty += std::pow(20 * (val - u.max_value) / u.max_value, 2);///////////// is div by zero possible? TODO
+        }
+        return penalty;
+    }
     template <typename It>
-    ListOfBaselines genetic_algorithm_calls_general(It optimizer_parameters_begin, int n_beats = -1) const
+    ListOfBaselines genetic_algorithm_calls_general(It optimizer_parameters_begin, double & extra_penalty, int n_beats = -1) const
     {
         std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
@@ -1055,8 +1072,9 @@ public:
             //save mutable variables from the state
             //since we let them to drift
             for (const Unknown & m: baselineValues[i].unknownStates) {
-                model_scaled_parameters[m.optimizer_position] =  y0[m.model_position];
+                model_scaled_parameters[m.optimizer_position] = y0[m.model_position];
             }
+            extra_penalty = parameter_penalty(model_scaled_parameters);
         }
         if (solver_failed) {
             //i dk ugly design
@@ -1073,7 +1091,9 @@ public:
     template <typename It>
     double genetic_algorithm_calls(It parameters_begin) const
     {
-        return obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin));
+        double extra_penalty;
+        double main_penalty = obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin, extra_penalty));
+        return main_penalty + extra_penalty;
     }
     template <typename V>
     void genetic_algorithm_result(const V & parameters)
@@ -1114,8 +1134,9 @@ public:
     template <typename It>
     void dump_ap(It parameters_begin, int i, int num_beats = -1) const
     {
-        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, num_beats);
-        const double dist = obj.dist(apbaselines, tmp_b);
+        double extra_penalty;
+        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, extra_penalty, num_beats);
+        const double dist = obj.dist(apbaselines, tmp_b) + extra_penalty;
         std::cout << "final dist: " << dist << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
@@ -1124,7 +1145,8 @@ public:
     double loglikelihood(std::vector<double> pars)
     {
         double ll = 0;
-        ListOfBaselines res = genetic_algorithm_calls_general(pars.begin());
+        double extra_penalty;
+        ListOfBaselines res = genetic_algorithm_calls_general(pars.begin(), extra_penalty); //extra_penalty is not used further
         assert(apbaselines.size() == res.size());
         const double sigma = 100;//it is just an assumption, need to find sigma from experimental data TODO
         const double add = -log(sqrt(2*M_PI) * sigma);//with normalization
@@ -1254,7 +1276,8 @@ public:
     template <typename It>
     void start_track(It parameters_begin)
     {
-        initial_guess_baseline = genetic_algorithm_calls_general(parameters_begin, 300);
+        double extra_penalty;
+        initial_guess_baseline = genetic_algorithm_calls_general(parameters_begin, extra_penalty, 300);
         write_baseline(initial_guess_baseline[0], "baseline_start.txt");        
         intermediate_baseline = initial_guess_baseline; //to set size and check correctness of lsm
 
@@ -1283,11 +1306,12 @@ public:
     {
      //   write_baseline(intermediate_baseline[0], "baseline_1.txt");///////////////////////////////
        // for (int i = 2; i < 10; i++) {///////////////////////////////////////////////////////////////////////
-            const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
+       double extra_penalty;
+            const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, extra_penalty);
         //    write_baseline(tmp_b[0], std::string("baseline_") + std::to_string(i) + ".txt");/////////////////////////////////////////
        // }/////////////////////////////////////////////////////////
       //  auto tmp_b = intermediate_baseline;/////////////////////////////////////////////////////////////////////
-        return obj.dist(intermediate_baseline, tmp_b);
+        return obj.dist(intermediate_baseline, tmp_b) + extra_penalty;
     }
     
     /*

@@ -116,7 +116,12 @@ public:
         std::vector<double> init_vector(genes_per_organism, nan(""));
         int init_status = problem.initial_guess_for_optimizer(init_vector.begin());
         
-        for (int i = 0; i < number_organisms; i++) {
+        //lets have at least one guy from initial guess, maybe it is not that bad
+        for (int j = 0; j < genes_per_organism; j++) {
+            all_genes[j] = init_vector[j];
+        }
+        //the rest starting from 1
+        for (int i = 1; i < number_organisms; i++) {
             for (int j = 0; j < genes_per_organism; j++) {
                 if (is_mutation_applicable[j]) {
                     all_genes[j + i * genes_per_organism] =

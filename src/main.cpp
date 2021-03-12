@@ -358,15 +358,15 @@ void script_nelder_mead(json & config)
         auto res1 = problem.get_results_optimizer_format();
 
         problem.dump_ap(res1.begin(), 5, 1000);
-        
-        
+
+
        // problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
-        problem.beats = 100;
-        std::cout << "stage 2" << std::endl;
-        std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>()/10, res1);
-        error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
-        auto res2 = problem.get_results_optimizer_format();
-        problem.dump_ap(res2.begin(), 10);
+       // problem.beats = 100;
+       // std::cout << "stage 2" << std::endl;
+       // std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>()/10, res1);
+       // error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
+       // auto res2 = problem.get_results_optimizer_format();
+       // problem.dump_ap(res2.begin(), 10);
         
         std::string filename = "convergence_NM.txt";
         std::ofstream file(filename);
