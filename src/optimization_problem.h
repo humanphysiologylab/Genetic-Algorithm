@@ -529,6 +529,7 @@ public:
 
             is_AP_normalized = config["is_AP_normalized"].get<int>();
             beats = config["n_beats"].get<int>();
+            reg_alpha = config["regularization_alpha"].get<double>();
             number_unknowns = 0;
             //read global values
             globalValues.groupName = "global";
@@ -686,7 +687,10 @@ public:
                     pointers_unknowns[gl.optimizer_position] = &gl;
                 }
             }
-
+            for (auto pu : pointers_unknowns) {
+                const auto & u = *pu;
+                std::cout << u.optimizer_position << " " << u.unique_name << std::endl;
+            }
 /*obsolete since we can call direct problem directly
             //we may need to generate test baselines first
             bool run_type = (config.find("mode") != config.end());
@@ -1020,6 +1024,7 @@ protected:
         for (int i = 0; i < apRecord.size(); i++)
             apRecord[i] = table(i, 0);
     }
+    double reg_alpha;
 public:
 
     double parameter_penalty(std::vector<double> & parameters) const
@@ -1089,11 +1094,25 @@ public:
     }
 
     template <typename It>
+    double regularization(It parameters_begin) const
+    {
+        double reg = 0;
+        std::vector<double> prior(pointers_unknowns.size());
+        initial_guess_for_optimizer(prior.begin());
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            const int pos = u.optimizer_position;
+            reg += std::pow(parameters_begin[pos] - prior[pos], 2);
+        }
+        return reg_alpha * reg;
+    }
+
+    template <typename It>
     double genetic_algorithm_calls(It parameters_begin) const
     {
-        double extra_penalty;
-        double main_penalty = obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin, extra_penalty));
-        return main_penalty + extra_penalty;
+        double boundaries_penalty;
+        double main_penalty = obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin, boundaries_penalty));
+        return main_penalty + boundaries_penalty + regularization(parameters_begin);
     }
     template <typename V>
     void genetic_algorithm_result(const V & parameters)
