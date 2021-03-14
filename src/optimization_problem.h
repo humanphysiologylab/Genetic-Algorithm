@@ -687,9 +687,11 @@ public:
                     pointers_unknowns[gl.optimizer_position] = &gl;
                 }
             }
-            for (auto pu : pointers_unknowns) {
-                const auto & u = *pu;
-                std::cout << u.optimizer_position << " " << u.unique_name << std::endl;
+            if (mpi_rank == 0) {
+                for (auto pu : pointers_unknowns) {
+                    const auto & u = *pu;
+                    std::cout << u.optimizer_position << " " << u.unique_name << std::endl;
+                }
             }
 /*obsolete since we can call direct problem directly
             //we may need to generate test baselines first
