@@ -6,7 +6,7 @@
 #include <omp.h>
 #include <vector>
 #include <cassert>
-
+#include <iostream>
 template <typename RandomGenerator, typename Seed>
 class CauchyMutation
 {
@@ -100,7 +100,7 @@ class CauchyMutation
                      continue;
                 }
                 double min = min_value[j], max = max_value[j];
-                double gene = genes_input[j];
+                double gene = std::max(min, std::min(max, genes_input[j]));
                 if (is_mutation_applicable[j] == 1)
                     transform_gene_forward(min, max, gene, v_gamma[j]);
                 else if (is_mutation_applicable[j] == 2)
@@ -127,6 +127,10 @@ class CauchyMutation
                     transform_gene_backward_log(min_value[j], max_value[j], gene, v_gamma[j]);
 
                 genes_output[j] = gene;
+                if (std::isnan(gene)) {
+                    std::cout << "Gene " << j << "is nan after mutation" << std::endl;
+                    throw("Bad mutation");
+                }
                 mut_applicable_iter++;
             }
         }
