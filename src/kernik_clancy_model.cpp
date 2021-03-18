@@ -775,7 +775,9 @@ void KernikClancyModel::computerates(const double t,
     double time = t;
     double i_stim = 0;
 
-    const double fmt = fmod(t, cyclelength) - stim_shift;
+
+
+    const double fmt = std::fmod(t, cyclelength) - std::round(stim_shift);
     //rectangular pulse
     if ( stim_flag == 1 && 
          fmt >= 0 &&
@@ -789,7 +791,7 @@ void KernikClancyModel::computerates(const double t,
          fmt >= 0 &&
          fmt < i_stim_PulseDuration )
     {
-        i_stim = 2 * i_stim_Amplitude / M_PI * atan(tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
+        i_stim = 2 * i_stim_Amplitude / M_PI * std::atan(std::tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
     }
 
     /* old version of rectangular pulse

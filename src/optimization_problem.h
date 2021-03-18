@@ -59,6 +59,8 @@ public:
 };
 
 
+int halfheight_index(const std::vector<double> & v);
+
 template<int power = 2>
 class MinimizeAPbaselines
 {
@@ -229,7 +231,7 @@ protected:
     using ListOfBaselines = typename Objective::ListOfBaselines;
 
     ListOfBaselines apbaselines;
-
+    std::vector<int> apbaselines_halfheights;
 
     // There are two types of values:
     // 1. Unknowns
@@ -501,7 +503,7 @@ public:
         for (const auto & x: apRecord)
             file << x << std::endl;
     }
-    
+
     void write_state(const std::vector<double> & state, const std::string & filename) const
     {
         std::ofstream file;
@@ -761,6 +763,12 @@ public:
             apbaselines.emplace_back();
             read_baseline(apbaselines.back(), apfilename);
 
+            apbaselines_halfheights.emplace_back();
+            const int hh_index = halfheight_index(apbaselines.back());
+            if (hh_index == -1)
+                throw("Fix baselines");
+            apbaselines_halfheights.back() = hh_index;
+            std::cout << "hh_index: " << hh_index << std::endl;
             //initial state may not be provided
             bool initial_state = (b.find("filename_state") != b.end());
             if (initial_state) {
@@ -1082,6 +1090,20 @@ public:
                 model_scaled_parameters[m.optimizer_position] = y0[m.model_position];
             }
             extra_penalty = parameter_penalty(model_scaled_parameters);
+            
+            
+            // rotate apRecord so halfheights are same
+            const int indexApRecord = halfheight_index(apRecord);
+            if (indexApRecord == -1) {
+                // assume it is a problem with this exact guess made by optimizer
+                // and do nothing
+            } else {
+                const int diff = indexApRecord - apbaselines_halfheights[i];
+                if (diff >= 0)
+                    std::rotate(apRecord.begin(), apRecord.begin() + diff, apRecord.end());
+                else
+                    std::rotate(apRecord.begin(), apRecord.end() + diff, apRecord.end());
+            }
         }
         if (solver_failed) {
             //i dk ugly design
