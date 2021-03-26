@@ -1,0 +1,473 @@
+{
+    "comment": "this config file is for spontan. immature Kernik-Clancy model",
+    "script": "Direct Problem",
+    "max_time": 2000,
+    "start_record_time": 0,
+    "dump_period": 1,
+    "dump_filename": "ga_for_fit",
+    "dump_vars": [
+        "V",
+        "Nai",
+        "Ki",
+	"Ca_SR",
+	"Cai",
+        "i_K1",
+        "i_Na",
+        "i_f",
+        "i_to",
+        "i_Kr",
+        "i_Ks",
+        "i_NaK",
+	"i_CaT",
+	"i_CaL",
+	"i_NaCa",
+	"i_PCa",
+	"i_Kur",
+	"i_up",
+	"i_rel",
+	"i_b_Ca",
+	"i_b_Na",
+	"i_leak",
+	"i_stim",
+        "time"
+    ],
+    "mode_comment": "test mode generates default baselines and OVERWRITES corresponding files",
+    "mode_comment2": "remove mode field or change test to anything else to run optimization only",
+    "mode": "notest",
+    "test_beats": 20000,
+    "t_sampling": 1,
+    "n_organisms": 2000,
+    "n_elites": 200,
+    "n_generations": 700,
+    "n_beats": 9,
+    "eta_crossover": 10,
+    "crossrate": 0.9,
+    "gamma": 1,
+    "eta_mutation": 20,
+    "mutrate": 1,
+    "mutation_type": "Cauchy",
+    "is_AP_normalized": 0,
+    "RESET_STATES": 0,
+    "regularization_alpha": 0,
+    "global": [
+        {
+            "name": "stim_flag",
+            "value": 2
+        },
+        {
+            "name": "i_stim_Amplitude",
+            "value": 50
+        },
+        {
+            "name": "i_stim_PulseDuration",
+            "value": 3
+        },
+        {
+            "name": "K_fixed",
+            "value": 0
+        },
+        {
+            "name": "Na_fixed",
+            "value": 0
+        },
+        {
+            "name": "g_f_scaler",
+            "value": 1.4819967240099998
+        },
+        {
+            "name": "g_Na_scaler",
+            "value": 1.00823776521
+        },
+        {
+            "name": "g_K1_scaler",
+            "value": 2.310338053882
+        },
+        {
+            "name": "g_b_Na_scaler",
+            "value": 0.25950773810350003
+        },
+        {
+            "name": "PNaK_scaler",
+            "value": 0.9185215355012
+        },
+        {
+            "name": "g_b_Ca_scaler",
+            "value": 0.1252123779729
+        },
+        {
+            "name": "g_PCa_scaler",
+            "value": 1.5548159216269999
+        },
+        {
+            "name": "g_Kr_scaler",
+            "value": 0.8875501888426
+        },
+        {
+            "name": "g_CaL_scaler",
+            "value": 1.1325602114239999
+        },
+        {
+            "name": "g_Ks_scaler",
+            "value": 0.8751663123737
+        },
+        {
+            "name": "g_to_scaler",
+            "value": 1.2087383850589999
+        },
+        {
+            "name": "g_CaT_scaler",
+            "value": 0.9272444778026999
+        },
+        {
+            "name": "kNaCa_scaler",
+            "value": 1.099826054228
+        },
+        {
+            "name": "VmaxUp_scaler",
+            "value": 0.493287495832
+        },
+        {
+            "name": "ks_scaler",
+            "value": 0.3895093864752
+        },
+        {
+            "name": "V_leak_scaler",
+            "value": 0.16971822830760003
+        }
+    ],
+    "baselines": [
+        {
+            "name": "1000",
+            "filename_phenotype": "./bs-KC-2IK1/1000.txt",
+            "filename_state": "./states-Default/state_1000.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 1000
+                },
+                {
+                    "name": "Nai",
+                    "value": 7.176500903644
+                },
+                {
+                    "name": "Ki",
+                    "value": 99.07133860732
+                },
+                {
+                    "name": "Ca_SR",
+                    "value": 0.3676889861222
+                },
+                {
+                    "name": "Cai",
+                    "value": 3.778503117412e-05
+                },
+                {
+                    "name": "Ca_ligand",
+                    "value": 0.0
+                },
+                {
+                    "name": "O",
+                    "value": 2.86029780178e-05
+                },
+                {
+                    "name": "r",
+                    "value": 0.0002509819499664
+                },
+                {
+                    "name": "i_ur",
+                    "value": 0.6895122728434001
+                },
+                {
+                    "name": "fCaT",
+                    "value": 0.9324496022227
+                },
+                {
+                    "name": "Xs",
+                    "value": 0.0584531470384
+                },
+                {
+                    "name": "j",
+                    "value": 0.5532117112266
+                },
+                {
+                    "name": "V",
+                    "value": -76.28409407507
+                },
+                {
+                    "name": "dCaT",
+                    "value": 0.0002409302119072
+                },
+                {
+                    "name": "f1",
+                    "value": 0.6972904318919
+                },
+                {
+                    "name": "m",
+                    "value": 0.027346871265010002
+                },
+                {
+                    "name": "Xr1",
+                    "value": 0.000593498060557
+                },
+                {
+                    "name": "R",
+                    "value": 0.06425846776821
+                },
+                {
+                    "name": "I",
+                    "value": 0.000416322815086
+                },
+                {
+                    "name": "fCa",
+                    "value": 1.007084348524
+                },
+                {
+                    "name": "d",
+                    "value": 0.00035680691088
+                },
+                {
+                    "name": "h",
+                    "value": 0.757789473208
+                },
+                {
+                    "name": "a_ur",
+                    "value": 0.000281340796334
+                },
+                {
+                    "name": "Xr2",
+                    "value": 0.45838089617340005
+                },
+                {
+                    "name": "Xf",
+                    "value": 0.044797342256180005
+                },
+                {
+                    "name": "s",
+                    "value": 0.9838735548191999
+                }
+            ]
+        },
+        {
+            "name": "500",
+            "filename_phenotype": "./bs-KC-2IK1/500.txt",
+            "filename_state": "./states-Default/state_500.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 500
+                },
+                {
+                    "name": "Nai",
+                    "value": 8.924323928681
+                },
+                {
+                    "name": "Ki",
+                    "value": 96.81653894849
+                },
+                {
+                    "name": "Ca_SR",
+                    "value": 0.3767959401918
+                },
+                {
+                    "name": "Cai",
+                    "value": 0.000125974116405
+                },
+                {
+                    "name": "h",
+                    "value": 0.7693453320923
+                },
+                {
+                    "name": "f1",
+                    "value": 0.3171889263034
+                },
+                {
+                    "name": "d",
+                    "value": 0.0003327143940886
+                },
+                {
+                    "name": "s",
+                    "value": 0.954797362891
+                },
+                {
+                    "name": "fCaT",
+                    "value": 0.9192053773729999
+                },
+                {
+                    "name": "r",
+                    "value": 0.0002403487441543
+                },
+                {
+                    "name": "O",
+                    "value": 0.0001073325063833
+                },
+                {
+                    "name": "R",
+                    "value": 0.02053338249952
+                },
+                {
+                    "name": "dCaT",
+                    "value": 0.0002216928670817
+                },
+                {
+                    "name": "Xf",
+                    "value": 0.01617824498151
+                },
+                {
+                    "name": "j",
+                    "value": 0.245477902306
+                },
+                {
+                    "name": "m",
+                    "value": 0.025717312772229998
+                },
+                {
+                    "name": "Ca_ligand",
+                    "value": 0.0
+                },
+                {
+                    "name": "V",
+                    "value": -76.78444824839
+                },
+                {
+                    "name": "Xr2",
+                    "value": 0.4638838114276
+                },
+                {
+                    "name": "a_ur",
+                    "value": 0.0002672256579816
+                },
+                {
+                    "name": "i_ur",
+                    "value": 0.5538372688794
+                },
+                {
+                    "name": "I",
+                    "value": 0.005092705685838
+                },
+                {
+                    "name": "fCa",
+                    "value": 1.000225465171
+                },
+                {
+                    "name": "Xr1",
+                    "value": 0.06770322200706999
+                },
+                {
+                    "name": "Xs",
+                    "value": 0.06797991175195
+                }
+            ]
+        },
+        {
+            "name": "2000",
+            "filename_phenotype": "./bs-KC-2IK1/2000.txt",
+            "filename_state": "./states-Default/state_2000.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 2000
+                },
+                {
+                    "name": "Nai",
+                    "value": 6.2205071093379996
+                },
+                {
+                    "name": "Ki",
+                    "value": 100.09593673719999
+                },
+                {
+                    "name": "Ca_SR",
+                    "value": 0.3559350306685
+                },
+                {
+                    "name": "Cai",
+                    "value": 3.736476430836e-05
+                },
+                {
+                    "name": "Xf",
+                    "value": 0.06393778733809
+                },
+                {
+                    "name": "m",
+                    "value": 0.035069884227910006
+                },
+                {
+                    "name": "s",
+                    "value": 0.9792379572275
+                },
+                {
+                    "name": "i_ur",
+                    "value": 0.8449691782211
+                },
+                {
+                    "name": "I",
+                    "value": 0.0003859972387029
+                },
+                {
+                    "name": "Xr2",
+                    "value": 0.43560597735870005
+                },
+                {
+                    "name": "fCa",
+                    "value": 1.0071108767949999
+                },
+                {
+                    "name": "d",
+                    "value": 0.0004791273463061
+                },
+                {
+                    "name": "Ca_ligand",
+                    "value": 0.0
+                },
+                {
+                    "name": "r",
+                    "value": 0.0003018453376674
+                },
+                {
+                    "name": "h",
+                    "value": 0.7036389386699999
+                },
+                {
+                    "name": "Xs",
+                    "value": 0.06491616199
+                },
+                {
+                    "name": "Xr1",
+                    "value": 0.0005679624749706
+                },
+                {
+                    "name": "j",
+                    "value": 0.6973497195435999
+                },
+                {
+                    "name": "R",
+                    "value": 0.07736170696318
+                },
+                {
+                    "name": "a_ur",
+                    "value": 0.0003570115989325
+                },
+                {
+                    "name": "fCaT",
+                    "value": 0.9045969920163001
+                },
+                {
+                    "name": "V",
+                    "value": -74.25171642535999
+                },
+                {
+                    "name": "f1",
+                    "value": 0.9481081973622
+                },
+                {
+                    "name": "O",
+                    "value": 3.237991801623e-05
+                },
+                {
+                    "name": "dCaT",
+                    "value": 0.0003380483341142
+                }
+            ]
+        }
+    ]
+}

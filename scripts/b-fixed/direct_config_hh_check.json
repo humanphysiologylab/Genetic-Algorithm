@@ -1,0 +1,117 @@
+{
+    "comment": "this config file is for spontan. immature Kernik-Clancy model",
+    "script": "Direct Problem",
+    "max_time": 10000000,
+    "start_record_time": 9998000,
+    "dump_period": 1,
+    "dump_filename": "synth",
+    "dump_vars": [
+        "V",
+        "Nai",
+        "Ki",
+        "Ca_SR",
+        "Cai",
+        "i_K1",
+        "i_Na",
+        "i_f",
+        "i_to",
+        "i_Kr",
+        "i_Ks",
+        "i_NaK",
+        "i_CaT",
+        "i_CaL",
+        "i_NaCa",
+        "i_PCa",
+        "i_Kur",
+        "i_up",
+        "i_rel",
+        "i_b_Ca",
+        "i_b_Na",
+        "i_leak",
+        "i_stim",
+        "time"
+    ],
+    "mode_comment": "test mode generates default baselines and OVERWRITES corresponding files",
+    "mode_comment2": "remove mode field or change test to anything else to run optimization only",
+    "mode": "notest",
+    "test_beats": 20000,
+    "t_sampling": 1,
+    "n_organisms": 40,
+    "n_elites": 4,
+    "n_generations": 100,
+    "n_beats": 9,
+    "eta_crossover": 10,
+    "crossrate": 0.9,
+    "gamma": 1,
+    "eta_mutation": 20,
+    "mutrate": 1,
+    "mutation_type": "Cauchy",
+    "is_AP_normalized": 0,
+    "RESET_STATES": 0,
+    "regularization_alpha": 0,
+    "global": [
+        {
+            "name": "stim_flag",
+            "value": 2
+        },
+        {
+            "name": "i_stim_Amplitude",
+            "value": 50
+        },
+        {
+            "name": "i_stim_PulseDuration",
+            "value": 3
+        },
+        {
+            "name": "g_K1_scaler",
+            "value": 1.9842149021889999
+        }
+    ],
+    "baselines": [
+        {
+            "name": "1000",
+            "filename_phenotype": "./bs/1000.txt",
+            "filename_state": "./states-Default/state_1000.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 1000
+                },
+                {
+                    "name": "stim_shift",
+                    "value": 100
+                }
+            ]
+        },
+        {
+            "name": "500",
+            "filename_phenotype": "./bs/500.txt",
+            "filename_state": "./states-Default/state_500.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 500
+                },
+                {
+                    "name": "stim_shift",
+                    "value": 100
+                }
+            ]
+        },
+        {
+            "name": "2000",
+            "filename_phenotype": "./bs/2000.txt",
+            "filename_state": "./states-Default/state_2000.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 2000
+                },
+                {
+                    "name": "stim_shift",
+                    "value": 100
+                }
+            ]
+        }
+    ]
+}

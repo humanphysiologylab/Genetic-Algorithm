@@ -1,0 +1,165 @@
+{
+    "comment": "this config file is for spontan. immature Kernik-Clancy model",
+    "script": "Direct Problem",
+    "max_time": 1000000,
+    "start_record_time": 998000,
+    "dump_period": 1,
+    "dump_filename": "synth",
+    "dump_vars": [
+        "V",
+        "Nai",
+        "Ki",
+	"Ca_SR",
+	"Cai",
+        "i_K1",
+        "i_Na",
+        "i_f",
+        "i_to",
+        "i_Kr",
+        "i_Ks",
+        "i_NaK",
+	"i_CaT",
+	"i_CaL",
+	"i_NaCa",
+	"i_PCa",
+	"i_Kur",
+	"i_up",
+	"i_rel",
+	"i_b_Ca",
+	"i_b_Na",
+	"i_leak",
+	"i_stim",
+        "time"
+    ],
+    "mode_comment": "test mode generates default baselines and OVERWRITES corresponding files",
+    "mode_comment2": "remove mode field or change test to anything else to run optimization only",
+    "mode": "notest",
+    "test_beats": 20000,
+    "t_sampling": 1,
+    "n_organisms": 8000,
+    "n_elites": 800,
+    "n_generations": 700,
+    "n_beats": 20,
+    "eta_crossover": 10,
+    "crossrate": 0.5,
+    "gamma": 1,
+    "eta_mutation": 20,
+    "mutrate": 1,
+    "mutation_type": "Cauchy",
+    "is_AP_normalized": 0,
+    "RESET_STATES": 1,
+    "regularization_alpha": 0.1,
+    "global": [
+        {
+            "name": "stim_flag",
+            "value": 0
+        },
+        {
+            "name": "i_stim_Amplitude",
+            "value": 50
+        },
+        {
+            "name": "i_stim_PulseDuration",
+            "value": 3
+        },
+        {
+            "name": "g_K1_scaler",
+            "value": 1
+        },
+        {
+            "name": "g_Kr_scaler",
+            "value": 4
+        },
+        {
+            "name": "g_kur_scaler",
+            "value": 1
+        },
+        {
+            "name": "g_CaL_scaler",
+            "value": 0.4
+        },
+        {
+            "name": "PNaK_scaler",
+            "value": 1
+        },
+        {
+            "name": "stim_shift",
+            "value": 170
+        },
+        {
+            "name": "g_f_scaler",
+            "value": 0.1
+        },
+        {
+            "name": "g_CaT_scaler",
+            "value": 1
+        },
+        {
+            "name": "kNaCa_scaler",
+            "value": 1
+        },
+        {
+            "name": "g_b_Ca_scaler",
+            "value": 1
+        },
+        {
+            "name": "g_b_Na_scaler",
+            "value": 1
+        },
+        {
+            "name": "g_PCa_scaler",
+            "value": 1
+        }
+    ],
+    "baselines": [
+        {
+            "name": "1000",
+            "filename_phenotype": "./baseline-Default/baseline_1000.txt",
+            "filename_state": "./states-Default/state_1000.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 1000
+                },
+                {
+                    "name": "Ki",
+                    "value": 80
+                }
+            ]
+        },
+        {
+            "name": "500",
+            "filename_phenotype": "./baseline-Default/baseline_500.txt",
+            "filename_state": "./states-Default/state_500.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 500
+                },
+                {
+                    "name": "Ki",
+                    "value": 80
+                }
+
+
+	    ]
+        },
+        {
+            "name": "2000",
+            "filename_phenotype": "./baseline-Default/baseline_2000.txt",
+            "filename_state": "./states-Default/state_2000.txt",
+            "params": [
+                {
+                    "name": "stim_period",
+                    "value": 2000
+                },
+                {
+                    "name": "Ki",
+                    "value": 80
+                }
+
+
+	    ]
+        }
+    ]
+}

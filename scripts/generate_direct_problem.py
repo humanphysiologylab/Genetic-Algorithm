@@ -27,6 +27,7 @@ for x in glob:
     if "value" in x:
         continue
     filename = "table_" + x['name'] + "_global.csv"
+    files.remove(filename)
     try:
         with open(filename) as f:
             #save best organism value
@@ -48,6 +49,7 @@ for bl in baselines:
         if "value" in x:
             continue
         filename = "table_" + x['name'] +"_"+ bl['name'] + '.csv'
+        files.remove(filename)
         try:
             with open(filename) as f:
                 #save best organism value
@@ -62,35 +64,20 @@ for bl in baselines:
             print("cannot process " + filename)
             break
 
+# the rest of the files is for RESET_STATE = 0 case
+# fields are not explicitly stated in config
+for x in files:
+    search = re.match(p, x)
+    assert search
+    print(search.group(1), search.group(2))
+    bs = next(b for b in baselines if b['name'] == search.group(2))
+    data = pd.read_csv(x, sep="\s+")
+    data = pd.DataFrame(data)
+    val = data["best_organism"].iloc[-1]
+    bs['params'].append({'name': search.group(1), 'value': val})
+
+
 #finally, save new config file
 with open("direct_config.json", 'w') as newjson:
     json.dump(config, newjson, indent=4)
 
-
-'''
-for x in files:
-    search = re.match(p, x)
-    
-    if search.group(2) == "global":
-        config['global'].
-    
-
-
-    if search:
-        print(search.group(1), search.group(2))
-
-
-
-
-data = pd.read_csv(sys.argv[1], sep="\s+")
-data = pd.DataFrame(data)
-
-
-for column in data:
-    if column == "time":
-        continue
-    plt.plot(data["time"] / 1000, data[column], label=column)
-    plt.legend()
-    plt.xlabel("time, s")
-    plt.show()
-'''
