@@ -1,0 +1,91 @@
+{
+    "comment": "this config file is for spontan. immature Kernik-Clancy model",
+    "script": "Genetic Algorithm",
+    "max_time": 10000,
+    "start_record_time": 0,
+    "dump_period": 1,
+    "dump_filename": "immature_KC.csv",
+    "dump_vars": ["V", "Nai", "Ki", "i_K1", "i_Na", "i_f", "i_to", "i_Kr", "i_Ks", "i_NaK", "time"],
+    "mode_comment": "test mode generates default baselines and OVERWRITES corresponding files",
+    "mode_comment2": "remove mode field or change test to anything else to run optimization only",
+    "mode": "notest",
+    "test_beats": 20000,
+    "t_sampling": 1,
+    "n_organisms": 4000,
+    "n_elites": 400,
+    "n_generations": 700,
+    "n_beats": 12,
+    "eta_crossover": 10,
+    "crossrate": 1,
+    "gamma": 1,
+    "eta_mutation": 20,
+    "mutrate": 1,
+    "mutation_type": "Cauchy",
+    "is_AP_normalized": 0,
+    "RESET_STATES": 1,
+    "global": [
+        {"name": "stim_flag", "value": 2},
+        {"name": "i_stim_Amplitude", "value": 50},
+        {"name": "i_stim_PulseDuration", "value": 3},
+        {"name": "K_fixed", "value": 0},
+        {"name": "Na_fixed", "value": 0},
+        {"name": "g_kur_scaler", "init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_f_scaler", "init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_Na_scaler", "init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_K1_scaler", "init": 2, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_b_Na_scaler", "init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "PNaK_scaler", "init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_b_Ca_scaler","init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_PCa_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_Kr_scaler", "init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_CaL_scaler", "init": 1, "bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_Ks_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_to_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "g_CaT_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "kNaCa_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "VmaxUp_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "ks_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"},
+        {"name": "V_leak_scaler", "init": 1,"bounds": [0.1, 10], "gamma": 0.015, "scale": "log"}
+    ],
+    "baselines": [
+        {
+		"name": "1000",
+            "filename_phenotype": "./c2/20200907 - Atrial EHM - Control - rec2 - 1 Hz.txt",
+            "filename_state": "./states-Default/state_1000.txt",
+            "params": [
+              {"name": "stim_shift", "init": 280, "bounds": [270, 300], "gamma": 0.015, "scale": "log"},
+                {"name": "stim_period", "value": 1000},
+              {"name": "Nai", "bounds": [3, 16], "gamma": 0.015, "scale": "log"},
+              {"name": "Ki", "bounds": [80, 160], "gamma": 0.015, "scale": "log"},
+              {"name": "Ca_SR", "bounds": [0.03, 3], "gamma": 0.015, "scale": "log"},
+		{"name": "Cai", "bounds": [0.00001, 0.001], "gamma": 0.015, "scale": "log"}
+            ]
+        },
+        {
+		"name": "4000",
+            "filename_phenotype": "./c2/20200907 - Atrial EHM - Control - rec2 - 025 Hz.txt",
+            "filename_state": "./states-Default/state_4000.txt",
+            "params": [
+              {"name": "stim_shift", "init": 280, "bounds": [270, 300], "gamma": 0.015, "scale": "log"},
+                {"name": "stim_period", "value": 4000},
+              {"name": "Nai", "bounds": [3, 16], "gamma": 0.015, "scale": "log"},
+              {"name": "Ki", "bounds": [80, 160], "gamma": 0.015, "scale": "log"},
+              {"name": "Ca_SR", "bounds": [0.03, 3], "gamma": 0.015, "scale": "log"},
+		{"name": "Cai", "bounds": [0.00001, 0.001], "gamma": 0.015, "scale": "log"}
+            ]
+        },
+        {
+		"name": "2000",
+            "filename_phenotype": "./c2/20200907 - Atrial EHM - Control - rec2 - 05 Hz.txt",
+            "filename_state": "./states-Default/state_2000.txt",
+            "params": [
+              {"name": "stim_shift", "init": 280, "bounds": [270, 300], "gamma": 0.015, "scale": "log"},
+                {"name": "stim_period", "value": 2000},
+              {"name": "Nai", "bounds": [3, 16], "gamma": 0.015, "scale": "log"},
+              {"name": "Ki", "bounds": [80, 160], "gamma": 0.015, "scale": "log"},
+              {"name": "Ca_SR", "bounds": [0.03, 3], "gamma": 0.015, "scale": "log"},
+		{"name": "Cai", "bounds": [0.00001, 0.001], "gamma": 0.015, "scale": "log"}
+            ]
+        }
+    ]
+}
