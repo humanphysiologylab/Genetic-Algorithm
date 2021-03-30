@@ -134,7 +134,7 @@ public:
         const double min_peak = 10;         // mV
         const double max_peak = 60;         // mV
         const double min_rest_potential = -100;   // mV
-        const double max_rest_potential = -60;   // mV
+        const double max_rest_potential = -55;   // mV
         
         const double peak = std::min(std::max(A + B, min_peak), max_peak);
         const double rest_potential = std::min(std::max(B, min_rest_potential), max_rest_potential);
