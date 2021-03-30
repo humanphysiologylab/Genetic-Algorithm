@@ -594,7 +594,21 @@ void KernikClancyModel::computerates(const double t,
     double tau_j = ( ( 1. / ( alpha_j + beta_j ) ) + tau_j_const );
     dY[13] = ( j_inf - Y[13] ) / tau_j;
     
+    
+   
     // 15: m (dimensionless) (activation in i_Na)
+    
+    //Ma et al
+    double p1 = 99.1744;
+    double p2 = 12.8321;
+	double p3 = 0.0039;
+	double p4 = -8.2139;
+	m1 = p1;
+	m2 = p2;
+	m3 = p1 * p3;
+	m4 = 1.0 / (1.0 / p2  + 1.0 / p4);
+	//end Ma et al
+    
     double alpha_m = m1 * exp( ( Y[0] ) / m2 );
     double beta_m = m3 * exp( ( Y[0] ) / m4 );
     double m_inf = alpha_m / ( alpha_m + beta_m );
