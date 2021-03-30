@@ -184,6 +184,69 @@ public:
     }
 };
 
+
+
+
+template<int power = 2>
+class ScaleMinimizeAPbaselines
+{
+public:
+    using Baseline = std::vector<double>;
+    using ListOfBaselines = std::vector<Baseline>;
+    
+    template<int p>
+    double sum_of_elements(const Baseline & b) const
+    {
+        double s = 0;
+        for (const auto & e: b)
+            s += std::pow(e, p);
+        return s;
+    }
+    double inner_product(const Baseline & a, const Baseline & b) const
+    {
+        double s = 0;
+        for (unsigned i = 0; i < a.size(); i++)
+            s += a[i] * b[i];
+        return s;
+    }
+    
+    double LSdistBaselines(const Baseline & g, const Baseline & f) const
+    {
+        //watch for the correct order: g -- experimental data (not from (0,1) but wider) AP, f -- model
+        //solve least square problem for f(t) = A * g(t)
+        assert(g.size() == f.size());
+
+        const double a = sum_of_elements<2>(g);
+        const double p = inner_product(f, g);
+
+        const double min_A = 1, max_A = 1.1;
+        const double A = std::min(max_A, std::max(min_A, p / a));
+
+        double res = 0;
+        for (size_t i = 0; i < f.size(); i++)
+            res += std::pow(std::abs(f[i] - A * g[i]), power);
+
+        res /= (double) f.size();
+        return res;
+    }
+
+    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
+    {
+        //watch for the correct order: a -- experimental optical mapping AP, b -- model
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += LSdistBaselines(a[i], b[i]);
+        }
+        res = std::pow(res / (double) a.size(), 1.0/power);
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+
+
 template<int power = 2>
 class MaximizeAPinnerProduct
 {
