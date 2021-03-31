@@ -219,7 +219,7 @@ public:
         const double a = sum_of_elements<2>(g);
         const double p = inner_product(f, g);
 
-        const double min_A = 1, max_A = 1.1;
+        const double min_A = 1, max_A = 1.2;
         const double A = std::min(max_A, std::max(min_A, p / a));
 
         double res = 0;
