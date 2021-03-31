@@ -132,7 +132,8 @@ void KernikClancyModel::initConsts(double * constants)
    3,
    0,
    0,
-   5};
+   5,
+   0};
    
     for (int i = 0; i < const_size; i++)
         constants[i] = constants_array[i];
@@ -729,6 +730,14 @@ void KernikClancyModel::computerates(const double t,
     double g_b_Ca = 0.000592 * 0.62 * x_scale_conductance[14];   // nS_per_pF (in i_b_Ca)
     double i_b_Ca = g_b_Ca * ( Y[0] - E_Ca );
     
+    
+    // -------------------------------------------------------------------------------
+    // Background Potassium (I_bK):
+    // OHara-Rudy g_Kb = 0.003 but there it has also a multiplier dep. on V
+    double g_b_K = 0.001 * model_parameter_inputs[92];   // nS_per_pF (in i_b_K)
+    double i_b_K = g_b_K * ( Y[0] - E_K );
+    
+    
     // -------------------------------------------------------------------------------
     // Calcium SL Pump (I_pCa):
     // Ten Tusscher formulation
@@ -775,7 +784,7 @@ void KernikClancyModel::computerates(const double t,
     
     //-------------------------------------------------------------------------------
     // 5: Ki (millimolar) (in potassium_dynamics)
-    dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K ) / ( F * Vc );
+    dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K + i_b_K ) / ( F * Vc );
     
     if (model_parameter_inputs[90] == 1) {
         //Kai is fixed
@@ -842,7 +851,7 @@ void KernikClancyModel::computerates(const double t,
     //Finally
     dY[0] = - (i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_CaL
               + i_CaT + i_NaK + i_Na + i_NaCa + i_PCa
-              + i_f + i_b_Na + i_b_Ca - i_stim - i_voltageclamp);
+              + i_f + i_b_Na + i_b_Ca + i_b_K - i_stim - i_voltageclamp);
 
     // currents = [i_K1, i_to, i_Kr, i_Ks, i_CaL, i_NaK, i_Na, i_NaCa, i_PCa, i_f, i_b_Na, i_b_Ca, i_rel, i_up, i_leak, i_stim, i_CaT];
     if (algebraic != nullptr) {
@@ -866,5 +875,6 @@ void KernikClancyModel::computerates(const double t,
         algebraic[17] = i_Kur;
         algebraic[18] = i_voltageclamp;
         algebraic[19] = t;
+        algebraic[20] = i_b_K;
     }
 }
