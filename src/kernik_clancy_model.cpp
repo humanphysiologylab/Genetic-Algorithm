@@ -319,13 +319,23 @@ void KernikClancyModel::computerates(const double t,
     double xK13 = x_K1[3]; // (4);
     double xK14 = x_K1[4]; // (5);
     double xK15 = x_K1[5]; // (6);
+    double xKCond = x_K1[0];
+    
+    //Ma et al
+    
+    xK11 = 0.086091;
+    xK12 = 96.939072;
+    xK13 = 9.552668;
+    xK14 = 23.009647;
+    xK15 = 5.890183;
+    xKCond = 0.084;
     
     double alpha_xK1 = xK11 * exp( ( Y[0] + xK13 ) / xK12 );
     double beta_xK1 = exp( ( Y[0] + xK15 ) / xK14 );
     double XK1_inf = alpha_xK1 / ( alpha_xK1 + beta_xK1 );
     
     // Current:
-    double g_K1 = x_K1[0] * x_scale_conductance[0];
+    double g_K1 = xKCond * x_scale_conductance[0];
     double i_K1 = g_K1 * XK1_inf * ( Y[0] - E_K ) * sqrt( Ko / 5.4 );
     
     // -------------------------------------------------------------------------------
@@ -581,12 +591,51 @@ void KernikClancyModel::computerates(const double t,
     double j3 = j5 * j1;
     double j4 = 1. / ( ( 1. / j2 ) + ( 1. / j6 ) );
     
+    
+
+    //Ma et al
+    double p1 = 99.1744;
+    double p2 = 12.8321;
+	double p3 = 0.0039;
+	double p4 = -8.2139;
+	m1 = p1;
+	m2 = p2;
+	m3 = p1 * p3;
+	m4 = 1.0 / (1.0 / p2  + 1.0 / p4);
+	tau_m_const =  0.0374383;
+	
+	double w1 = 0.0062605;
+	double w2 = -21.6256454;
+	double w3 = 17575.4542604;
+	double w4 = 6.7241405;
+	tau_h_const = 0.1999625;
+	h1 = w1;
+	h2 = w2;
+	h3 = w1 * w3;
+	h4 = 1.0 / (1.0 / w2  + 1.0 / w4); 
+	
+	double v1 = 0.00064626;
+	double v2 = -69.41735068;
+	double v3 = 17575.45426044;
+	double v4 = 6.72414053;
+	tau_j_const = 1.32187439;
+	j1 = v1;
+	j2 = v2;
+	j3 = v1 * v3;
+	j4 = 1.0 / (1.0 / v2 + 1.0 / v4);
+	
+	//end Ma et al
+    
+    
     // 13: h (dimensionless) (inactivation in i_Na)
     double alpha_h = h1 * exp( ( Y[0] ) / h2 );
     double beta_h = h3 * exp( ( Y[0] ) / h4 );
     double h_inf = ( alpha_h / ( alpha_h + beta_h ) );
     double tau_h = ( ( 1. / ( alpha_h + beta_h ) ) + tau_h_const );
     dY[12] = ( h_inf - Y[12] ) / tau_h;
+    
+    
+    
     
     // 14: j (dimensionless) (slow inactivation in i_Na)
     double alpha_j = j1 * exp( ( Y[0] ) / j2 );
@@ -599,16 +648,7 @@ void KernikClancyModel::computerates(const double t,
    
     // 15: m (dimensionless) (activation in i_Na)
     
-    //Ma et al
-    double p1 = 99.1744;
-    double p2 = 12.8321;
-	double p3 = 0.0039;
-	double p4 = -8.2139;
-	m1 = p1;
-	m2 = p2;
-	m3 = p1 * p3;
-	m4 = 1.0 / (1.0 / p2  + 1.0 / p4);
-	//end Ma et al
+
     
     double alpha_m = m1 * exp( ( Y[0] ) / m2 );
     double beta_m = m3 * exp( ( Y[0] ) / m4 );
