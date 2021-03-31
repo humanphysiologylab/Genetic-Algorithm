@@ -282,8 +282,8 @@ void script_genetic_algorithm(json & config)
     KernikClancyModel model;
     ODESolver solver;
 
-    //MinimizeAPbaselines obj;
-    ScaleMinimizeAPbaselines obj;
+    MinimizeAPbaselines obj;
+    //ScaleMinimizeAPbaselines obj;
     
     //MaximizeAPinnerProduct obj;
     //LeastSquaresMinimizeAPbaselines obj;
