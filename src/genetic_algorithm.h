@@ -47,12 +47,15 @@ public:
 
     std::vector<double> fitness_values;
 
-    BasicPopulation(OptimizationProblem & problem, int number_elites_p, int number_mutants_p)
+	int initial_selective_multiplier;
+
+    BasicPopulation(OptimizationProblem & problem, int number_elites_p, int number_mutants_p, int initial_selective_multiplier = 1)
     : problem(problem),
       number_organisms(number_elites_p + number_mutants_p),
       number_elites(number_elites_p),
       number_mutants(number_mutants_p),
-      genes_per_organism(problem.get_number_parameters())
+      genes_per_organism(problem.get_number_parameters()),
+      initial_selective_multiplier(initial_selective_multiplier)
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -73,7 +76,6 @@ public:
                 number_elites++;
             }
         }
-
 
         min_gene.resize(genes_per_organism, nan(""));
         max_gene.resize(genes_per_organism, nan(""));
@@ -134,6 +136,52 @@ public:
             }
         }
     }
+
+    template<typename InitializedRandomGenerator>
+    void init_selective(InitializedRandomGenerator rg)
+    {
+		// every node generates initial_selective_multiplier * number_organisms / mpi_size
+		// organisms and selects the best number_organisms / mpi_size organisms
+		// then node 0 collects them
+		
+		
+		int num_init_organisms = initial_selective_multiplier * number_organisms / mpi_size;
+		std::vector<double> init_genes(genes_per_organism * num_init_organisms);
+		std::vector<double> init_fitness_values(num_init_organisms);
+		int num_best = number_organisms / mpi_size;
+		
+		
+		std::vector<double> one_init_vector(genes_per_organism, nan(""));
+        int init_status = problem.initial_guess_for_optimizer(one_init_vector.begin());
+        
+        
+        for (int i = 0; i < num_init_organisms; i++) {
+            for (int j = 0; j < genes_per_organism; j++) {
+                if (is_mutation_applicable[j]) {
+                    init_genes[j + i * genes_per_organism] =
+                        std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
+                } else {
+                    assert(init_status != -1);
+                    //or maybe it is fine to put zero if init_status == -1
+                    init_genes[j + i * genes_per_organism] = one_init_vector[j];
+                }
+            }
+        }
+        
+        // now call fitness function
+        #pragma omp parallel for
+        for (int i = 0; i < num_init_organisms; i++) {
+            init_fitness_values[i] = problem.genetic_algorithm_calls(init_genes.begin() + i * genes_per_organism);
+        }
+        // find the best num_best organisms and copy them to all_genes
+        // 1. find num_best - th organism
+		
+        // 2. copy an organism to all_genes if fitness >= num_best
+        
+        
+        // finally, send all_genes to node 0
+        
+	}
 
     void scatter()
     {
