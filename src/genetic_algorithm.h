@@ -47,15 +47,14 @@ public:
 
     std::vector<double> fitness_values;
 
-	int initial_selective_multiplier;
 
-    BasicPopulation(OptimizationProblem & problem, int number_elites_p, int number_mutants_p, int initial_selective_multiplier = 1)
+
+    BasicPopulation(OptimizationProblem & problem, int number_elites_p, int number_mutants_p)
     : problem(problem),
       number_organisms(number_elites_p + number_mutants_p),
       number_elites(number_elites_p),
       number_mutants(number_mutants_p),
-      genes_per_organism(problem.get_number_parameters()),
-      initial_selective_multiplier(initial_selective_multiplier)
+      genes_per_organism(problem.get_number_parameters())
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -138,23 +137,19 @@ public:
     }
 
     template<typename InitializedRandomGenerator>
-    void init_selective(InitializedRandomGenerator rg)
+    void init_selective(InitializedRandomGenerator rg, int initial_selective_multiplier = 1)
     {
 		// every node generates initial_selective_multiplier * number_organisms / mpi_size
 		// organisms and selects the best number_organisms / mpi_size organisms
 		// then node 0 collects them
-		
-		
+
 		int num_init_organisms = initial_selective_multiplier * number_organisms / mpi_size;
 		std::vector<double> init_genes(genes_per_organism * num_init_organisms);
-		std::vector<double> init_fitness_values(num_init_organisms);
 		int num_best = number_organisms / mpi_size;
-		
-		
+
 		std::vector<double> one_init_vector(genes_per_organism, nan(""));
         int init_status = problem.initial_guess_for_optimizer(one_init_vector.begin());
-        
-        
+
         for (int i = 0; i < num_init_organisms; i++) {
             for (int j = 0; j < genes_per_organism; j++) {
                 if (is_mutation_applicable[j]) {
@@ -167,19 +162,32 @@ public:
                 }
             }
         }
-        
+
+        std::vector<std::pair<double, int>> sd_n_index(num_init_organisms);
         // now call fitness function
         #pragma omp parallel for
         for (int i = 0; i < num_init_organisms; i++) {
-            init_fitness_values[i] = problem.genetic_algorithm_calls(init_genes.begin() + i * genes_per_organism);
+			sd_n_index[i].second = i;
+            sd_n_index[i].first = problem.genetic_algorithm_calls(init_genes.begin() + i * genes_per_organism);
         }
         // find the best num_best organisms and copy them to all_genes
         // 1. find num_best - th organism
-		
-        // 2. copy an organism to all_genes if fitness >= num_best
-        
-        
+
+		std::nth_element(sd_n_index.begin(), sd_n_index.begin() + num_best, sd_n_index.end(),
+                      [](const std::pair<double, int> &left_element, const std::pair<double, int> &right_element) {
+                          return left_element.first < right_element.first;
+                      });
+        // 2. copy num_best organisms to all_genes
+        for (int i = 0 ; i < num_best; i++) {
+			copy_genes(init_genes.data() + sd_n_index[i].second * genes_per_organism, all_genes.data() + i * genes_per_organism);
+		}
+		if (mpi_rank == 0) {
+			std::cout << "Initial guess, best: " << sd_n_index[0].first << " worst: " << sd_n_index.back().first << std::endl;
+		}
         // finally, send all_genes to node 0
+        MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : all_genes.data(), all_genes.size() / mpi_size,
+			MPI_DOUBLE, all_genes.data(),
+            all_genes.size() / mpi_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         
 	}
 

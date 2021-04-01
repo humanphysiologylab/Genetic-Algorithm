@@ -49,7 +49,7 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
                     config["n_organisms"].get<unsigned>());
 
     double time_population_init = MPI_Wtime();
-    popMal.init(pcg64(seed_source));
+    popMal.init_selective(pcg64(seed_source), config["initial_selective_multiplier"].get<int>());
     time_population_init = MPI_Wtime() - time_population_init;
     
     if (mpi_rank == 0)
