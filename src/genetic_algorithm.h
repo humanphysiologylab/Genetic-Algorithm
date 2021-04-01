@@ -330,7 +330,7 @@ void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mu
             int mpool[pop.number_mutants]; //mpool: mutant_index -> next_generation_index
             //so let's find it
             double selection_time = MPI_Wtime();
-            selection(mpool, pop.number_mutants, sd_n_index, pop.number_elites, (index_generation < 100 ? 8: 2 ) * sd_n_index[0].first);
+            selection(mpool, pop.number_mutants, sd_n_index, pop.number_elites, (index_generation < 100 ? 10: 10 ) * sd_n_index[0].first);
             selection_time = MPI_Wtime() - selection_time;
             //Do not use sd_n_index anymore!
 
