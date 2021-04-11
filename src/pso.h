@@ -42,7 +42,8 @@ public:
 
     std::vector<double> all_best_genes_fitness_values;
     double best_global_genes_fitness_value;
-
+    std::vector<double> init_vector;
+    int init_status;
     PSO_population(OptimizationProblem & problem, int number_organisms, Seed & seed)
     : problem(problem),
       number_organisms(number_organisms),
@@ -84,33 +85,42 @@ public:
         
         //initial zero velocities
         velocities.resize(all_genes_size,  0);
+        init_vector.resize(genes_per_organism);
     }
 
+    template<typename InitializedRandomGenerator>
+    void reset_organism(InitializedRandomGenerator & rg, std::vector<double>::iterator genes, 
+        std::vector<double>::iterator vel)
+    {
+        for (int j = 0; j < genes_per_organism; j++) {
+            vel[j] = 0;
+            if (is_mutation_applicable[j]) {
+                genes[j] = std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
+            } else {
+                assert(init_status != -1);
+                //or maybe it is fine to put zero if init_status == -1
+                genes[j] = init_vector[j];
+            }
+        }
+    }
 
     template<typename InitializedRandomGenerator>
     void init(InitializedRandomGenerator rg)
     {
-        std::vector<double> init_vector(genes_per_organism, nan(""));
-        int init_status = problem.initial_guess_for_optimizer(init_vector.begin());
-        
+        init_status = problem.initial_guess_for_optimizer(init_vector.begin());
+
         //lets have at least one guy from initial guess, maybe it is not that bad
+        //but it will be only here and not when some organism has to be reset
         for (int j = 0; j < genes_per_organism; j++) {
             all_best_genes[j] = all_genes[j] = init_vector[j];
         }
         //the rest starting from 1
         for (int i = 1; i < number_organisms; i++) {
-            for (int j = 0; j < genes_per_organism; j++) {
-                if (is_mutation_applicable[j]) {
-                    all_best_genes[j + i * genes_per_organism] =
-                        all_genes[j + i * genes_per_organism] =
-                        std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
-                } else {
-                    assert(init_status != -1);
-                    //or maybe it is fine to put zero if init_status == -1
-                    all_best_genes[j + i * genes_per_organism] = 
-                        all_genes[j + i * genes_per_organism] = init_vector[j];
-                }
-            }
+            reset_organism(rg, all_genes.begin() +  i * genes_per_organism,
+            velocities.begin() + i * genes_per_organism);
+
+            for (int j = 0; j < genes_per_organism; j++)
+                all_best_genes[j + i * genes_per_organism] = all_genes[j + i * genes_per_organism];
         }
         run_func(true);
         global_sync(true);
@@ -128,7 +138,7 @@ public:
             int index;
         } in, out;
         in.value = *smallest_local_it;
-        std::cout << "V" <<  in.value << std::endl;
+        //std::cout << "V" <<  in.value << std::endl;
         in.index = mpi_rank;
         //now find process number and value
         MPI_Allreduce(
@@ -168,7 +178,7 @@ public:
         const double phi2 = 2.05;
         const double phi = phi1 + phi2;
         const double chi = 2.0 / (phi - 2 + std::sqrt(phi * phi  - 4 * phi));
-        std::normal_distribution<double> Uphi1d(0, phi1), Uphi2d(0, phi2);
+        std::uniform_real_distribution<double> Uphi1d(0, phi1), Uphi2d(0, phi2);
 
         #pragma omp parallel for
         for (int i = 0; i < number_organisms / mpi_size; i++) {
@@ -190,9 +200,9 @@ public:
                 if (!is_mutation_applicable[j])
                     continue;
                 genes[j] += vel[j];
-                std::cout << genes[j] << std::endl;
+                //std::cout << genes[j] << std::endl;
             }
-            std::cout << std::endl;
+            //std::cout << std::endl;
         }
         run_func();
     }
@@ -202,9 +212,14 @@ public:
         for (int i = 0; i < number_organisms / mpi_size; i++) {
             auto genes = all_genes.begin() + i * genes_per_organism;
             auto best_genes = all_best_genes.begin() + i * genes_per_organism;
+            auto vel = velocities.begin() + i * genes_per_organism;
             //call optimized function
             const double new_val = problem.genetic_algorithm_calls(genes);
-            std::cout << "***FIT: " << new_val << std::endl;
+            if (new_val > 100) { //hardcoded here, TODO
+                //reset only genes and vel
+                reset_organism(random_generators[omp_get_thread_num()], genes, vel);
+            }
+            //std::cout << "***FIT: " << new_val << std::endl;
             //update best parameter set for this organism
             if (first_call || new_val < all_best_genes_fitness_values[i]) {
                 all_best_genes_fitness_values[i] = new_val;
