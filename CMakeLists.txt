@@ -78,6 +78,7 @@ set(SOURCE_FILES
         src/maleckar_model.cpp
         src/kernik_clancy_model.cpp
         src/mcmc.cpp
+        src/pso.h
         LSODA/LSODA.cpp
         )
 

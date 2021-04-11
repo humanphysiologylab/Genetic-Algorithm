@@ -36,6 +36,7 @@
 
 #include <json.hpp>
 #include "mcmc.h"
+#include "pso.h"
 
 template <typename SeedSource, typename Problem>
 void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen)
@@ -321,6 +322,87 @@ void script_genetic_algorithm(json & config)
             std::cout << sit.first << " " << sit.second << std::endl;
     }
 }
+
+
+
+
+
+
+void script_PSO(json & config)
+{
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+    pcg_extras::seed_seq_from<std::random_device> seed_source;
+    //const int seed_source = 42;
+
+    //MaleckarModel model;
+    KernikClancyModel model;
+    ODESolver solver;
+
+    //MinimizeAPbaselines obj;
+    ScaleMinimizeAPbaselines obj;
+
+    //MaximizeAPinnerProduct obj;
+    //LeastSquaresMinimizeAPbaselines obj;
+    ODEoptimization problem(model, solver, obj);
+
+    try {
+        problem.read_config(config);
+        problem.read_baselines(config);
+    } catch (const char * err) {
+        std::cout << "catch in main:" << std::endl;
+        std::cout << err << std::endl;
+        throw;
+    }
+
+    std::vector<std::pair<int, double>> error_per_gen;
+
+
+    PSO_population<decltype(problem), pcg64, decltype(seed_source)> pop(problem,
+                    config["n_organisms"].get<unsigned>(), seed_source);
+
+    double time_population_init = MPI_Wtime();
+    pop.init(pcg64(seed_source));
+    time_population_init = MPI_Wtime() - time_population_init;
+
+    if (mpi_rank == 0)
+        std::cout << "time_population_init, s: " << time_population_init << std::endl;
+
+    particle_swarm_optimization(pop, config["n_generations"].get<unsigned>());
+
+    error_per_gen = pop.get_error_per_gen();
+
+    if (mpi_rank == 0) {
+        std::string filename = "convergence_GA.txt";
+        std::ofstream file(filename);
+        for (const auto & p: error_per_gen)
+            file << p.first << " " << p.second << std::endl;
+        //TODO
+        //problem.export_gen_algo_tables();
+    }
+    if (mpi_rank == 0) {
+        problem.dump_ap(problem.get_results_optimizer_format(), 0);
+        using Results = decltype(problem)::Results;
+        using BaselineResult = decltype(problem)::BaselineResult;
+        Results results = problem.get_relative_results();
+        BaselineResult res = results[0];
+        std::cout << "Printing relative to default results" << std::endl;
+        for (const auto & cit: res.constantsResult)
+            std::cout << cit.first << " " << cit.second << std::endl;
+        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
+        for (const auto & sit: res.statesResult)
+            std::cout << sit.first << " " << sit.second << std::endl;
+    }
+}
+
+
+
+
+
+
+
 
 void script_nelder_mead(json & config)
 {
@@ -649,7 +731,9 @@ int main(int argc, char *argv[])
     try {
         if (sname == "Genetic Algorithm") {
             script_genetic_algorithm(config);
-        } else if (sname == "Nelder Mead") {
+        } else if (sname == "PSO") {
+            script_PSO(config);
+        }else if (sname == "Nelder Mead") {
             script_nelder_mead(config);
         } else if (sname == "Direct Problem") {
             script_direct_problem(config);
