@@ -511,10 +511,24 @@ void script_test_function(json & config)
 
     pcg_extras::seed_seq_from<std::random_device> seed_source;
    // int seed_source = 42;
-    using FuncToOptimize = RosenbrockFunction<30>;
+    using FuncToOptimize = RosenbrockFunction<8>;
     FuncToOptimize func;
     FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
+/*
+    {
+        PSO_population<decltype(optim), pcg64, decltype(seed_source)> pop(optim,
+                    config["n_organisms"].get<unsigned>(), seed_source);
 
+        double time_population_init = MPI_Wtime();
+        pop.init(pcg64(seed_source));
+        time_population_init = MPI_Wtime() - time_population_init;
+
+        if (rank == 0)
+            std::cout << "time_population_init, s: " << time_population_init << std::endl;
+
+        particle_swarm_optimization(pop, config["n_generations"].get<unsigned>());
+    }
+*/
 
   //  auto res = nelder_mead(pcg64(seed_source), optim, 10000000, 1e-14, 100, 1e-1);
   //  for (auto & p: res) {

@@ -92,14 +92,25 @@ public:
     void reset_organism(InitializedRandomGenerator & rg, std::vector<double>::iterator genes, 
         std::vector<double>::iterator vel)
     {
-        for (int j = 0; j < genes_per_organism; j++) {
-            vel[j] = 0;
-            if (is_mutation_applicable[j]) {
-                genes[j] = std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
-            } else {
-                assert(init_status != -1);
-                //or maybe it is fine to put zero if init_status == -1
+        if (1) {
+            for (int j = 0; j < genes_per_organism; j++) {
+                if (is_mutation_applicable[j]) {
+                    vel[j] = std::uniform_real_distribution<double>(- (max_gene[j] - min_gene[j])/2, (max_gene[j] - min_gene[j])/2)(rg);
+                } else {
+                    vel[j] = 0;
+                }
                 genes[j] = init_vector[j];
+            }
+        } else {
+            for (int j = 0; j < genes_per_organism; j++) {
+                vel[j] = 0;
+                if (is_mutation_applicable[j]) {
+                    genes[j] = std::uniform_real_distribution<double>(min_gene[j], max_gene[j])(rg);
+                } else {
+                    assert(init_status != -1);
+                    //or maybe it is fine to put zero if init_status == -1
+                    genes[j] = init_vector[j];
+                }
             }
         }
     }
