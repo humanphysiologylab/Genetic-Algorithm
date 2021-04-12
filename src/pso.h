@@ -117,7 +117,7 @@ public:
         //the rest starting from 1
         for (int i = 1; i < number_organisms; i++) {
             reset_organism(rg, all_genes.begin() +  i * genes_per_organism,
-            velocities.begin() + i * genes_per_organism);
+                velocities.begin() + i * genes_per_organism);
 
             for (int j = 0; j < genes_per_organism; j++)
                 all_best_genes[j + i * genes_per_organism] = all_genes[j + i * genes_per_organism];
@@ -148,10 +148,13 @@ public:
             MPI_DOUBLE_INT,
             MPI_MINLOC,
             MPI_COMM_WORLD);
-        
-        if (!first_call && best_global_genes_fitness_value < out.value) {
-            // best_global_genes_fitness_value stays the same
-            return;
+
+        if (0) {
+            //lets update best_genes each time to get steady state
+            if (!first_call && best_global_genes_fitness_value < out.value) {
+                // best_global_genes_fitness_value stays the same
+                return;
+            }
         }
         best_global_genes_fitness_value = out.value;
         const int broadcaster = out.index;
@@ -215,6 +218,15 @@ public:
             auto vel = velocities.begin() + i * genes_per_organism;
             //call optimized function
             const double new_val = problem.genetic_algorithm_calls(genes);
+            if (1) {
+                //lets update best_genes each time to get steady state
+                all_best_genes_fitness_values[i] = problem.genetic_algorithm_calls(best_genes);
+                if (all_best_genes_fitness_values[i] > 100) {
+                    reset_organism(random_generators[omp_get_thread_num()], genes, vel);
+                    for (int j = 0; j < genes_per_organism; j++)
+                        best_genes[j] = genes[j];
+                }
+            }
             if (new_val > 100) { //hardcoded here, TODO
                 //reset only genes and vel
                 reset_organism(random_generators[omp_get_thread_num()], genes, vel);
