@@ -68,22 +68,23 @@ public:
     using Baseline = std::vector<double>;
     using ListOfBaselines = std::vector<Baseline>;
 
-    double distBaselines(const Baseline & a, const Baseline & b) const
+    double distBaselines(const Baseline & a, const Baseline & b, int start) const
     {
         double res = 0;
         assert(a.size() == b.size());
-        for (size_t i = 0; i < a.size(); i++)
+        for (size_t i = start; i < a.size(); i++)
             res += std::pow(std::abs(a[i] - b[i]), power);
-        res /= (double) a.size();
+        res /= (double) (a.size() - start);
         return res;
     }
 
-    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
+    double dist(const ListOfBaselines & a, const ListOfBaselines & b, const std::vector<int> & starts) const
     {
         assert(a.size() == b.size());
+        assert(a.size() == starts.size());
         double res = 0;
         for (size_t i = 0; i < a.size(); i++) {
-            res += distBaselines(a[i], b[i]);
+            res += distBaselines(a[i], b[i], starts[i]);
         }
         res = std::pow(res / (double) a.size(), 1.0/power);
         if (std::isnan(res))
@@ -1198,7 +1199,7 @@ public:
     double genetic_algorithm_calls(It parameters_begin) const
     {
         double boundaries_penalty;
-        double main_penalty = obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin, boundaries_penalty));
+        double main_penalty = obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin, boundaries_penalty), apbaselines_halfheights);
         return main_penalty + boundaries_penalty + regularization(parameters_begin);
     }
     template <typename V>
@@ -1242,7 +1243,7 @@ public:
     {
         double extra_penalty;
         const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, extra_penalty, num_beats);
-        const double dist = obj.dist(apbaselines, tmp_b) + extra_penalty;
+        const double dist = obj.dist(apbaselines, tmp_b, apbaselines_halfheights) + extra_penalty;
         std::cout << "final dist: " << dist << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");

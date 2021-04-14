@@ -283,8 +283,8 @@ void script_genetic_algorithm(json & config)
     KernikClancyModel model;
     ODESolver solver;
 
-    //MinimizeAPbaselines obj;
-    ScaleMinimizeAPbaselines obj;
+    MinimizeAPbaselines obj;
+    //ScaleMinimizeAPbaselines obj;
     
     //MaximizeAPinnerProduct obj;
     //LeastSquaresMinimizeAPbaselines obj;
@@ -341,8 +341,8 @@ void script_PSO(json & config)
     KernikClancyModel model;
     ODESolver solver;
 
-    //MinimizeAPbaselines obj;
-    ScaleMinimizeAPbaselines obj;
+    MinimizeAPbaselines obj;
+    //ScaleMinimizeAPbaselines obj;
 
     //MaximizeAPinnerProduct obj;
     //LeastSquaresMinimizeAPbaselines obj;
@@ -577,8 +577,8 @@ const int seed_source = 42;
 
     ODESolver solver;
 //MaximizeAPinnerProduct obj;
-  //  MinimizeAPbaselines obj;
-   LeastSquaresMinimizeAPbaselines obj;
+    MinimizeAPbaselines obj;
+  // LeastSquaresMinimizeAPbaselines obj;
   //  ODEoptimizationTrackVersion problem(model, solver, obj);///////////////////////////
     ODEoptimization problem(model, solver, obj);
 
