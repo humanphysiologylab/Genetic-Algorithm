@@ -231,7 +231,7 @@ public:
         return res;
     }
 
-    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
+    double dist(const ListOfBaselines & a, const ListOfBaselines & b, const std::vector<int> & starts) const
     {
         //watch for the correct order: a -- experimental optical mapping AP, b -- model
         assert(a.size() == b.size());
