@@ -69,16 +69,17 @@ public:
 		return g * (v_from - v_to);
 	}
 
+    // we assume V and dV/dt are at 0 indices of x and dxdt corr.
+    const int v_index = 0;
+        
+	// cell 0 is stimulated
+    const double Cm = 60; // pF // from Kernik-Clancy
+	const double g_gj = 5; // gap junction conductance, nS 
+    //hardcode for Kernik-Clancy
+    const int stim_flag_index = 82; // stim_flag = 0: no stim
+
     void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const
     {
-        // we assume V and dV/dt are at 0 indices of x and dxdt corr.
-        const int v_index = 0;
-        
-        // cell 0 is stimulated
-        const double Cm = 60; // pF // from Kernik-Clancy
-		const double g_gj = 5; // gap junction conductance, nS 
-        //hardcode for Kernik-Clancy
-        const int stim_flag_index = 82; // stim_flag = 0: no stim
         double * constants = cellModel.get_constants();
         const double orig_stim_flag = constants[stim_flag_index];
     
@@ -122,7 +123,12 @@ public:
 
     void compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const
     {
+		double * constants = cellModel.get_constants();
+        const double orig_stim_flag = constants[stim_flag_index];
+        if (mainCellIndex != 0)
+			 constants[stim_flag_index] = 0;
         cellModel.compute_algebraic(t, states + cellModel.state_size() * mainCellIndex, algebraic);
+		constants[stim_flag_index] = orig_stim_flag;
     }
 
     template<typename Map1, typename Map2, typename Map3, typename Map4>
