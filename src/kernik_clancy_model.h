@@ -7,6 +7,8 @@
 #include <string>
 #include <array>
 
+#include "stimulation.h"
+
 class KernikClancyModel
 {
     // C++ class of Kernik-Clancy iPSC-CM model
@@ -27,6 +29,9 @@ class KernikClancyModel
     static const int states_size = 25, alg_size = 21, const_size = 93;
     static constexpr double max_step_v = 1; //(ms)
     double * constants;
+    
+    const StimulationBase * stimulation;
+    
     void computerates(const double VOI,
                       const double *  __restrict constants,
                       double *  __restrict rates,
@@ -37,6 +42,8 @@ public:
     static std::vector<std::pair<double, double>> get_r_a_tol();
     void compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const;
     void set_constants(double *c);
+	double * get_constants() const;
+	void set_stimulation(const StimulationBase *s);
 
     KernikClancyModel();
 

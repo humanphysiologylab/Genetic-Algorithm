@@ -33,6 +33,7 @@
 #include "cellml_ode_solver.h"
 #include "optimization_problem.h"
 #include "nelder_mead.h"
+#include "cell_chain.h"
 
 #include <json.hpp>
 #include "mcmc.h"
@@ -495,6 +496,30 @@ void script_direct_problem(json & config)
 
 }
 
+void script_direct_problem_chain(json & config)
+{
+	CellChainModel<KernikClancyModel> model(config["chain_len"].get<int>(), config["main_cell_index"].get<int>());
+
+	ODESolver solver;
+    LeastSquaresMinimizeAPbaselines obj;
+    ODEoptimization problem(model, solver, obj);
+
+    try {
+        problem.read_config(config);
+    } catch(const std::string & err) {
+        std::cout << "catch in main:" << std::endl;
+        std::cout << err << std::endl;
+        throw;
+    }
+
+    problem.run_direct_and_dump(config["start_record_time"].get<double>(),
+                                config["max_time"].get<double>(),
+                                config["dump_period"].get<double>(),
+                                config["dump_filename"].get<std::string>(),
+                                config["dump_vars"].get<std::vector<std::string>>());
+}
+
+
 void script_gradient_descent(json & config)
 {
     
@@ -751,6 +776,8 @@ int main(int argc, char *argv[])
             script_nelder_mead(config);
         } else if (sname == "Direct Problem") {
             script_direct_problem(config);
+        } else if (sname == "Direct Problem Chain") {
+			script_direct_problem_chain(config);
         } else if (sname == "Gradient Descent") {
             script_gradient_descent(config);
         } else if (sname == "Test Function") {

@@ -14,6 +14,15 @@ void KernikClancyModel::set_constants(double *c)
 {
     constants = c;
 }
+double * KernikClancyModel::get_constants() const
+{
+	return constants;
+}
+
+void KernikClancyModel::set_stimulation(const StimulationBase *s)
+{
+	stimulation = s;
+}
 double KernikClancyModel::max_step()
 {
     return max_step_v;
@@ -321,14 +330,14 @@ void KernikClancyModel::computerates(const double t,
     double xK15 = x_K1[5]; // (6);
     double xKCond = x_K1[0];
     
-    //Ma et al
-    
+    //Ma et al 2011
     xK11 = 0.086091;
     xK12 = 96.939072;
     xK13 = 9.552668;
     xK14 = 23.009647;
     xK15 = 5.890183;
     xKCond = 0.084;
+    //end Ma et al 2011
     
     double alpha_xK1 = xK11 * exp( ( Y[0] + xK13 ) / xK12 );
     double beta_xK1 = exp( ( Y[0] + xK15 ) / xK14 );
@@ -593,7 +602,7 @@ void KernikClancyModel::computerates(const double t,
     
     
 
-    //Ma et al
+    //Ma et al 2011
     double p1 = 99.1744;
     double p2 = 12.8321;
 	double p3 = 0.0039;
@@ -624,8 +633,8 @@ void KernikClancyModel::computerates(const double t,
 	j3 = v1 * v3;
 	j4 = 1.0 / (1.0 / v2 + 1.0 / v4);
 	
-	//end Ma et al
-    
+	//end Ma et al 2011
+
     
     // 13: h (dimensionless) (inactivation in i_Na)
     double alpha_h = h1 * exp( ( Y[0] ) / h2 );
@@ -838,6 +847,8 @@ void KernikClancyModel::computerates(const double t,
     double time = t;
     double i_stim = 0;
 
+	if (stim_flag == 4)
+		i_stim = stimulation->i_stim(t);
 
 
     const double fmt = std::fmod(t, cyclelength) - std::round(stim_shift);
@@ -856,6 +867,17 @@ void KernikClancyModel::computerates(const double t,
     {
         i_stim = 2 * i_stim_Amplitude / M_PI * std::atan(std::tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
     }
+
+    //biphasic smooth pulse
+    if ( stim_flag == 3 &&
+         fmt >= 0 &&
+         fmt < i_stim_PulseDuration )
+    {
+		if (fmt*2 < i_stim_PulseDuration)
+			i_stim = i_stim_Amplitude * std::pow(fmt, 2);
+		else
+			i_stim = i_stim_Amplitude * (- std::pow(i_stim_PulseDuration - fmt, 2)); 
+	}
 
     /* old version of rectangular pulse
     const double i_stim_End = 100000e3;           // milisecond (in stim_mode)

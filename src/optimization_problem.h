@@ -19,6 +19,8 @@
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 
+#include "stimulation.h"
+
 using json = nlohmann::json;
 
 class BlockOfTable
@@ -291,11 +293,13 @@ class ODEoptimization
 protected:
     Solver solver;//!!!!
     Objective obj;//!!!!
+    Model g_model; //use this model only as a reference!!!! Do not call it directly but make a copy of it!
     using Baseline = typename Objective::Baseline;
     using ListOfBaselines = typename Objective::ListOfBaselines;
 
     ListOfBaselines apbaselines;
     std::vector<int> apbaselines_halfheights;
+	std::vector<StimulationBase*> stimulation_protocols;
 
     // There are two types of values:
     // 1. Unknowns
@@ -353,6 +357,11 @@ protected:
 
     bool is_AP_normalized = 0; //normalize every baseline vector independently!!!
 public:
+	~ODEoptimization()
+	{
+		for (auto s: stimulation_protocols)
+			delete [] s;
+	}
 int beats;
     using ConstantsResult = std::unordered_map<std::string, double>;
     using StatesResult = std::unordered_map<std::string, double>;
@@ -491,7 +500,7 @@ public:
         return results_optimizer_format;
     }
     ODEoptimization(const Model & model, const Solver & solver, const Objective & obj)
-    : solver(solver), obj(obj)
+    : solver(solver), obj(obj), g_model(model)
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -650,6 +659,19 @@ public:
                 Values & bVar = baselineValues.back();
                 BiMap statesBiMapDrifting = statesBiMapModel;
                 bVar.groupName = b["name"].get<std::string>();
+			
+				try {
+					if (b["stimProtocol"].get<std::string>() == "Biphasic")
+						stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+					else if (b["stimProtocol"].get<std::string>() == "BiphasicStim_CaSR_Protocol")
+						stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
+										b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
+										b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+	
+				}
+				catch (...) {
+					stimulation_protocols.push_back(new StimulationNone());
+				}
                 for (auto variable: b["params"].items()) {
                     auto v = variable.value();
                     std::string name = v["name"].get<std::string>();
@@ -920,16 +942,16 @@ public:
 protected:   
     void get_default_values(double * constants, double * y0) const
     {
-        Model::initConsts(constants);
-        Model::initState(y0);
+        g_model.initConsts(constants);
+        g_model.initState(y0);
     }
 
 
     template <typename It>
     void initial_guess(It parameters_begin) const
     {
-        std::vector<double> y0(Model::state_size());
-        std::vector<double> vconstants(Model::constants_size());
+        std::vector<double> y0(g_model.state_size());
+        std::vector<double> vconstants(g_model.constants_size());
         
         //first, set model's default values
         get_default_values(vconstants.data(), y0.data()); 
@@ -1025,7 +1047,7 @@ public:
         for (int baseline_index = 0; baseline_index < baselineValues.size(); baseline_index++) {
             
             const auto & baseline = baselineValues[baseline_index];
-            Model model;
+            Model model(g_model);
 
             std::vector<double> y0(model.state_size());
             
@@ -1037,7 +1059,7 @@ public:
             std::vector<double> vconstants(model.constants_size());
             double * constants = vconstants.data();
             model.set_constants(constants);
-            
+            model.set_stimulation(stimulation_protocols[baseline_index]);
             fill_constants_y0(parameters.begin(), constants, y0.data(), baseline_index);
 
             std::vector<int> states_model_indices;
@@ -1128,7 +1150,7 @@ public:
         for (const auto & v: apbaselines)
             apmodel.push_back(Baseline(v.size()));
 
-        Model model;
+        Model model(g_model);
         bool solver_failed = 0;
         for (size_t i = 0; i < apbaselines.size(); i++) {
             std::vector<double> y0(model.state_size());
@@ -1137,6 +1159,7 @@ public:
             std::vector<double> vconstants(model.constants_size());
             double * constants = vconstants.data();
             model.set_constants(constants);//!!!!!!!
+            model.set_stimulation(stimulation_protocols[i]);
             fill_constants_y0(model_scaled_parameters.begin(), constants, y0.data(), i);
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
 

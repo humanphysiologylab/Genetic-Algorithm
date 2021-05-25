@@ -78,9 +78,9 @@ set(SOURCE_FILES
         src/maleckar_model.cpp
         src/kernik_clancy_model.cpp
         src/mcmc.cpp
-        src/pso.h
         LSODA/LSODA.cpp
-        )
+	src/stimulation.cpp
+	)
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)
 add_library(${libname} STATIC ${SOURCE_FILES})
