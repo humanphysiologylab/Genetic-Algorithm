@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 2.8)
-
 project(ga)
 
 
@@ -20,6 +18,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wconversion")
 
 list( INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake )
 
+find_package(BOOST REQUIRED)
 find_package(MPI REQUIRED)
 if (MCMC_ENABLED)
   find_package(ROOT 6.16 CONFIG REQUIRED)
@@ -27,7 +26,7 @@ if (MCMC_ENABLED)
   include_directories(${BAT_INCLUDE_DIRS} ${ROOT_INCLUDE_DIRS})
   message(STATUS "ROOT:" ${ROOT_INCLUDE_DIRS})
 endif()
-
+include_directories("/opt/homebrew/include")
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 include_directories("Eigen")
 include_directories("pcg-cpp-0.98")
