@@ -755,13 +755,15 @@ int main(int argc, char *argv[])
 
     if (argc != 2) {
         std::cout << "Usage: ./ga config.json" << std::endl;
-        return 0;
+        MPI_Finalize();
+	return 0;
     }
 
     std::ifstream configFile(argv[1]);
     if (!configFile.is_open() && mpi_rank == 0) {
         std::cerr << "Cannot open main config file" << std::endl;
-        return 0;
+        MPI_Finalize();
+	return 0;
     }
     json config;
     configFile >> config;
