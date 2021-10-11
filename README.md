@@ -12,6 +12,17 @@ module load mpi/openmpi-x86_64
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
+
+On MacOS use
+```C
+git clone https://github.com/humanphysiologylab/Genetic-Algorithm.git
+cd Genetic-Algorithm
+mkdir build-release && cd $_
+cmake -D CMAKE_C_COMPILER=/opt/homebrew/bin/gcc-11 -D CMAKE_CXX_COMPILER=/opt/homebrew/bin/g++-11 ..
+make
+```
+
+
 IMPORTANT NOTE: this implementation of genetic algorithm requires MPI!
 
 ## Run
