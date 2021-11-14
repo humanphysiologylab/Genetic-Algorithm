@@ -17,6 +17,7 @@
 
 #include <mpi.h>
 #include <iostream>
+#include <omp.h>
 #include "pcg_random.hpp"
 
 #include "gradient_descent.h"
@@ -767,6 +768,11 @@ int main(int argc, char *argv[])
     }
     json config;
     configFile >> config;
+
+    if (mpi_rank == 0) {
+        printf("Number of MPI nodes: %d\n", mpi_size);
+        printf("Number of cores at root: %d\n", omp_get_max_threads());
+    }
 
     const std::string sname = config["script"].get<std::string>();
     try {
