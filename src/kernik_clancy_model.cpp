@@ -50,99 +50,103 @@ void KernikClancyModel::operator()(double t, double * __restrict x, double * __r
 void KernikClancyModel::initConsts(double * constants)
 {
    const double constants_array[const_size] = {
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.0000000e+00,
-   1.3378578e-01,
-   4.7799497e-01,
-   2.7242756e+01,
-   4.9250233e+00,
-   8.7222376e+00,
-   5.6636197e+01,
-   2.1802500e-01,
-   5.7488524e-03,
-   1.3623493e+01,
-   4.7630571e-02,
-  -7.0680874e+00,
-   1.2456641e-02,
-  -2.5994458e+01,
-   3.7342633e+01,
-   2.2091964e+01,
-   5.0000000e+01,
-   0.0000000e+00,
-   7.7000000e-03,
-   1.1655845e-03,
-   6.6726839e+04,
-   2.8045891e-01,
-  -1.8866972e+01,
-   4.7411500e-06,
-   1.1783333e-01,
-   5.5361418e-02,
-   1.1684202e+01,
-   3.9891811e+00,
-  -1.1047139e+01,
-   3.4423094e-04,
-  -1.7634472e+01,
-   1.8676054e+02,
-   8.1809339e+00,
-   6.9675842e-01,
-   1.1224458e+01,
-   3.0802769e-01,
-   1.2966294e+01,
-   7.0791460e+00,
-   4.4909416e-02,
-  -6.9098804e+00,
-   5.1258983e-04,
-  -4.9505712e+01,
-   1.9312112e+03,
-   5.7300275e+00,
-   1.6582469e+00,
-   1.0046256e+02,
-   1.8500000e-01,
-   9.7206134e+00,
-   1.0804585e+02,
-   1.3107016e+01,
-   2.3269144e-03,
-  -7.9177263e+00,
-   3.6265989e-03,
-  -1.9839359e+01,
-   9.6632950e+03,
-   7.3955036e+00,
-   5.1225718e-04,
-  -6.6583756e+01,
-   3.1977580e-02,
-   1.6733150e-01,
-   9.5108872e-01,
-   4.3500000e-02,
-   5.7897000e-07,
-  -1.4589712e+01,
-   2.0086650e+04,
-   1.0202353e+01,
-   2.3945291e+01,
-   0.0000000e+00,//stim_flag
-   50,//stim_shift (ms) was 100
-   0.0000000e+00, //voltageclump
-   0, //g_kur_scaler
-   0.0375, //gkur
-   1000,
-   3,
-   0,
-   0,
-   5,
-   0};
+   1.0000000e+00, // 0
+   1.0000000e+00, // 1
+   1.0000000e+00, // 2
+   1.0000000e+00, // 3
+   1.0000000e+00, // 4
+   1.0000000e+00, // 5
+   1.0000000e+00, // 6
+   1.0000000e+00, // 7
+   1.0000000e+00, // 8
+   1.0000000e+00, // 9
+   1.0000000e+00, // 10
+   1.0000000e+00, // 11
+   1.0000000e+00, // 12
+   1.0000000e+00, // 13 g_b_Na_scaler
+   1.0000000e+00, // 14 g_b_Ca_scaler
+   1.0000000e+00, // 15
+   1.3378578e-01, // 16 g_K1
+   4.7799497e-01, // 17 
+   2.7242756e+01, // 18
+   4.9250233e+00, // 19
+   8.7222376e+00, // 20
+   5.6636197e+01, // 21
+   2.1802500e-01, // 22
+   5.7488524e-03, // 23
+   1.3623493e+01, // 24
+   4.7630571e-02, // 25
+  -7.0680874e+00, // 26
+   1.2456641e-02, // 27
+  -2.5994458e+01, // 28
+   3.7342633e+01, // 29
+   2.2091964e+01, // 30
+   5.0000000e+01, // 31
+   0.0000000e+00, // 32
+   7.7000000e-03, // 33
+   1.1655845e-03, // 34
+   6.6726839e+04, // 35
+   2.8045891e-01, // 36
+  -1.8866972e+01, // 37
+   4.7411500e-06, // 38
+   1.1783333e-01, // 39
+   5.5361418e-02, // 40
+   1.1684202e+01, // 41
+   3.9891811e+00, // 42
+  -1.1047139e+01, // 43
+   3.4423094e-04, // 44
+  -1.7634472e+01, // 45
+   1.8676054e+02, // 46
+   8.1809339e+00, // 47
+   6.9675842e-01, // 48
+   1.1224458e+01, // 49
+   3.0802769e-01, // 50
+   1.2966294e+01, // 51
+   7.0791460e+00, // 52
+   4.4909416e-02, // 53
+  -6.9098804e+00, // 54
+   5.1258983e-04, // 55
+  -4.9505712e+01, // 56
+   1.9312112e+03, // 57
+   5.7300275e+00, // 58
+   1.6582469e+00, // 59
+   1.0046256e+02, // 60
+   1.8500000e-01, // 61
+   9.7206134e+00, // 62 g_Na
+   1.0804585e+02, // 63
+   1.3107016e+01, // 64
+   2.3269144e-03, // 65
+  -7.9177263e+00, // 66
+   3.6265989e-03, // 67
+  -1.9839359e+01, // 68
+   9.6632950e+03, // 69
+   7.3955036e+00, // 70
+   5.1225718e-04, // 71
+  -6.6583756e+01, // 72
+   3.1977580e-02, // 73
+   1.6733150e-01, // 74
+   9.5108872e-01, // 75
+   4.3500000e-02, // 76
+   5.7897000e-07, // 77
+  -1.4589712e+01, // 78
+   2.0086650e+04, // 79
+   1.0202353e+01, // 80
+   2.3945291e+01, // 81
+   0.0000000e+00, // 82 stim_flag
+   50,            // 83 stim_shift (ms) was 100
+   0,             // 84 voltageclamp
+   0,             // 85 g_kur_scaler
+   0.0375,        // 86 g_kur (nS_per_pF)
+   1000,          // 87 stim_period (ms)
+   3,             // 88 i_stim_Amplitude (pA/pF)
+   0,             // 89 Na_fixed
+   0,             // 90 K_fixed
+   5,             // 91 i_stim_PulseDuration (ms)
+   0,             // 92 g_b_K_scaler
+   0.01666666666, // 93 g_seal (nS_per_pF) 1 / 1 GOhm / 60 pF
+   0,             // 94 g_seal_scaler 
+   1              // 95 Cm_scaler 
+   };
    
     for (int i = 0; i < const_size; i++)
         constants[i] = constants_array[i];
@@ -270,31 +274,10 @@ void KernikClancyModel::computerates(const double t,
     const double * x_NA = &model_parameter_inputs[62]; // (63:76);
     const double * x_F = &model_parameter_inputs[76]; // (77:82);
 
-
-    //    Flags:
-    const double stim_flag = model_parameter_inputs[82]; // (83);  // % dimensionless (in stim_mode)
-    const double voltageclamp = model_parameter_inputs[84]; // (85); // %square pulses if =1
-    const double g_kur_scaler = model_parameter_inputs[85];
     
-    // -------------------------------------------------------------------------------
-    //  Constants for flag protocols:
-    
-    // for stim:
-    //const double cyclelength = 800.;          // 1000ms = 1hz beating
-    const double cyclelength = model_parameter_inputs[87];
-    const double i_stim_Amplitude = model_parameter_inputs[88];// pA/pF (in stim_mode) (default 3) 50 fine for biphasic
-    const double i_stim_PulseDuration = model_parameter_inputs[91];   // default: 5 milisecond (in stim_mode)
-    const double stim_shift = model_parameter_inputs[83]; //ms (nonnegative, in stim_mode)///////////////////////////////////////
-
-
-    // for square pulse voltage clamp:
-    const double v_clamp_step = 0;
-    const double v_clamp_rest = -65;
-    const double steplength = 100;
-    const double R_clamp = 0.02;
     // -------------------------------------------------------------------------------
     // Cell geometry
-    const double Cm = 60; // pF
+    const double Cm = 60 * model_parameter_inputs[95]; // pF
     const double V_tot = 3960; // um^3
     const double Vc_tenT = 16404;
     const double VSR_tenT = 1094;
@@ -316,9 +299,9 @@ void KernikClancyModel::computerates(const double t,
     
     // -------------------------------------------------------------------------------
     // Reversal Potentials:
-    double E_Ca = 0.5 * R * T / F * log( Cao / Y[2] ); // millivolt
-    double E_Na = R * T / F * log( Nao / Y[3] );  // millivolt
-    double E_K = R * T / F * log( Ko / Y[4] );  // millivolt
+    const double E_Ca = 0.5 * R * T / F * log( Cao / Y[2] ); // millivolt
+    const double E_Na = R * T / F * log( Nao / Y[3] );  // millivolt
+    const double E_K = R * T / F * log( Ko / Y[4] );  // millivolt
     
     // -------------------------------------------------------------------------------
     // Inward Rectifier K+ current (Ik1):
@@ -380,8 +363,8 @@ void KernikClancyModel::computerates(const double t,
     dY[10] = ( Xr2_inf - Y[10] ) / tau_Xr2;
     
     // Current:
-    double g_Kr = x_KR[0] * x_scale_conductance[1] ; // nS_per_pF (in i_Kr)
-    double i_Kr = g_Kr * ( Y[0] - E_K ) * Y[9] * Y[10] * sqrt( Ko / 5.4 );
+    const double g_Kr = x_KR[0] * x_scale_conductance[1] ; // nS_per_pF (in i_Kr)
+    const double i_Kr = g_Kr * ( Y[0] - E_K ) * Y[9] * Y[10] * sqrt( Ko / 5.4 );
     
     // ----------------------------------------------------------------------------
     // IKur Current from Maleckar
@@ -394,6 +377,7 @@ void KernikClancyModel::computerates(const double t,
     dY[24] = (i_ur_infinity - Y[24]) / tau_i_ur;
 
     // Current:
+    const double g_kur_scaler = model_parameter_inputs[85];
     const double g_Kur = model_parameter_inputs[86] * g_kur_scaler ; // nS_per_pF (in i_Kur)
     const double i_Kur = g_Kur * ( Y[0] - E_K ) * Y[23] * Y[24];
     
@@ -419,8 +403,8 @@ void KernikClancyModel::computerates(const double t,
     dY[11] = ( Xs_inf - Y[11] ) / tau_Xs;
     
     // Current:
-    double g_Ks = x_IKS[0] * x_scale_conductance[2] ;   // nS_per_pF (in i_Ks)
-    double i_Ks = g_Ks * ( Y[0] - E_K ) * Y[11] * Y[11] ;
+    const double g_Ks = x_IKS[0] * x_scale_conductance[2] ;   // nS_per_pF (in i_Ks)
+    const double i_Ks = g_Ks * ( Y[0] - E_K ) * Y[11] * Y[11] ;
     
     // -------------------------------------------------------------------------------
     // Transient outward Current (Ito):
@@ -457,8 +441,8 @@ void KernikClancyModel::computerates(const double t,
     dY[17] = ( r_inf - Y[17] ) / tau_r;
     
     // Current:
-    double g_to = xTO[0] * x_scale_conductance[3] ; // nS_per_pF (in i_to)
-    double i_to = g_to * ( Y[0] - E_K ) * Y[16] * Y[17] ;
+    const double g_to = xTO[0] * x_scale_conductance[3] ; // nS_per_pF (in i_to)
+    const double i_to = g_to * ( Y[0] - E_K ) * Y[16] * Y[17] ;
     
     // -------------------------------------------------------------------------------
     // L-type Ca2+ Current (ICaL):
@@ -666,8 +650,8 @@ void KernikClancyModel::computerates(const double t,
     dY[14] = ( m_inf - Y[14] ) / tau_m;
     
     // Current:
-    double g_Na = x_NA[0] * x_scale_conductance[6]; // nS_per_pF (in i_Na)
-    double i_Na = g_Na * Y[14] * Y[14] * Y[14] * Y[12] * Y[13] * ( Y[0] - E_Na );
+    const double g_Na = x_NA[0] * x_scale_conductance[6]; // nS_per_pF (in i_Na)
+    const double i_Na = g_Na * Y[14] * Y[14] * Y[14] * Y[12] * Y[13] * ( Y[0] - E_Na );
     
     // -------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------
@@ -708,7 +692,7 @@ void KernikClancyModel::computerates(const double t,
     double alpha = 2.5*1.1;     // factor to enhance outward nature of inaca dimensionless (in i_NaCa)
     double kNaCa = 1000. * 1.1 * x_scale_conductance[8] ;  // maximal inaca pA_per_pF (in i_NaCa)
     
-    double i_NaCa = ( kNaCa * ( ( exp( gamma * Y[0] * F / ( R * T ) )
+    const double i_NaCa = ( kNaCa * ( ( exp( gamma * Y[0] * F / ( R * T ) )
                                  * ( Y[3] * Y[3] * Y[3] ) * Cao )
                                - ( exp( ( gamma - 1.0 ) * Y[0] * F / ( R * T ) )
                                   * ( Nao * Nao * Nao ) * Y[2] * alpha ) )
@@ -738,8 +722,8 @@ void KernikClancyModel::computerates(const double t,
     // -------------------------------------------------------------------------------
     // SR Leak (J_leak):
     // Ten Tusscher formulation
-    double V_leak = x_scale_conductance[11] * 0.00008 * 0.02;   // per_millisecond (in calcium_dynamics)
-    double i_leak = ( Y[1] - Y[2] ) * V_leak;
+    const double V_leak = x_scale_conductance[11] * 0.00008 * 0.02;   // per_millisecond (in calcium_dynamics)
+    const double i_leak = ( Y[1] - Y[2] ) * V_leak;
     
     // -------------------------------------------------------------------------------
     // SR Release/RYR (J_rel):
@@ -766,25 +750,28 @@ void KernikClancyModel::computerates(const double t,
     dY[22] = ( ( kiSRCa * Y[2] * Y[21] - kim * Y[22] )
               - ( kom * Y[22] - koSRCa * Y[2] * Y[2] * RI ) );   // I
     
-    double i_rel = ks * Y[21] * ( Y[1] - Y[2] ) * ( V_SR / Vc );
+    const double i_rel = ks * Y[21] * ( Y[1] - Y[2] ) * ( V_SR / Vc );
     
     // Background Sodium (I_bNa):
     // Ten Tusscher formulation
-    double g_b_Na = 0.00029 * 1.5 * x_scale_conductance[13];   // nS_per_pF (in i_b_Na)
-    double i_b_Na = g_b_Na * ( Y[0]  - E_Na );
+    const double g_b_Na = model_parameter_inputs[93] * model_parameter_inputs[94] + 
+        0.00029 * 1.5 * x_scale_conductance[13];   // nS_per_pF (in i_b_Na)
+    const double i_b_Na = g_b_Na * ( Y[0]  - E_Na );
     
     // -------------------------------------------------------------------------------
     // Background Calcium (I_bCa):
     // Ten Tusscher formulation
-    double g_b_Ca = 0.000592 * 0.62 * x_scale_conductance[14];   // nS_per_pF (in i_b_Ca)
-    double i_b_Ca = g_b_Ca * ( Y[0] - E_Ca );
+    const double g_b_Ca =  model_parameter_inputs[93] * model_parameter_inputs[94] +
+        0.000592 * 0.62 * x_scale_conductance[14];   // nS_per_pF (in i_b_Ca)
+    const double i_b_Ca = g_b_Ca * ( Y[0] - E_Ca );
     
     
     // -------------------------------------------------------------------------------
     // Background Potassium (I_bK):
     // OHara-Rudy g_Kb = 0.003 but there it has also a multiplier dep. on V
-    double g_b_K = 0.001 * model_parameter_inputs[92];   // nS_per_pF (in i_b_K)
-    double i_b_K = g_b_K * ( Y[0] - E_K );
+    const double g_b_K =  model_parameter_inputs[93] * model_parameter_inputs[94] +
+        0.001 * model_parameter_inputs[92];   // nS_per_pF (in i_b_K)
+    const double i_b_K = g_b_K * ( Y[0] - E_K );
     
     
     // -------------------------------------------------------------------------------
@@ -836,20 +823,29 @@ void KernikClancyModel::computerates(const double t,
     dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K + i_b_K ) / ( F * Vc );
     
     if (model_parameter_inputs[90] == 1) {
-        //Kai is fixed
+        //Ki is fixed
         dY[4] = 0;
     } // end
     
     // -------------------------------------------------------------------------------
     // 1: Vm (Membrane voltage)
-    
+   
+
+    // for stim:
+    //const double cyclelength = 800.;          // 1000ms = 1hz beating
+    const double cyclelength = model_parameter_inputs[87];
+    const double i_stim_Amplitude = model_parameter_inputs[88];// pA/pF (in stim_mode) (default 3) 50 fine for biphasic
+    const double i_stim_PulseDuration = model_parameter_inputs[91];   // default: 5 milisecond (in stim_mode)
+    const double stim_shift = model_parameter_inputs[83]; //ms (nonnegative, in stim_mode)///////////////////////////////////////
+
+
     // I_stim:
     double time = t;
     double i_stim = 0;
-
+    const double stim_flag = model_parameter_inputs[82]; // (83);  // % dimensionless (in stim_mode)
+ 
 	if (stim_flag == 4)
 		i_stim = stimulation->i_stim(t);
-
 
     const double fmt = std::fmod(t, cyclelength) - std::round(stim_shift);
     //rectangular pulse
@@ -894,6 +890,16 @@ void KernikClancyModel::computerates(const double t,
 
     // Voltage Clamp:
     //TODO Please check voltage clamp mode before using it
+    
+    const double voltageclamp = model_parameter_inputs[84]; // (85); // %square pulses if =1
+ 
+    // for square pulse voltage clamp:
+    const double v_clamp_step = 0;
+    const double v_clamp_rest = -65;
+    const double steplength = 100;
+    const double R_clamp = 0.02;
+
+
     double i_voltageclamp;
     if (voltageclamp == 0) {
         i_voltageclamp = 0;

@@ -26,7 +26,7 @@ class KernikClancyModel
     //Colleen Clancy Lab @ UC davis
     //
 
-    static const int states_size = 25, alg_size = 21, const_size = 93;
+    static const int states_size = 25, alg_size = 21, const_size = 96;
     static constexpr double max_step_v = 1; //(ms)
     double * constants;
     
@@ -176,6 +176,9 @@ public:
         legend_constants[90] = "K_fixed (boolean)";
         legend_constants[91] = "i_stim_PulseDuration (ms)";
 		legend_constants[92] = "g_b_K_scaler (dimensionless)";
+        legend_constants[93] = "g_seal (nS_per_pF)";
+        legend_constants[94] = "g_seal_scaler (dimensionless)";
+        legend_constants[95] = "Cm_scaler (dimensionless, think really about it as a scaler for Cm/Vc)";
 
         legend_algebraic[0] = "i_K1 (pA/pF)";
         legend_algebraic[1] = "i_to (pA/pF)";
