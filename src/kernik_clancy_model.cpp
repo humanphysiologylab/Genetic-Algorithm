@@ -145,7 +145,10 @@ void KernikClancyModel::initConsts(double * constants)
    0,             // 92 g_b_K_scaler
    0.01666666666, // 93 g_seal (nS_per_pF) 1 / 1 GOhm / 60 pF
    0,             // 94 g_seal_scaler 
-   1              // 95 Cm_scaler 
+   1,             // 95 Cm_scaler 
+   0,             // 96 Ma2011_IK1 (boolean)
+   0,             // 97 Ma2011_INa (boolean)
+   0              // 98 abstract_seal_leak_scaler (dimensionless)
    };
    
     for (int i = 0; i < const_size; i++)
@@ -312,16 +315,18 @@ void KernikClancyModel::computerates(const double t,
     double xK14 = x_K1[4]; // (5);
     double xK15 = x_K1[5]; // (6);
     double xKCond = x_K1[0];
-    
-    //Ma et al 2011
-    xK11 = 0.086091;
-    xK12 = 96.939072;
-    xK13 = 9.552668;
-    xK14 = 23.009647;
-    xK15 = 5.890183;
-    xKCond = 0.084;
-    //end Ma et al 2011
-    
+   
+    if (model_parameter_inputs[96]) {
+        //Ma et al 2011
+        xK11 = 0.086091;
+        xK12 = 96.939072;
+        xK13 = 9.552668;
+        xK14 = 23.009647;
+        xK15 = 5.890183;
+        xKCond = 0.084;
+        //end Ma et al 2011
+    }
+
     double alpha_xK1 = xK11 * exp( ( Y[0] + xK13 ) / xK12 );
     double beta_xK1 = exp( ( Y[0] + xK15 ) / xK14 );
     double XK1_inf = alpha_xK1 / ( alpha_xK1 + beta_xK1 );
@@ -585,40 +590,40 @@ void KernikClancyModel::computerates(const double t,
     double j4 = 1. / ( ( 1. / j2 ) + ( 1. / j6 ) );
     
     
-
-    //Ma et al 2011
-    double p1 = 99.1744;
-    double p2 = 12.8321;
-	double p3 = 0.0039;
-	double p4 = -8.2139;
-	m1 = p1;
-	m2 = p2;
-	m3 = p1 * p3;
-	m4 = 1.0 / (1.0 / p2  + 1.0 / p4);
-	tau_m_const =  0.0374383;
-	
-	double w1 = 0.0062605;
-	double w2 = -21.6256454;
-	double w3 = 17575.4542604;
-	double w4 = 6.7241405;
-	tau_h_const = 0.1999625;
-	h1 = w1;
-	h2 = w2;
-	h3 = w1 * w3;
-	h4 = 1.0 / (1.0 / w2  + 1.0 / w4); 
-	
-	double v1 = 0.00064626;
-	double v2 = -69.41735068;
-	double v3 = 17575.45426044;
-	double v4 = 6.72414053;
-	tau_j_const = 1.32187439;
-	j1 = v1;
-	j2 = v2;
-	j3 = v1 * v3;
-	j4 = 1.0 / (1.0 / v2 + 1.0 / v4);
-	
-	//end Ma et al 2011
-
+    if (model_parameter_inputs[97]) {
+        //Ma et al 2011
+        double p1 = 99.1744;
+        double p2 = 12.8321;
+        double p3 = 0.0039;
+        double p4 = -8.2139;
+        m1 = p1;
+        m2 = p2;
+        m3 = p1 * p3;
+        m4 = 1.0 / (1.0 / p2  + 1.0 / p4);
+        tau_m_const =  0.0374383;
+        
+        double w1 = 0.0062605;
+        double w2 = -21.6256454;
+        double w3 = 17575.4542604;
+        double w4 = 6.7241405;
+        tau_h_const = 0.1999625;
+        h1 = w1;
+        h2 = w2;
+        h3 = w1 * w3;
+        h4 = 1.0 / (1.0 / w2  + 1.0 / w4); 
+        
+        double v1 = 0.00064626;
+        double v2 = -69.41735068;
+        double v3 = 17575.45426044;
+        double v4 = 6.72414053;
+        tau_j_const = 1.32187439;
+        j1 = v1;
+        j2 = v2;
+        j3 = v1 * v3;
+        j4 = 1.0 / (1.0 / v2 + 1.0 / v4);
+        
+        //end Ma et al 2011
+    }
     
     // 13: h (dimensionless) (inactivation in i_Na)
     double alpha_h = h1 * exp( ( Y[0] ) / h2 );
@@ -626,7 +631,6 @@ void KernikClancyModel::computerates(const double t,
     double h_inf = ( alpha_h / ( alpha_h + beta_h ) );
     double tau_h = ( ( 1. / ( alpha_h + beta_h ) ) + tau_h_const );
     dY[12] = ( h_inf - Y[12] ) / tau_h;
-    
     
     
     
@@ -640,9 +644,6 @@ void KernikClancyModel::computerates(const double t,
     
    
     // 15: m (dimensionless) (activation in i_Na)
-    
-
-    
     double alpha_m = m1 * exp( ( Y[0] ) / m2 );
     double beta_m = m3 * exp( ( Y[0] ) / m4 );
     double m_inf = alpha_m / ( alpha_m + beta_m );
@@ -761,7 +762,7 @@ void KernikClancyModel::computerates(const double t,
     // -------------------------------------------------------------------------------
     // Background Calcium (I_bCa):
     // Ten Tusscher formulation
-    const double g_b_Ca =  model_parameter_inputs[93] * model_parameter_inputs[94] +
+    const double g_b_Ca = model_parameter_inputs[93] * model_parameter_inputs[94] +
         0.000592 * 0.62 * x_scale_conductance[14];   // nS_per_pF (in i_b_Ca)
     const double i_b_Ca = g_b_Ca * ( Y[0] - E_Ca );
     
@@ -769,7 +770,7 @@ void KernikClancyModel::computerates(const double t,
     // -------------------------------------------------------------------------------
     // Background Potassium (I_bK):
     // OHara-Rudy g_Kb = 0.003 but there it has also a multiplier dep. on V
-    const double g_b_K =  model_parameter_inputs[93] * model_parameter_inputs[94] +
+    const double g_b_K = model_parameter_inputs[93] * model_parameter_inputs[94] +
         0.001 * model_parameter_inputs[92];   // nS_per_pF (in i_b_K)
     const double i_b_K = g_b_K * ( Y[0] - E_K );
     
@@ -832,7 +833,6 @@ void KernikClancyModel::computerates(const double t,
    
 
     // for stim:
-    //const double cyclelength = 800.;          // 1000ms = 1hz beating
     const double cyclelength = model_parameter_inputs[87];
     const double i_stim_Amplitude = model_parameter_inputs[88];// pA/pF (in stim_mode) (default 3) 50 fine for biphasic
     const double i_stim_PulseDuration = model_parameter_inputs[91];   // default: 5 milisecond (in stim_mode)
@@ -861,7 +861,12 @@ void KernikClancyModel::computerates(const double t,
          fmt >= 0 &&
          fmt < i_stim_PulseDuration )
     {
-        i_stim = 2 * i_stim_Amplitude / M_PI * std::atan(std::tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
+        if (fmt*2 < i_stim_PulseDuration)
+			i_stim = i_stim_Amplitude * std::fabs(fmt) * 2 / i_stim_PulseDuration;
+		else
+			i_stim = i_stim_Amplitude * (- std::fabs(i_stim_PulseDuration - fmt)) * 2 / i_stim_PulseDuration; 
+        //too complicated
+        //i_stim = 2 * i_stim_Amplitude / M_PI * std::atan(std::tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
     }
 
     //biphasic smooth pulse
@@ -870,9 +875,9 @@ void KernikClancyModel::computerates(const double t,
          fmt < i_stim_PulseDuration )
     {
 		if (fmt*2 < i_stim_PulseDuration)
-			i_stim = i_stim_Amplitude * std::pow(fmt, 2);
+			i_stim = i_stim_Amplitude * std::pow(fmt * 2 / i_stim_PulseDuration, 2);
 		else
-			i_stim = i_stim_Amplitude * (- std::pow(i_stim_PulseDuration - fmt, 2)); 
+			i_stim = i_stim_Amplitude * (- std::pow((i_stim_PulseDuration - fmt) * 2 / i_stim_PulseDuration, 2)); 
 	}
 
     /* old version of rectangular pulse
@@ -916,10 +921,14 @@ void KernikClancyModel::computerates(const double t,
     }
 
 
+    // abstract seal leak current
+    const double i_abstract_seal_leak = model_parameter_inputs[98] * 0.016666666 * Y[0]; // pA/pF
+    
     //Finally
     dY[0] = - (i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_CaL
               + i_CaT + i_NaK + i_Na + i_NaCa + i_PCa
-              + i_f + i_b_Na + i_b_Ca + i_b_K - i_stim - i_voltageclamp);
+              + i_f + i_b_Na + i_b_Ca + i_b_K - i_stim - i_voltageclamp
+              + i_abstract_seal_leak);
 
     // currents = [i_K1, i_to, i_Kr, i_Ks, i_CaL, i_NaK, i_Na, i_NaCa, i_PCa, i_f, i_b_Na, i_b_Ca, i_rel, i_up, i_leak, i_stim, i_CaT];
     if (algebraic != nullptr) {
@@ -944,5 +953,6 @@ void KernikClancyModel::computerates(const double t,
         algebraic[18] = i_voltageclamp;
         algebraic[19] = t;
         algebraic[20] = i_b_K;
+        algebraic[21] = i_abstract_seal_leak;
     }
 }
