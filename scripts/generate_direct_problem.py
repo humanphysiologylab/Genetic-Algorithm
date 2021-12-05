@@ -9,8 +9,12 @@ from os.path import isfile, join
 import re
 import json
 
-files = [f for f in listdir(".")\
-        if isfile(join(".", f)) and "table_" in f]
+files_path = sys.argv[2]
+
+files = [f for f in listdir(files_path)\
+        if isfile(join(files_path, f)) and "table_" in f]
+
+print(files)
 
 p = re.compile("^table_(.*)_(.*)\.csv$")
 
@@ -29,7 +33,7 @@ for x in glob:
     filename = "table_" + x['name'] + "_global.csv"
     files.remove(filename)
     try:
-        with open(filename) as f:
+        with open(join(files_path, filename)) as f:
             #save best organism value
             name = x['name']
             x.clear()
@@ -51,7 +55,7 @@ for bl in baselines:
         filename = "table_" + x['name'] +"_"+ bl['name'] + '.csv'
         files.remove(filename)
         try:
-            with open(filename) as f:
+            with open(join(files_path, filename)) as f:
                 #save best organism value
                 name = x['name']
                 x.clear()
@@ -71,7 +75,7 @@ for x in files:
     assert search
     print(search.group(1), search.group(2))
     bs = next(b for b in baselines if b['name'] == search.group(2))
-    data = pd.read_csv(x, sep="\s+")
+    data = pd.read_csv(join(files_path, x), sep="\s+")
     data = pd.DataFrame(data)
     val = data["best_organism"].iloc[-1]
     bs['params'].append({'name': search.group(1), 'value': val})
