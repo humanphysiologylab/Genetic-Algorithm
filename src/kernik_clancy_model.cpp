@@ -894,32 +894,36 @@ void KernikClancyModel::computerates(const double t,
     */
 
     // Voltage Clamp:
-    //TODO Please check voltage clamp mode before using it
     
     const double voltageclamp = model_parameter_inputs[84]; // (85); // %square pulses if =1
  
     // for square pulse voltage clamp:
-    const double v_clamp_step = 0;
-    const double v_clamp_rest = -65;
-    const double steplength = 100;
-    const double R_clamp = 0.02;
+    const double v_clamp_max = 50; // mV
+    const double v_clamp_min = -80; // mV
+    const double v_clamp_delta = 10; // mV
+    const double v_clamp_rest = -65; // mV
 
+    const double clamp_step_time = 100; // ms
+    const double clamp_rest_time = 500; // ms
+    const double R_clamp = 0.02; // pF/nS
 
-    double i_voltageclamp;
+    double i_voltageclamp; // pA/pF
+
+    const double clamp_cyclelength = clamp_rest_time + clamp_step_time;
     if (voltageclamp == 0) {
         i_voltageclamp = 0;
     } else if (voltageclamp == 1) {// train of square pulse:
         double v_clamp;
-        if (fmod( time, cyclelength ) < cyclelength - steplength) {
+        if (fmod(time, clamp_cyclelength) < clamp_rest_time) {
             v_clamp = v_clamp_rest;
         } else {
-            v_clamp = v_clamp_step;
+            const int i = std::floor(time / clamp_cyclelength);
+            v_clamp = v_clamp_delta * i + v_clamp_min;
         }
-        i_voltageclamp = ( v_clamp - Y[0]  ) / R_clamp;
+        i_voltageclamp = (v_clamp - Y[0]) / R_clamp;
     } else {
-        throw ("Wrong voltageclump value");
+        throw ("Wrong voltageclamp value");
     }
-
 
     // abstract seal leak current
     const double i_abstract_seal_leak = model_parameter_inputs[98] * 0.016666666 * Y[0]; // pA/pF
