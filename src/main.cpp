@@ -746,6 +746,17 @@ return;
 
 }
 
+
+/**
+ * @brief Entry point
+ *
+ * Execution of the program starts here.
+ * The program expects configuration file to run.
+ * Please refer to example config files.
+ *
+ * @param argv[1] Path to config file
+ * 
+ */
 int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
@@ -755,23 +766,24 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
     if (argc != 2) {
-        std::cout << "Usage: ./ga config.json" << std::endl;
+        if (mpi_rank == 0)
+            std::cout << "Usage: ./ga config.json" << std::endl;
         MPI_Finalize();
-	return 0;
+        return 0;
     }
 
     std::ifstream configFile(argv[1]);
-    if (!configFile.is_open() && mpi_rank == 0) {
-        std::cerr << "Cannot open main config file" << std::endl;
+    if (!configFile.is_open()) {
+        std::cerr << "Node " << mpi_rank << ": Cannot open config file " << argv[1] << std::endl;
         MPI_Finalize();
-	return 0;
+        return 0;
     }
     json config;
     configFile >> config;
 
     if (mpi_rank == 0) {
         printf("Number of MPI nodes: %d\n", mpi_size);
-        printf("Number of cores at root: %d\n", omp_get_max_threads());
+        printf("Number of OpenMP threads at root: %d\n", omp_get_max_threads());
     }
 
     const std::string sname = config["script"].get<std::string>();
@@ -798,8 +810,7 @@ int main(int argc, char *argv[])
             std::cout << "Unknown script name: " << sname << std::endl;
         }
     } catch(const std::string & e) {
-        if (mpi_rank == 0)
-            std::cout << e << std::endl;
+        std::cerr << "Node " << mpi_rank << ": Exception string caught in main:\n" << e << std::endl;
     }
     MPI_Finalize();
     return 0;
