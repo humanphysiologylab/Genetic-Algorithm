@@ -40,7 +40,7 @@ class LSODA
 {
     using Matrix = Eigen::MatrixXd;
     using Vector = Eigen::VectorXd;
-    
+
     const double ETA = 2.2204460492503131e-16;
 public:
     LSODA();
@@ -588,7 +588,7 @@ c-----------------------------------------------------------------------
                Adjust h0 if necessary to meet hmax bound.
             */
             rh = fabs(h0) * hmxi;
-            
+
             if (rh > 1.)
                 h0 /= rh;
             /*
@@ -1635,7 +1635,7 @@ C              solver again.
             yout[i] = y[i - 1];
 
         lsoda(f, neq, yout, t, tout, itask, istate, iopt, jt, iworks, rworks, _data);
-        
+
         for (size_t i = 0; i < neq; i++)
             yout[i] = yout[i+1];
         yout.resize(neq);

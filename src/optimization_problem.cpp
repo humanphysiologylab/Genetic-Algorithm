@@ -10,7 +10,7 @@ int BlockOfTable::get_model_pos(int col) const
 }
 Table::Table(int m, int n, const std::vector<std::string> & header)
     : Base(Base::Constant(m, n, 0)), header(header)
-{    
+{
 }
 
 template<typename T>
@@ -73,11 +73,11 @@ void Table::export_csv(const std::string & filename)
 
 int halfheight_index(const std::vector<double> & v)
 {
-    /* return depolarization halfheight position in v 
+    /* return depolarization halfheight position in v
      * It is assumed that action potential is completely inside the single period
      * represented by v
      */
-    
+
     assert(v.size() > 0);
     double max = v[0], min = v[0];
     //find max and min
@@ -89,7 +89,7 @@ int halfheight_index(const std::vector<double> & v)
         }
     }
     const double hh = (max + min) / 2;
-    
+
     //find i : v[i] <= hh <= v[i + 1]
     for (int i = 0; i < v.size(); i++) {
         if (v[i] < hh)

@@ -31,7 +31,7 @@ public:
     {
         return is_mutation_applicable.data();
     }
-    
+
     std::vector<double> all_genes;
     int genes_per_organism;
     int get_genes_per_organism() const
@@ -116,7 +116,7 @@ public:
     {
         std::vector<double> init_vector(genes_per_organism, nan(""));
         int init_status = problem.initial_guess_for_optimizer(init_vector.begin());
-        
+
         //lets have at least one guy from initial guess, maybe it is not that bad
         for (int j = 0; j < genes_per_organism; j++) {
             all_genes[j] = init_vector[j];
@@ -188,7 +188,7 @@ public:
         MPI_Gather((mpi_rank == 0) ? MPI_IN_PLACE : all_genes.data(), all_genes.size() / mpi_size,
 			MPI_DOUBLE, all_genes.data(),
             all_genes.size() / mpi_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        
+
 	}
 
     void scatter()
@@ -256,7 +256,7 @@ public:
     {
         return std::vector<double>(all_genes.begin(), all_genes.begin() + genes_per_organism);
     }
-    
+
     std::vector<std::pair<int, double>> error_per_gen;
     std::vector<std::pair<int, double>> get_error_per_gen() const
     {
@@ -306,9 +306,9 @@ template <typename Pop, typename Selection, typename Crossover, typename Mutatio
 void genetic_algorithm(Pop & pop, Selection & selection, Crossover & crossover, Mutation & mutation, const int generations)
 {
     /* Initialize population before calling genetic algorithm
-     * 
-     * 
-     * 
+     *
+     *
+     *
      */
 
     int rank, size;
@@ -347,7 +347,7 @@ void genetic_algorithm(Pop & pop, Selection & selection, Crossover & crossover, 
         //store pairs of (error, index in state_struct) sorted by error in increasing order
         //thus, first elements are for elite organisms
         std::vector<std::pair<double, int>> sd_n_index(pop.number_organisms);
-         
+
         double fitness_time = MPI_Wtime();
         pop.fitness_function(sd_n_index);
         fitness_time = MPI_Wtime() - fitness_time;
@@ -362,7 +362,7 @@ void genetic_algorithm(Pop & pop, Selection & selection, Crossover & crossover, 
                           return left_element.first < right_element.first;
                       });
             sort_time = MPI_Wtime() - sort_time;
-            
+
             if (!(sd_n_index[0].first <= sd_n_index.back().first)) {
                 std::cout << sd_n_index[0].first << " " << sd_n_index.back().first << std::endl;
             }
@@ -375,12 +375,12 @@ void genetic_algorithm(Pop & pop, Selection & selection, Crossover & crossover, 
                 pop.save_elite_to_elite_buffer(elite_index, i); //from -> to
             }
             save_elite_time = MPI_Wtime() - save_elite_time;
-            
+
             double log_time = MPI_Wtime();
             pop.log(sd_n_index, index_generation, generations);
             log_time = MPI_Wtime() - log_time;
-            
-            
+
+
             /*Genetic Operators for mutants*/
 
             int mpool[pop.number_mutants]; //mpool: mutant_index -> next_generation_index

@@ -23,7 +23,7 @@ public:
 
     int mpi_rank;
     int mpi_size;
-    
+
     std::vector<double> min_gene, max_gene;
     std::vector<int> is_mutation_applicable;
 
@@ -31,7 +31,7 @@ public:
     {
         return is_mutation_applicable.data();
     }
-    
+
     std::vector<double> all_genes, all_best_genes, velocities;
     std::vector<double> best_global_genes;
     int genes_per_organism;
@@ -52,7 +52,7 @@ public:
         const int openmp_threads = omp_get_max_threads();
         for (int i = 0; i < openmp_threads; i++)
             random_generators.push_back(RandomGenerator(seed));
-        
+
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
@@ -82,14 +82,14 @@ public:
         int all_genes_size = number_organisms * genes_per_organism;
         all_genes.resize(all_genes_size,  nan(""));
         all_best_genes.resize(all_genes_size,  nan(""));
-        
+
         //initial zero velocities
         velocities.resize(all_genes_size,  0);
         init_vector.resize(genes_per_organism);
     }
 
     template<typename InitializedRandomGenerator>
-    void reset_organism(InitializedRandomGenerator & rg, std::vector<double>::iterator genes, 
+    void reset_organism(InitializedRandomGenerator & rg, std::vector<double>::iterator genes,
         std::vector<double>::iterator vel)
     {
         if (1) {
@@ -141,7 +141,7 @@ public:
     {
         //we only need to find the best among the whole swarm
         //first, find local smallest value
-        auto smallest_local_it = std::min_element(all_best_genes_fitness_values.begin(), 
+        auto smallest_local_it = std::min_element(all_best_genes_fitness_values.begin(),
                                     all_best_genes_fitness_values.begin() + number_organisms/mpi_size);
 
         struct {
@@ -276,7 +276,7 @@ public:
     {
         return best_global_genes;
     }
-    
+
     std::vector<std::pair<int, double>> error_per_gen;
     std::vector<std::pair<int, double>> get_error_per_gen() const
     {
@@ -304,7 +304,7 @@ public:
         //uncomment me when collect_statistics done
         //problem.gen_algo_stats(sd_n_index, all_genes, gen, total_gen);
         */
-       
+
        // auto best_genes = best();
       //  std::cout << "Genes:";
        // for (auto &g: best_genes)
@@ -369,7 +369,7 @@ void particle_swarm_optimization(Pop & pop, const int generations)
             //store pairs of (error, index in state_struct) sorted by error in increasing order
             //thus, first elements are for elite organisms
             //TODO
-            
+
             std::vector<std::pair<double, int>> sd_n_index(pop.number_organisms);
             /*
             pop.fitness_function_values(sd_n_index);
@@ -381,7 +381,7 @@ void particle_swarm_optimization(Pop & pop, const int generations)
                           return left_element.first < right_element.first;
                       });
             sort_time = MPI_Wtime() - sort_time;
-            
+
             if (!(sd_n_index[0].first <= sd_n_index.back().first)) {
                 std::cout << sd_n_index[0].first << " " << sd_n_index.back().first << std::endl;
             }

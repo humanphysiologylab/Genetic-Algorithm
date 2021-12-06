@@ -6,10 +6,10 @@
 
 template <typename F, typename Vec>
 void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<int, double>> & error_per_gen,
-  double reqmin, const Vec & step, int check_period, int max_func_eval_number, 
+  double reqmin, const Vec & step, int check_period, int max_func_eval_number,
   int & func_eval_number, int & restart_number, int & ifault, std::vector<int> & is_mutation_applicable)
 {
-    
+
 //****************************************************************************80
 //
 //  Purpose:
@@ -40,7 +40,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
 //
 //  Licensing:
 //
-//    This code is distributed under the GNU LGPL license. 
+//    This code is distributed under the GNU LGPL license.
 //
 //  Modified:
 //
@@ -86,13 +86,13 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
 //    initial simplex.  The relative magnitudes of its elements should reflect
 //    the units of the variables.
 //
-//    Input, int check_period, the convergence check is carried out 
+//    Input, int check_period, the convergence check is carried out
 //    every check_period iterations.
 //
-//    Input, int max_func_eval_number, the maximum number of function 
+//    Input, int max_func_eval_number, the maximum number of function
 //    evaluations.
 //
-//    Output, int *func_eval_number, the number of function evaluations 
+//    Output, int *func_eval_number, the number of function evaluations
 //    used.
 //
 //    Output, int *restart_number, the number of restarts.
@@ -106,7 +106,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
   const double dn = n; //just double representation of n
   const int nn = n + 1; //just n + 1 really (like a number of simplex vertices
   const double dnn = nn; //just double for nn
-  
+
   const double eps = 0.001; //??
   const double rcoeff = 1.0; //reflection coefficient
 
@@ -117,11 +117,11 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
   const double shrink_coeff = 0.5; //shrink coefficient
   */
   //fancy coeffs
-  
+
   const double ccoeff = 0.75 - 1.0 / (2 * n); //contraction coefficient
   const double ecoeff = 1 + 2.0 / n; //expansion coefficient
   const double shrink_coeff = 1 - 1.0 / n; //shrink coefficient
-  
+
 
   double initial_simplex_scale = 1;
   double eps_Scale = 0.1;
@@ -146,7 +146,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
   // p stores (n + 1) simplex vertices in row-major order
   Vec p(n * (n + 1));
 
-  
+
   // function value at corresponding vertices
   Vec y(n + 1);
 
@@ -173,12 +173,12 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
             p[j + i * n] = v[j];        //row-major
     }
     func_eval_number += (n + 1);
-//                    
+//
 //  The simplex construction is complete.
-//                    
+//
 //  Find highest (highest_value at highest_index) and lowest (lowest_value at lowest_index) Y values.  highest_value = Y(highest_index) indicates
 //  the vertex of the simplex to be replaced.
-//                
+//
     double lowest_value = y[0];
     int lowest_index = 0;
 
@@ -195,8 +195,8 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
     while (1) {
       if (max_func_eval_number <= func_eval_number)
         break;
-      
-      
+
+
 //first, find highest_value
       double highest_value = y[0];
       int highest_index = 0;
@@ -214,10 +214,10 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
       Vec pbar(n);
       for (int i = 0; i < n; i++) {
         double z = 0;
-        for (int j = 0; j < nn; j++) { 
+        for (int j = 0; j < nn; j++) {
           z = z + p[i + j * n];
         }
-        z = z - p[i + highest_index * n];  
+        z = z - p[i + highest_index * n];
         pbar[i] = z / dn;
       }
 //
@@ -258,7 +258,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
 //  No extension: reflection only, outside contraction, inside contraction, or shrink
 //
       else {
-          
+
         bool to_shrink = 0;
         int l = 0;//number of simplex vertices which values are smaller than reflection_point_value
         for (int i = 0; i < nn; i++) {
@@ -332,14 +332,14 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
         } else {
             assert(0);
         }
-        
+
         if (to_shrink) {
             std::cout << "SHRINK!!!!" << std::endl;
             #pragma omp parallel for
             for (int j = 0; j < nn; j++) {
                 Vec vec_to_eval(n);
                 for (int i = 0; i < n; i++) {
-                    p[i + j * n] = (1 - shrink_coeff) * p[i + lowest_index * n] + 
+                    p[i + j * n] = (1 - shrink_coeff) * p[i + lowest_index * n] +
                                 shrink_coeff * (p[i + j * n]);
                     //was p[i + j * n] = (p[i + j * n] + p[i + lowest_index * n]) * shrink_coeff; wtf???
 
@@ -391,7 +391,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
         for (int i = 0; i < nn; i++) {
           z = z + std::pow ( y[i] - mean, 2 );
         }
-        
+
         const double rq = reqmin * dn;
         if ( z <= rq )
           break;
@@ -444,7 +444,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
     }
     func_eval_number += 2 * n;
 
-    
+
     //TODO OpenMP
     for (int i = 0; i < n; i++) {
       const double del = step[i] * eps;
@@ -501,23 +501,23 @@ std::vector<std::pair<int, double>> nelder_mead(OptimizationProblem & problem, i
     std::vector<double> min_v(param_num), max_v(param_num);
     std::vector<int> is_mutation_applicable(param_num);
     int boundaries_status = problem.get_boundaries(min_v, max_v, is_mutation_applicable);
-    
+
     if (boundaries_status != 0)
         throw ("nelder-mead requires boundaries");
-    
+
 
     std::vector<double> res(param_num);
 
     std::vector<std::pair<int, double>> error_per_gen;
 
     int func_eval_number, restart_number, ifault;
-    
-    
+
+
     //TODO still dont know the best way to handle mutable and drifting unknowns
     std::vector<double> step(param_num);
     for (int i = 0; i < param_num; i++)
         step[i] = simplex_scale * (max_v[i] - min_v[i]);
-    
+
    // nelmin( [& problem](std::vector<double> & s) { return problem.genetic_algorithm_calls(s.begin()); },
     //        init_vector, res, error_per_gen, stop_crit, step, check_period, max_evals, func_eval_number, restart_number, ifault, is_mutation_applicable);
 
@@ -526,7 +526,7 @@ std::vector<std::pair<int, double>> nelder_mead(OptimizationProblem & problem, i
 
 
     if (ifault != 0)
-        std::cout << "nelmin error code: " << ifault << std::endl; 
+        std::cout << "nelmin error code: " << ifault << std::endl;
     problem.genetic_algorithm_result(res);
     problem.dump_ap(res.begin(), 10);
     return error_per_gen;

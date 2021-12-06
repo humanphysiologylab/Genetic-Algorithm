@@ -19,9 +19,9 @@ class MaleckarModel
 
 public:
     void set_constants(double *c);
-   
+
     MaleckarModel();
-    
+
     double max_step() const;
     int state_size() const;
     int constants_size() const;
@@ -34,7 +34,7 @@ public:
     void initState(double * state) const;
 
     void compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const;
-    
+
     template<typename Map1, typename Map2, typename Map3, typename Map4>
     void get_maps(Map1 & legend_states, Map2 & legend_constants, Map3 & legend_algebraic, Map4 & legend_rates) const
     {

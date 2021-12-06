@@ -4,7 +4,7 @@
 
 BiphasicStim::BiphasicStim(double amplitude, double pcl, double stim_shift, double pulseDuration)
 : amplitude(amplitude), pcl(pcl), stim_shift(stim_shift), pulseDuration(pulseDuration)
-{	
+{
 }
 
 double BiphasicStim::i_stim(double t) const
@@ -41,7 +41,7 @@ double BiphasicStim_CaSR_Protocol::i_stim(double t) const
 		pcl = pcl_start;
 	}
 
-	
+
     const double fmt = std::fmod(t, pcl) - std::round(stim_shift);
     if (fmt >= 0 && fmt < pulseDuration) {
         return 2 * amplitude / M_PI * std::atan(std::tan((2 * M_PI * fmt) / (2 * pulseDuration)));
@@ -57,7 +57,7 @@ double BiphasicStim_CaSR_Protocol::i_stim(double t) const
 	t -= stim_shift;
 	const double N = growth_time;
 	double pcl;
-	
+
 	double fmt = 0;
 	for (int i = 0; i < N; i++) {
 		const double stim_moment_growth = (double)i/(N-1) * ((N - (double)(i+1)/2) * pcl_start + (double)(i-1)/2*pcl_end);
@@ -68,7 +68,7 @@ double BiphasicStim_CaSR_Protocol::i_stim(double t) const
 		}
 	}
 	const double Ggrowth_time = N/2 * (pcl_start + pcl_end);
-	
+
 	if (fmt == 0 && t < Ggrowth_time + pcl_end_duration) {
 		pcl = pcl_end;
 	} else {

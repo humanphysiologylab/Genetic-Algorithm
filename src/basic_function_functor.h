@@ -14,7 +14,7 @@ public:
     using argument = std::array<numtype, xdim>;
     using value = std::array<numtype, ydim>;
     using num = numtype;
-    virtual argument x_min() const = 0; 
+    virtual argument x_min() const = 0;
     virtual argument x_max() const = 0;
     virtual value operator()(const argument & x) const = 0;
     virtual argument solution() const = 0;

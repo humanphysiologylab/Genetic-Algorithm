@@ -14,11 +14,11 @@ class PolynomialMutation:
     std::vector<RandomGenerator> random_generators;
     const int eta_m;
     const double pmut_real;
-    
+
     void real_mutate_ind(double * genes, const double * min_realvar, const double * max_realvar, int genes_number, const int *is_mutation_applicable)
     {
         /* Routine for real polynomial mutation of an individual
-         * 
+         *
          * adopted real_mutate_ind from NSGA-II: Non-dominated Sorting Genetic Algorithm - II
          *
          * Authors: Dr. Kalyanmoy Deb, Sameer Agrawal, Amrit Pratap, T Meyarivan
@@ -31,12 +31,12 @@ class PolynomialMutation:
          */
 
         std::uniform_real_distribution<double> ran(0, 1);
-        
+
         RandomGenerator & rg = random_generators[omp_get_thread_num()];
-        
+
         for (int j = 0; j < genes_number; j++) {
             if (!is_mutation_applicable[j]) continue;
-            
+
             if (ran(rg) <= pmut_real) {
                 double y = genes[j];
                 double deltaq;
@@ -71,7 +71,7 @@ public:
         const int openmp_threads = omp_get_max_threads();
         for (int i = 0; i < openmp_threads; i++)
             random_generators.push_back(RandomGenerator(seed));
-        
+
     }
 
     void operator()(double *population_genes, const double * min_value, const double * max_value, int population_size, int genes_number, const int * is_mutation_applicable)
@@ -79,9 +79,9 @@ public:
         #pragma omp parallel for
         for (int i = 0; i < population_size; i++) {
             real_mutate_ind(population_genes + i * genes_number, min_value, max_value, genes_number, is_mutation_applicable);
-        }   
+        }
     }
-    
+
 };
 
 

@@ -16,7 +16,7 @@ void print_vec(const vector<T> &v, const string prefix = "") {
 template<typename T = double>
 void print_arr( const double* a, const size_t n, const string prefix="" ) {
     cout << prefix << " SIZE=" << n << " : ";
-    for (size_t i = 0; i < n; i++) 
+    for (size_t i = 0; i < n; i++)
         cout << a[i] << ',';
     cout << endl;
 }

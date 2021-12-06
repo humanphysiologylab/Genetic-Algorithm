@@ -49,7 +49,7 @@ MaleckarModel::MaleckarModel()
  * algebraic[27] is tau_h1 in component sodium_current_h1_gate (second).
  * algebraic[28] is tau_h2 in component sodium_current_h2_gate (second).
  * constants[9] is g_Ca_L in component L_type_Ca_channel (nanoS).
- * constants[10] is E_Ca_app in component L_type_Ca_channel (millivolt).     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+ * constants[10] is E_Ca_app in component L_type_Ca_channel (millivolt).     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * algebraic[39] is f_Ca in component L_type_Ca_channel (dimensionless).
  * constants[11] is k_Ca in component L_type_Ca_channel (millimolar).
  * states[6] is Ca_d in component intracellular_ion_concentrations (millimolar).
@@ -217,7 +217,7 @@ void MaleckarModel::operator()(double t, double * __restrict x, double * __restr
     //here for real functor we do not need it
     assert(constants != 0);
     std::array<double, alg_size> algebraic;
-    computerates(t, constants, dxdt, x, algebraic.data()); 
+    computerates(t, constants, dxdt, x, algebraic.data());
 }
 void MaleckarModel::operator()(std::vector<double> & y0, double t) const
 {
@@ -238,7 +238,7 @@ void MaleckarModel::compute_algebraic(double t, const double *  __restrict state
 {   //TODO
     assert(constants != 0);
     std::array<double, states_size> dxdt;
-    computerates(t, constants, dxdt.data(), states, algebraic); 
+    computerates(t, constants, dxdt.data(), states, algebraic);
 }
 void MaleckarModel::initState(double * states) const
 {

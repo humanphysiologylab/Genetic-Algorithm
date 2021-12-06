@@ -18,19 +18,19 @@ class CauchyMutation:
     double gamma;
     std::vector<double> v_gamma;
     int num_mutation_applicable_genes;
-    
+
     void generate_uniform_vector_on_sphere(double * uniform_vector, int size)
     {
         RandomGenerator & rg = random_generators[omp_get_thread_num()];
-           
+
         std::normal_distribution<double> nd(0, 1);
         for (int i = 0; i < size; i++)
             uniform_vector[i] = nd(rg);
-        
+
         double len = 0;
         for (int i = 0; i < size; i++)
             len += std::pow(uniform_vector[i], 2);
-        
+
         len = std::sqrt(len);
         for (int i = 0; i < size; i++)
             uniform_vector[i] /= len;
@@ -152,7 +152,7 @@ public:
                 num_mutation_applicable_genes--;
         }
     }
-    
+
     void operator()(double * population_genes, const double * min_value, const double * max_value, int population_size, int genes_number, const int * is_mutation_applicable)
     {
         #pragma omp parallel for

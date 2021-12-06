@@ -29,9 +29,9 @@ class KernikClancyModel
     static const int states_size = 25, alg_size = 22, const_size = 99;
     static constexpr double max_step_v = 1; //(ms)
     double * constants;
-    
+
     const StimulationBase * stimulation;
-    
+
     void computerates(const double VOI,
                       const double *  __restrict constants,
                       double *  __restrict rates,

@@ -41,10 +41,10 @@
 #include "pso.h"
 
 /**
- * @brief 
+ * @brief
  *
- * The function generates unique_ptr to mutation object for corresponding @p name 
- * 
+ * The function generates unique_ptr to mutation object for corresponding @p name
+ *
  * @param[in] seed_source
  * @param[in] name possible names: Poly, Cauchy, None
  * @param[in] config
@@ -64,7 +64,7 @@ std::unique_ptr<BaseMutation> new_mutation(SeedSource & seed_source, const std::
                                                 config["eta_mutation"].get<int>());
     if (name == "Cauchy")
        return std::make_unique<CauchyMutation<pcg64, SeedSource>>
-                                                (seed_source, 
+                                                (seed_source,
                                                 config["mutrate"].get<double>(),
                                                 config["gamma"].get<double>(),
                                                 problem.get_gamma_vector());
@@ -79,7 +79,7 @@ std::unique_ptr<BaseMutation> new_mutation(SeedSource & seed_source, const std::
  * @param[in] seed_source Seed source for pcg64 pseudorandom number generator
  * @param[in,out] problem Initialized problem to optimize with genetic algorithm
  * @param[in] config Json config with genetic algorithm parameters
- * @param[out] error_per_gen Vector storing error per generation 
+ * @param[out] error_per_gen Vector storing error per generation
  *
  */
 template <typename SeedSource, typename Problem>
@@ -88,7 +88,7 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-    
+
     BasicPopulation popMal(problem,
                     config["n_elites"].get<unsigned>(),
                     config["n_organisms"].get<unsigned>());
@@ -96,7 +96,7 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
     double time_population_init = MPI_Wtime();
     popMal.init_selective(pcg64(seed_source), config["initial_selective_multiplier"].get<int>());
     time_population_init = MPI_Wtime() - time_population_init;
-    
+
     if (mpi_rank == 0)
         std::cout << "time_population_init, s: " << time_population_init << std::endl;
 
@@ -120,7 +120,7 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
                                             config["gamma"].get<double>(),
                                             problem.get_gamma_vector()),
             config["n_generations"].get<unsigned>());
-            
+
     } else if (config["mutation_type"].get<std::string>() == "Poly") {
         genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
@@ -197,7 +197,7 @@ void main_gen_algo(const char *configFilename)
     config["eta_crossover"] = eta_crossover;
     config["mutrate"] = mutrate;
     config["eta_mutation"] = eta_mutation;
-     
+
     const int num_tries = 5;
     for (int i = 0; i < num_tries; i++) {
         std::vector<std::pair<int, double>> error_per_gen;
@@ -207,12 +207,12 @@ void main_gen_algo(const char *configFilename)
             std::ostringstream crossrate_string, mutrate_string;
             crossrate_string << std::noshowpoint << crossrate;
             mutrate_string << std::noshowpoint << mutrate;
-            
-            std::string filename = crossrate_string.str() + 
+
+            std::string filename = crossrate_string.str() +
                                    "_" + std::to_string(eta_crossover) + "_" +
-                                   mutrate_string.str() + "_" + 
+                                   mutrate_string.str() + "_" +
                                    std::to_string(eta_mutation) + "_" + std::to_string(i);
-            
+
             std::ofstream file(filename);
             for (const auto & p: error_per_gen)
                 file << p.first << " " << p.second << std::endl;
@@ -237,7 +237,7 @@ void main_gen_algo(const char *configFilename)
             //addition GD
             error_per_gen = weirdSteepestGradientDescent(pcg64(seed_source), problem, config["n_generations_GD"].get<int>(), 1e-1, problem.get_results_optimizer_format());
         }
-        
+
      // error_per_gen = simpleGradientDescent(pcg64(seed_source), problem, config["n_generations"].get<int>());
      //  error_per_gen = weirdSteepestGradientDescent(pcg64(seed_source), problem, config["n_generations"].get<int>(), 1e-3);
 
@@ -250,7 +250,7 @@ void main_gen_algo(const char *configFilename)
         }
 
 
-    
+
     /*
         genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
@@ -258,7 +258,7 @@ void main_gen_algo(const char *configFilename)
             NoMutation(),
             100);
     */
-    
+
     if (mpi_rank == 0) {
         using Results = decltype(problem)::Results;
         using BaselineResult = decltype(problem)::BaselineResult;
@@ -272,7 +272,7 @@ void main_gen_algo(const char *configFilename)
             std::cout << sit.first << " " << sit.second << std::endl;
     }
     /*
-    if (mpi_rank == 0) {  
+    if (mpi_rank == 0) {
         //now try to simply solve ode model
         ODESolver solver;
         //try malecar on one node
@@ -286,7 +286,7 @@ void main_gen_algo(const char *configFilename)
         int is_correct;
         double t0 = 0, start_record = 999, tout = start_record + 1;
         std::vector<double> ap(1000);
-        
+
         double st = MPI_Wtime();
         solver.solve(model, state, is_correct, t0, start_record, tout, ap);
         st = MPI_Wtime() - st;
@@ -295,11 +295,11 @@ void main_gen_algo(const char *configFilename)
         solver.solve(model, state, is_correct, t0, start_record, tout, ap);
         st = MPI_Wtime() - st;
         std::cout << "TIME: " << st << std::endl;
-    
+
         FILE *state_final = fopen("state_dump", "w");
         fwrite(state.data(), sizeof(double), state.size(), state_final);
         fclose(state_final);
-        
+
         double err = 0;
         std::cout << std::scientific;
         for (int i = 0; i < model.state_size(); i++) {
@@ -308,7 +308,7 @@ void main_gen_algo(const char *configFilename)
         }
         std::cout << "\nState error: " << sqrt(err) << std::endl;
 
-        
+
         FILE *ap_file = fopen("ap", "w");
         fwrite(ap.data(), sizeof(double), ap.size(), ap_file);
         fclose(ap_file);
@@ -317,7 +317,7 @@ void main_gen_algo(const char *configFilename)
         else
             std::cout << "Incorrect integration" << std::endl;
         delete [] constants;
-        
+
     }
     */
 }
@@ -334,10 +334,10 @@ void script_genetic_algorithm(json & config)
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-    
+
     pcg_extras::seed_seq_from<std::random_device> seed_source;
     //const int seed_source = 42; /// @todo Move it to config file
-    
+
     //MaleckarModel model; /// @todo Move it to config file
     KernikClancyModel model;
     ODESolver solver;
@@ -348,7 +348,7 @@ void script_genetic_algorithm(json & config)
     //LeastSquaresMinimizeAPbaselines obj;
 
     ODEoptimization problem(model, solver, obj);
-    
+
     try {
         problem.read_config(config);
         problem.read_baselines(config);
@@ -362,7 +362,7 @@ void script_genetic_algorithm(json & config)
     std::vector<std::pair<int, double>> error_per_gen;
 
     gen_algo_call(seed_source, problem, config, error_per_gen);
-    
+
     if (mpi_rank == 0) {
         std::cout << "Genetic algorithm is complete" << std::endl;
         std::cout << "Saving output files to disk..." << std::endl;
@@ -370,10 +370,10 @@ void script_genetic_algorithm(json & config)
         std::ofstream file(convergence_filename);
         for (const auto & p: error_per_gen)
             file << p.first << " " << p.second << std::endl;
-        
+
         problem.export_gen_algo_tables();
         problem.dump_ap(problem.get_results_optimizer_format(), 0);
-        
+
         std::cout << "USE THE FOLLOWING OUTPUT ONLY AS SOME HINT OF THE FINAL RESULT" << std::endl;
         using Results = decltype(problem)::Results;
         using BaselineResult = decltype(problem)::BaselineResult;
@@ -516,7 +516,7 @@ void script_nelder_mead(json & config)
        // error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
        // auto res2 = problem.get_results_optimizer_format();
        // problem.dump_ap(res2.begin(), 10);
-        
+
         std::string filename = "convergence_NM.txt";
         std::ofstream file(filename);
         for (const auto & p: error_per_gen)
@@ -586,7 +586,7 @@ void script_direct_problem_chain(json & config)
 
 void script_gradient_descent(json & config)
 {
-    
+
 }
 
 void script_test_function(json & config)
@@ -652,7 +652,7 @@ void script_test_function(json & config)
 
 void script_track_minimum(json & config)
 {
-    
+
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -698,8 +698,8 @@ return;
 
         std::vector<std::pair<int, double>> error_per_gen = nelder_mead(problem, 500, 1e-14, 1, 1e-1);
         auto res1 = problem.get_results_optimizer_format();
-        
-        
+
+
         problem.dump_ap(res1.begin(), 5);
         /*
         problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
@@ -818,7 +818,7 @@ return;
  * Please refer to example config files.
  *
  * @param argv[1] Path to config file
- * 
+ *
  */
 int main(int argc, char *argv[])
 {

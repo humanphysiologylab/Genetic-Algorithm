@@ -43,10 +43,10 @@ TEST(tournament_tests, pool_is_random)
         sd_n_index[i].second = i;
     }
     tournament_selection(mpool, pool_size, sd_n_index, 0);
-    
+
     int mpool2[pool_size];
     tournament_selection(mpool2, pool_size, sd_n_index, 0);
-    
+
     bool equal = true;
     for (int i = 0; i < pool_size; i++) {
         if (mpool[i] != mpool2[i]) {

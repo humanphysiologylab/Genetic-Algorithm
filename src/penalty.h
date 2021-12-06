@@ -11,7 +11,7 @@ double fitn(OptimizationProblem & problem, std::vector<double> & params, const s
     double penalty = 0;
     for (int i = 0; i < is_mutation_applicable.size(); i++) {
         if (!is_mutation_applicable[i]) continue;
- 
+
         if (min_v[i] > params[i])
             penalty += std::pow(20 * (params[i] - min_v[i]) / min_v[i], 2);
         if (max_v[i] < params[i])
@@ -56,7 +56,7 @@ double fitn(OptimizationProblem & problem, std::vector<double> & params, const s
             std::cout << "Prior: " << prior[i]  << " param: " << params[i] << std::endl;
         throw("Bad parameter");
     }
-    //std::cout << "Reg: " << reg << std::endl; 
+    //std::cout << "Reg: " << reg << std::endl;
     //penalty = 0;////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     return penalty + reg + problem.genetic_algorithm_calls(params.begin());
 }

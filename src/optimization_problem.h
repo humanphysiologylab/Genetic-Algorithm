@@ -102,7 +102,7 @@ class LeastSquaresMinimizeAPbaselines
 public:
     using Baseline = std::vector<double>;
     using ListOfBaselines = std::vector<Baseline>;
-    
+
     template<int p>
     double sum_of_elements(const Baseline & b) const
     {
@@ -118,7 +118,7 @@ public:
             s += a[i] * b[i];
         return s;
     }
-    
+
     double LSMdistBaselines(const Baseline & g, const Baseline & f) const
     {
         //watch for the correct order: g -- experimental optical mapping AP, f -- model
@@ -138,7 +138,7 @@ public:
         const double max_peak = 60;         // mV
         const double min_rest_potential = -100;   // mV
         const double max_rest_potential = -55;   // mV
-        
+
         const double peak = std::min(std::max(A + B, min_peak), max_peak);
         const double rest_potential = std::min(std::max(B, min_rest_potential), max_rest_potential);
 
@@ -164,7 +164,7 @@ public:
         double res = 0;
         for (size_t i = 0; i < f.size(); i++)
             res += std::pow(std::abs(f[i] - (amplitude * g[i] + rest_potential)), power);
-            
+
        // for (size_t i = 40; i < 80; i++)
          //   res += std::pow(std::abs(f[i] - (amplitude * g[i] + rest_potential)), 4);
 
@@ -196,7 +196,7 @@ class ScaleMinimizeAPbaselines
 public:
     using Baseline = std::vector<double>;
     using ListOfBaselines = std::vector<Baseline>;
-    
+
     template<int p>
     double sum_of_elements(const Baseline & b) const
     {
@@ -212,7 +212,7 @@ public:
             s += a[i] * b[i];
         return s;
     }
-    
+
     double LSdistBaselines(const Baseline & g, const Baseline & f) const
     {
         //watch for the correct order: g -- experimental data (not from (0,1) but wider) AP, f -- model
@@ -330,7 +330,7 @@ protected:
         double value;
         int model_position;
     };
-    
+
     // we group different values together
     struct Values
     {
@@ -374,11 +374,11 @@ int beats;
 protected:
     Results results, relative_results;//abs values and relative to default values
     std::vector<double> results_optimizer_format;
-    
+
     using BiMap = boost::bimap<boost::bimaps::unordered_set_of<std::string>,
             boost::bimaps::unordered_set_of<int>,
             boost::bimaps::list_of_relation>;
-            
+
     BiMap constantsBiMapModel, statesBiMapModel, algebraicBiMapModel;
     //no need of ratesBiMapModel
 
@@ -482,7 +482,7 @@ public:
              .gamma = 0, ////////////////////////////////////////////////////////////!!!!!!!!!!!TODO no gen algo for now
              .is_mutation_applicable = 1////////////////////////////////////////////////////////////!!!!!!!!!!!TODO no gen algo for now
         });
-        //also add it to old params vector 
+        //also add it to old params vector
         //here we assume it is for restart of some method with unfrozen parameter
         params.push_back(v.value);
     }
@@ -659,7 +659,7 @@ public:
                 Values & bVar = baselineValues.back();
                 BiMap statesBiMapDrifting = statesBiMapModel;
                 bVar.groupName = b["name"].get<std::string>();
-			
+
 				try {
 					if (b["stimProtocol"].get<std::string>() == "Biphasic")
 						stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
@@ -667,7 +667,7 @@ public:
 						stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
 										b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
 										b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
-	
+
 				}
 				catch (...) {
 					stimulation_protocols.push_back(new StimulationNone());
@@ -713,7 +713,7 @@ public:
                         }
                         //remove it from statesBiMapDrifting
                         statesBiMapDrifting.left.erase(name);
-                        
+
                         bool is_value = (v.find("value") != v.end());
                         if (is_value) {
                             bVar.knownStates.push_back(
@@ -757,7 +757,7 @@ public:
                     }
                 }
             }
-            
+
             //fill pointers_unknowns!!!!!!!!!!!!!!!!!!!!!
             pointers_unknowns.resize(number_unknowns);
             for (Unknown & gl: globalValues.unknownConstants) {
@@ -796,7 +796,7 @@ public:
                 for (auto baseline: config["baselines"].items()) {
                     Model model;
                     std::vector<double> y0(model.state_size());
-                    
+
                     std::vector<double> parameters(number_unknowns);
                     initial_guess(parameters.begin(), 0);
 
@@ -812,7 +812,7 @@ public:
                     Baseline apRecord(static_cast<unsigned int> (num_rec));
                     model_eval(y0, model, beats_num, period, apRecord);
 
-                    bool if_nan_in_AP = (apRecord.end() != std::find_if(apRecord.begin(), apRecord.end(), [](double v) { 
+                    bool if_nan_in_AP = (apRecord.end() != std::find_if(apRecord.begin(), apRecord.end(), [](double v) {
                                            return std::isnan(v); }));
                     if (if_nan_in_AP) {
                         std::cout << "NaN found in the generated baseline" << std::endl;
@@ -929,7 +929,7 @@ public:
                 is_mutation_applicable[u.optimizer_position] = 0;
             else //no need to know that it was log scaled
                 is_mutation_applicable[u.optimizer_position] = 1;
-            
+
         }
 
         //find borders for optimizer
@@ -939,7 +939,7 @@ public:
         return 0;
     }
 
-protected:   
+protected:
     void get_default_values(double * constants, double * y0) const
     {
         g_model.initConsts(constants);
@@ -952,9 +952,9 @@ protected:
     {
         std::vector<double> y0(g_model.state_size());
         std::vector<double> vconstants(g_model.constants_size());
-        
+
         //first, set model's default values
-        get_default_values(vconstants.data(), y0.data()); 
+        get_default_values(vconstants.data(), y0.data());
 
         for (const Unknown & m: globalValues.unknownConstants) {
             parameters_begin[m.optimizer_position] = vconstants[m.model_position];
@@ -1045,17 +1045,17 @@ public:
         const std::vector<std::string> & dump_vars)
     {
         for (int baseline_index = 0; baseline_index < baselineValues.size(); baseline_index++) {
-            
+
             const auto & baseline = baselineValues[baseline_index];
             Model model(g_model);
 
             std::vector<double> y0(model.state_size());
-            
+
             std::vector<double> parameters(number_unknowns);
             //Initial guess from config file will be respected!
             //Maybe user would like to verify that initial guess is a correct model
             initial_guess(parameters.begin());
-            
+
             std::vector<double> vconstants(model.constants_size());
             double * constants = vconstants.data();
             model.set_constants(constants);
@@ -1110,7 +1110,7 @@ protected:
         std::vector<std::string> alg_names;
         TableSplit table(apRecord.size(), 1, states_model_indices, alg_model_indices,
                     states_names, alg_names);
-        
+
         double start_record = period * (n_beats - 1);
         double tout = period * n_beats;
         direct_problem(y0, model, start_record, tout, table);
@@ -1177,8 +1177,8 @@ public:
                 model_scaled_parameters[m.optimizer_position] = y0[m.model_position];
             }
             extra_penalty = parameter_penalty(model_scaled_parameters);
-            
-            
+
+
             // rotate apRecord so halfheights are same
             const int indexApRecord = halfheight_index(apRecord);
             if (indexApRecord == -1) {
@@ -1287,7 +1287,7 @@ public:
             //maybe i should use sizes of these vectors...
             for (size_t j = 0; j < a.size(); j++) {
                 const double arg = (a[j] - r[j]) / sigma;
-                p += (- 0.5 * arg * arg + add); 
+                p += (- 0.5 * arg * arg + add);
             }
             ll += p ;// a.size();
         }
@@ -1394,7 +1394,7 @@ protected:
 
     ListOfBaselines initial_guess_baseline;
     ListOfBaselines intermediate_baseline;
-    
+
     double alpha;
 public:
     using Base::is_AP_normalized;
@@ -1402,13 +1402,13 @@ public:
     ODEoptimizationTrackVersion(const Model & model, const Solver & solver, const Objective & obj)
     : Base(model, solver, obj)
     {}
-    
+
     template <typename It>
     void start_track(It parameters_begin)
     {
         double extra_penalty;
         initial_guess_baseline = genetic_algorithm_calls_general(parameters_begin, extra_penalty, 300);
-        write_baseline(initial_guess_baseline[0], "baseline_start.txt");        
+        write_baseline(initial_guess_baseline[0], "baseline_start.txt");
         intermediate_baseline = initial_guess_baseline; //to set size and check correctness of lsm
 
         if (is_AP_normalized) {
@@ -1443,7 +1443,7 @@ public:
       //  auto tmp_b = intermediate_baseline;/////////////////////////////////////////////////////////////////////
         return obj.dist(intermediate_baseline, tmp_b) + extra_penalty;
     }
-    
+
     /*
     template <typename It>
     void dump_ap(It parameters_begin, int i) const

@@ -49,23 +49,23 @@ public:
         //AddParameter("height", 0, 10, "", "[events]");
         //GetParameters().Back().SetPriorConstant();
         //what is PriorConstant? uniform?
-        
+
         int param_num = problem.get_number_parameters();
         std::vector<double> min_v(param_num), max_v(param_num);
         std::vector<int> is_mutation_applicable(param_num);
         int boundaries_status = problem.get_boundaries(min_v, max_v, is_mutation_applicable);
-        
+
         if (boundaries_status != 0)
             throw("MCMC requires boundaries");
         std::vector<std::string> names = problem.get_unique_parameter_names();
-        
+
         for (int i = 0; i < param_num; i++) {
             AddParameter(names[i], min_v[i], max_v[i]);
             //GetParameters().Back().SetPriorConstant();
             GetParameters().Back().SetPrior(new BCGaussianPrior(initial_guess[i], 1e-1));
             std::cout << names[i] << " " << min_v[i] << " " << max_v[i] << " " << initial_guess[i] << std::endl;
         }
-        
+
         //we can also explore any functions of out model's parameters
         //we need to set limits as well
         //we don't need prior for observables
@@ -148,7 +148,7 @@ void mcmc(Problem & problem, const std::string & name, std::vector<double> initi
     // m.WriteMarkovChain(m.GetSafeName() + "_mcmc.root", "RECREATE");
 
     // run MCMC, marginalizing posterior
-    //m.SetProposalFunctionDof(-1); 
+    //m.SetProposalFunctionDof(-1);
     m.MarginalizeAll(BCIntegrate::kMargMetropolis);
 
     // run mode finding; by default using Minuit

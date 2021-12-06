@@ -36,7 +36,7 @@ std::vector<std::pair<int, double>> simpleGradientDescent(InitializedRandomGener
         }
     }
 */
-    
+
     for (int j = 0; j < param_num; j++) {
         if (is_mutation_applicable[j]) {
             assert(init_vector[j] >= min_v[j] && init_vector[j] <= max_v[j]);
@@ -72,7 +72,7 @@ std::vector<std::pair<int, double>> simpleGradientDescent(InitializedRandomGener
             params_fwd[mut_pos[i]] += eps;
             params_back[mut_pos[i]] -= eps;
             df[i] = fitn(problem, params_fwd, is_mutation_applicable, min_v, max_v)
-                    - 
+                    -
                     fitn(problem, params_back, is_mutation_applicable, min_v, max_v);
             dfdx[i] = df[i] / (2*eps);
         }
@@ -123,7 +123,7 @@ std::vector<std::pair<int, double>> weirdSteepestGradientDescentTrack(Initialize
     std::vector<double> min_v(param_num), max_v(param_num);
     std::vector<int> is_mutation_applicable(param_num);
     int boundaries_status = problem.get_boundaries(min_v, max_v, is_mutation_applicable);
-    
+
     if (init_status == -1) {
         std::cout << "NOOOOOOOOOOOOOOOO" << std::endl;
         for (int j = 0; j < param_num; j++) {
@@ -156,13 +156,13 @@ std::vector<std::pair<int, double>> weirdSteepestGradientDescentTrack(Initialize
             mut_pos.push_back(i);
     }
     std::cout << mut_pos.size() << std::endl;
-    
+
     problem.start_track(sol.begin());
 
     std::vector<double> df(mut_pos.size()), dfdx(mut_pos.size());
     std::cout << "Initial fitness: " << fitn(problem, sol, is_mutation_applicable, min_v, max_v) << std::endl;
     //global_steps = -1;////////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     //global cycle
     for (int global_step = 0; global_step <= global_steps; global_step++) {
         problem.set_alpha((double)global_step / global_steps);
@@ -180,7 +180,7 @@ std::vector<std::pair<int, double>> weirdSteepestGradientDescentTrack(Initialize
                 params_fwd[mut_pos[i]] += eps;
                 params_back[mut_pos[i]] -= eps;
                 df[i] = fitn(problem, params_fwd, is_mutation_applicable, min_v, max_v)
-                        - 
+                        -
                         fitn(problem, params_back, is_mutation_applicable, min_v, max_v);
                 dfdx[i] = df[i] / (2*eps);
             }
@@ -262,7 +262,7 @@ std::vector<std::pair<int, double>> weirdSteepestGradientDescent(InitializedRand
             params_fwd[mut_pos[i]] += eps;
             params_back[mut_pos[i]] -= eps;
             df[i] = fitn(problem, params_fwd, is_mutation_applicable, min_v, max_v)
-                    - 
+                    -
                     fitn(problem, params_back, is_mutation_applicable, min_v, max_v);
             dfdx[i] = df[i] / (2*eps);
         }

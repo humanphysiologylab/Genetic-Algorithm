@@ -3,12 +3,12 @@
 KernikClancyModel::KernikClancyModel()
 : constants(0)
 {}
-    
+
 void KernikClancyModel::compute_algebraic(double t, const double *  __restrict states, double * __restrict algebraic) const
 {
     assert(constants != 0);
     std::array<double, states_size> dxdt;
-    computerates(t, constants, dxdt.data(), states, algebraic); 
+    computerates(t, constants, dxdt.data(), states, algebraic);
 }
 void KernikClancyModel::set_constants(double *c)
 {
@@ -45,7 +45,7 @@ void KernikClancyModel::operator()(double t, double * __restrict x, double * __r
     //basically it was poor man's functor
     //here for real functor we do not need it
     assert(constants != 0);
-    computerates(t, constants, dxdt, x); 
+    computerates(t, constants, dxdt, x);
 }
 void KernikClancyModel::initConsts(double * constants)
 {
@@ -66,8 +66,8 @@ void KernikClancyModel::initConsts(double * constants)
    1.0000000e+00, // 13 g_b_Na_scaler
    1.0000000e+00, // 14 g_b_Ca_scaler
    1.0000000e+00, // 15
-   1.3378578e-01, // 16 g_K1 5.405 nS/pF in ten Tusscher 2004 
-   4.7799497e-01, // 17 
+   1.3378578e-01, // 16 g_K1 5.405 nS/pF in ten Tusscher 2004
+   4.7799497e-01, // 17
    2.7242756e+01, // 18
    4.9250233e+00, // 19
    8.7222376e+00, // 20
@@ -144,13 +144,13 @@ void KernikClancyModel::initConsts(double * constants)
    5,             // 91 i_stim_PulseDuration (ms)
    0,             // 92 g_b_K_scaler
    0.01666666666, // 93 g_seal (nS_per_pF) 1 / 1 GOhm / 60 pF
-   0,             // 94 g_seal_scaler 
-   1,             // 95 Cm_scaler 
+   0,             // 94 g_seal_scaler
+   1,             // 95 Cm_scaler
    0,             // 96 Ma2011_IK1 (boolean)
    0,             // 97 Ma2011_INa (boolean)
    0              // 98 abstract_seal_leak_scaler (dimensionless)
    };
-   
+
     for (int i = 0; i < const_size; i++)
         constants[i] = constants_array[i];
 }
@@ -261,10 +261,10 @@ void KernikClancyModel::computerates(const double t,
     //% 23: I (in Irel)
     //
     //% -------------------------------------------------------------------------------
-   
-    
+
+
     //%% Parameter inputs:
-    
+
     //%Current parameter values:
 
     const double * x_scale_conductance = &model_parameter_inputs[0]; // (1:16);
@@ -277,35 +277,35 @@ void KernikClancyModel::computerates(const double t,
     const double * x_NA = &model_parameter_inputs[62]; // (63:76);
     const double * x_F = &model_parameter_inputs[76]; // (77:82);
 
-    
+
     // -------------------------------------------------------------------------------
     // Cell geometry
     const double Cm = 60 * model_parameter_inputs[95]; // pF
     const double V_tot = 3960; // um^3
     const double Vc_tenT = 16404;
     const double VSR_tenT = 1094;
-    
-    
+
+
     const double V_tot_tenT = Vc_tenT + VSR_tenT; // V_total data from Hwang et al., V_c and V_SR  proportionally scaled from Ten Tusscher 2004 values
     const double Vc = V_tot * ( Vc_tenT / V_tot_tenT ); // =3712.4 um^3 (93.7% total volume)
     const double V_SR = V_tot * ( VSR_tenT / V_tot_tenT ); // =247.6 um^3 (6.3% total volume)
-    
+
     // -------------------------------------------------------------------------------
     // Constants
     const double T = 310.0;   // kelvin (in model_parameters)
     const double R = 8.314472;   // joule_per_mole_kelvin (in model_parameters)
     const double F = 96.4853415;   // coulomb_per_mmole (in model_parameters)
-    
+
     const double Ko = 5.4;   // millimolar (in model_parameters)
     const double Cao = 1.8;  // millimolar (in model_parameters
     const double Nao = 140.0;   // millimolar (in model_parameters)
-    
+
     // -------------------------------------------------------------------------------
     // Reversal Potentials:
     const double E_Ca = 0.5 * R * T / F * log( Cao / Y[2] ); // millivolt
     const double E_Na = R * T / F * log( Nao / Y[3] );  // millivolt
     const double E_K = R * T / F * log( Ko / Y[4] );  // millivolt
-    
+
     // -------------------------------------------------------------------------------
     // Inward Rectifier K+ current (Ik1):
     // define parameters from x_K1
@@ -315,7 +315,7 @@ void KernikClancyModel::computerates(const double t,
     double xK14 = x_K1[4]; // (5);
     double xK15 = x_K1[5]; // (6);
     double xKCond = x_K1[0];
-   
+
     if (model_parameter_inputs[96]) {
         //Ma et al 2011
         xK11 = 0.086091;
@@ -330,11 +330,11 @@ void KernikClancyModel::computerates(const double t,
     double alpha_xK1 = xK11 * exp( ( Y[0] + xK13 ) / xK12 );
     double beta_xK1 = exp( ( Y[0] + xK15 ) / xK14 );
     double XK1_inf = alpha_xK1 / ( alpha_xK1 + beta_xK1 );
-    
+
     // Current:
     double g_K1 = xKCond * x_scale_conductance[0];
     double i_K1 = g_K1 * XK1_inf * ( Y[0] - E_K ) * sqrt( Ko / 5.4 );
-    
+
     // -------------------------------------------------------------------------------
     // Rapid Delayed Rectifier Current (Ikr):
     // define parameters from x_KR
@@ -351,14 +351,14 @@ void KernikClancyModel::computerates(const double t,
     double Xr2_3 = Xr2_5 * Xr2_1;
     double Xr1_4 = 1. / ( ( 1. / Xr1_2 ) + ( 1. / Xr1_6 ) );
     double Xr2_4 = 1. / ( ( 1. / Xr2_2 ) + ( 1. / Xr2_6 ) );
-    
+
     // 10: Xr1 (dimensionless) (activation in i_Kr_Xr1)
     double alpha_Xr1 = Xr1_1 * exp( ( Y[0] ) / Xr1_2 );
     double beta_Xr1 = Xr1_3 * exp( ( Y[0] ) / Xr1_4 );
     double Xr1_inf = alpha_Xr1 / ( alpha_Xr1 + beta_Xr1 );
     double tau_Xr1 = ( ( 1. / ( alpha_Xr1 + beta_Xr1 ) ) + x_KR[9] ); // (10));
     dY[9] = ( Xr1_inf - Y[9] ) / tau_Xr1;
-    
+
     // 11: Xr2 (dimensionless) (inactivation in i_Kr_Xr2)
     double alpha_Xr2 = Xr2_1 * exp( ( Y[0] ) / Xr2_2 );
     double beta_Xr2 = Xr2_3 * exp( ( Y[0] ) / Xr2_4 );
@@ -366,11 +366,11 @@ void KernikClancyModel::computerates(const double t,
     double tau_Xr2 = ( ( 1. / ( alpha_Xr2 + beta_Xr2 ) ) + x_KR[10] ) ; // (11));
     // dY(11) = (Xr2_inf-Y(11))./tau_Xr2;
     dY[10] = ( Xr2_inf - Y[10] ) / tau_Xr2;
-    
+
     // Current:
     const double g_Kr = x_KR[0] * x_scale_conductance[1] ; // nS_per_pF (in i_Kr)
     const double i_Kr = g_Kr * ( Y[0] - E_K ) * Y[9] * Y[10] * sqrt( Ko / 5.4 );
-    
+
     // ----------------------------------------------------------------------------
     // IKur Current from Maleckar
     const double a_ur_infinity = 1.00000 / (1.00000 + exp(- (Y[0] + 6.00000) / 8.60000));
@@ -385,8 +385,8 @@ void KernikClancyModel::computerates(const double t,
     const double g_kur_scaler = model_parameter_inputs[85];
     const double g_Kur = model_parameter_inputs[86] * g_kur_scaler ; // nS_per_pF (in i_Kur)
     const double i_Kur = g_Kur * ( Y[0] - E_K ) * Y[23] * Y[24];
-    
-    
+
+
     // ----------------------------------------------------------------------------
     // Slow delayed rectifier Current (IKs):
     // define parameters from x_IKS:
@@ -395,22 +395,22 @@ void KernikClancyModel::computerates(const double t,
     double ks5 = x_IKS[3]; // (4);
     double ks6 = x_IKS[4]; // (5);
     double tauks_const = x_IKS[5]; // (6);
-    
+
     // parameter-dependent values:
     double ks3 = ks5 * ks1;
     double ks4 = 1. / ( ( 1. / ks2 ) + ( 1. / ks6 ) );
-    
+
     // 12: Xs (dimensionless) (activation in i_Ks)
     double alpha_Xs = ks1 * exp( ( Y[0] ) / ks2 );
     double beta_Xs = ks3 * exp( ( Y[0] ) / ks4 );
     double Xs_inf = alpha_Xs / ( alpha_Xs + beta_Xs );
     double tau_Xs = ( 1. / ( alpha_Xs + beta_Xs ) ) + tauks_const;
     dY[11] = ( Xs_inf - Y[11] ) / tau_Xs;
-    
+
     // Current:
     const double g_Ks = x_IKS[0] * x_scale_conductance[2] ;   // nS_per_pF (in i_Ks)
     const double i_Ks = g_Ks * ( Y[0] - E_K ) * Y[11] * Y[11] ;
-    
+
     // -------------------------------------------------------------------------------
     // Transient outward Current (Ito):
     // define parameters from xTO
@@ -424,31 +424,31 @@ void KernikClancyModel::computerates(const double t,
     double s6 = xTO[8]; // (9);
     double tau_r_const = xTO[9]; // (10);
     double tau_s_const = xTO[10]; // (11);
-    
+
     // parameter-dependent values:
     double r3 = r5 * r1;
     double r4 = 1. / ( ( 1. / r2 ) + ( 1. / r6 ) );
     double s3 = s5 * s1;
     double s4 = 1. / ( ( 1. / s2 ) + ( 1. / s6 ) );
-    
+
     // 17: s (dimensionless) (inactivation in i_to)
     double alpha_s = s1 * exp( ( Y[0] ) / s2 );
     double beta_s = s3 * exp( ( Y[0] ) / s4);
     double s_inf = alpha_s / ( alpha_s + beta_s );
     double tau_s = ( ( 1. / ( alpha_s + beta_s ) ) + tau_s_const );
     dY[16]  = ( s_inf - Y[16] ) / tau_s;
-    
+
     // 18: r (dimensionless) (activation in i_to)
     double alpha_r = r1 * exp( ( Y[0] ) / r2 );
     double beta_r = r3 * exp( ( Y[0] ) / r4 );
     double r_inf = alpha_r / ( alpha_r + beta_r );
     double tau_r = ( 1. / ( alpha_r + beta_r ) ) + tau_r_const;
     dY[17] = ( r_inf - Y[17] ) / tau_r;
-    
+
     // Current:
     const double g_to = xTO[0] * x_scale_conductance[3] ; // nS_per_pF (in i_to)
     const double i_to = g_to * ( Y[0] - E_K ) * Y[16] * Y[17] ;
-    
+
     // -------------------------------------------------------------------------------
     // L-type Ca2+ Current (ICaL):
     // define parameters from x_cal
@@ -462,37 +462,37 @@ void KernikClancyModel::computerates(const double t,
     double f6=x_cal[8]; // (9);
     double taud_const=x_cal[9]; // (10);
     double tauf_const=x_cal[10]; // (11);
-    
+
     // parameter-dependent values:
     double d3 = d5 * d1;
     double d4 = 1. / ( ( 1. / d2 ) + ( 1. / d6 ) );
     double f3 = f5 * f1;
     double f4 = 1. / ( ( 1. / f2 ) + ( 1. / f6 ) );
-    
+
     // 7: d (dimensionless) (activation in i_CaL)
     double alpha_d = d1 * exp( ( ( Y[0] ) ) / d2 );
     double beta_d = d3 * exp( ( ( Y[0] ) ) / d4 );
     double d_inf = alpha_d / ( alpha_d + beta_d );
     double tau_d = ( ( 1. / ( alpha_d + beta_d ) ) + taud_const );
     dY[6] = ( d_inf - Y[6] ) / tau_d;
-    
+
     // 8: f (dimensionless) (inactivation  i_CaL)
     double alpha_f = f1 * exp( ( ( Y[0] ) ) / f2 );
     double beta_f = f3 * exp( ( ( Y[0] ) ) / f4 );
     double f_inf = alpha_f / ( alpha_f + beta_f );
     double tau_f = ( ( 1. / ( alpha_f + beta_f ) ) + tauf_const );
     dY[7] = ( f_inf - Y[7] ) / tau_f;
-    
+
     // 9: fCa (dimensionless) (calcium-dependent inactivation in i_CaL)
     // from Ten tusscher 2004
     double scale_Ical_Fca_Cadep = 1.2;
     double alpha_fCa = 1.0 / ( 1.0 + pow( ( ( scale_Ical_Fca_Cadep * Y[2] ) / 0.000325 ), 8. ) ) ; //^8.0);
     double beta_fCa = 0.1 / ( 1.0 + exp( ( scale_Ical_Fca_Cadep * Y[2] - 0.0005 ) / 0.0001 ) );
     double gamma_fCa = 0.2 / ( 1.0 + exp( ( scale_Ical_Fca_Cadep * Y[2] - 0.00075 ) / 0.0008 ) );
-    
+
     double fCa_inf = ( ( alpha_fCa + beta_fCa + gamma_fCa + 0.23 ) / ( 1.46 ) );
     double tau_fCa = 2. ; // ms
-    
+
     double k_fca;
     if( fCa_inf > Y[8] && Y[0] > -60. ) {
         k_fca = 0;
@@ -500,7 +500,7 @@ void KernikClancyModel::computerates(const double t,
         k_fca = 1;
     } //end
     dY[8] = k_fca * ( fCa_inf - Y[8] ) / tau_fCa;
-    
+
     // Current:
     double p_CaL =  x_cal[0] * x_scale_conductance[4]; // nS_per_pF (in i_CaL)
     double p_CaL_shannonCa = 5.4e-4;
@@ -510,11 +510,11 @@ void KernikClancyModel::computerates(const double t,
     double p_CaL_shannonCap = p_CaL_shannonCa / p_CaL_shannonTot;
     double p_CaL_shannonNap = p_CaL_shannonNa / p_CaL_shannonTot;
     double p_CaL_shannonKp = p_CaL_shannonK / p_CaL_shannonTot;
-    
+
     double p_CaL_Ca = p_CaL_shannonCap * p_CaL;
     double p_CaL_Na = p_CaL_shannonNap * p_CaL;
     double p_CaL_K = p_CaL_shannonKp * p_CaL;
-    
+
     double ibarca = ( p_CaL_Ca * 4.0 * Y[0] * F * F
                     / ( R * T )
                     * ( 0.341 * Y[2] * exp( 2.0 * Y[0] * F
@@ -523,7 +523,7 @@ void KernikClancyModel::computerates(const double t,
                     / ( exp( 2.0 * Y[0] * F
                             / ( R * T ) ) - 1.0 ) );
     double i_CaL_Ca =  ibarca * Y[6] * Y[7] * Y[8];
-    
+
     double ibarna = ( p_CaL_Na * Y[0] * F * F
                      / ( R * T )
                      * ( 0.75 * Y[3]
@@ -532,7 +532,7 @@ void KernikClancyModel::computerates(const double t,
                      / ( exp( Y[0] * F / ( R * T ) )
                         - 1.0 ) );
     double i_CaL_Na =  ibarna * Y[6] * Y[7] * Y[8];
-    
+
     double ibark = ( p_CaL_K * Y[0] * F * F
                     / ( R * T )
                     * ( 0.75 * Y[4]
@@ -541,27 +541,27 @@ void KernikClancyModel::computerates(const double t,
                     / ( exp( Y[0] * F / ( R * T ) )
                        - 1.0 ) );
     double i_CaL_K = ibark * Y[6] * Y[7] * Y[8] ;
-    
+
     double i_CaL = i_CaL_Ca + i_CaL_Na + i_CaL_K;
     // -------------------------------------------------------------------------------
     // T-type Calcium Current (ICaT):
     // SAN T-TYPE CA2+ model (Demir et al., Maltsev-Lakatta ), G_CaT determined by fit to Kurokawa IV:
-    
+
     // 19: dCaT (activation in i_CaT)
     double dcat_inf = 1. / ( 1. + exp( -( ( Y[0] ) + 26.3 ) / 6. ) );
     double tau_dcat = 1. / ( 1.068 * exp( ( ( Y[0] ) + 26.3 ) / 30. )
                             + 1.068 * exp( -( ( Y[0] ) + 26.3 ) / 30. ) );
     dY[18] = ( dcat_inf - Y[18] ) / tau_dcat;
-    
+
     // 20: fCaT (inactivation in i_CaT)
     double fcat_inf = 1. / ( 1. + exp( ( ( Y[0] ) + 61.7 ) / 5.6 ) ) ;
     double tau_fcat = 1. / ( 0.0153 * exp( -( ( Y[0] ) + 61.7 ) / 83.3 )
                             + 0.015 * exp( ( ( Y[0] ) + 61.7 ) / 15.38 ) );
     dY[19] = ( fcat_inf - Y[19] ) / tau_fcat;
-    
+
     double g_CaT = x_cat[0] * x_scale_conductance[5] ; // nS_per_pF (in i_CaT)
     double i_CaT = g_CaT * ( Y[0] - E_Ca ) * Y[18] * Y[19];
-    
+
     // -------------------------------------------------------------------------------
     // Sodium Current (INa):
     // define parameters from x_Na
@@ -578,7 +578,7 @@ void KernikClancyModel::computerates(const double t,
     double tau_m_const = x_NA[11]; // (12);
     double tau_h_const = x_NA[12]; // (13);
     double tau_j_const = x_NA[13]; // (14);
-    
+
     // parameter-dependent values:
     double m3 = m5 * m1;
     double m4 = 1. / ( ( 1. / m2 ) + ( 1. / m6 ) );
@@ -588,8 +588,8 @@ void KernikClancyModel::computerates(const double t,
     double j6 = h6;
     double j3 = j5 * j1;
     double j4 = 1. / ( ( 1. / j2 ) + ( 1. / j6 ) );
-    
-    
+
+
     if (model_parameter_inputs[97]) {
         //Ma et al 2011
         double p1 = 99.1744;
@@ -601,7 +601,7 @@ void KernikClancyModel::computerates(const double t,
         m3 = p1 * p3;
         m4 = 1.0 / (1.0 / p2  + 1.0 / p4);
         tau_m_const =  0.0374383;
-        
+
         double w1 = 0.0062605;
         double w2 = -21.6256454;
         double w3 = 17575.4542604;
@@ -610,8 +610,8 @@ void KernikClancyModel::computerates(const double t,
         h1 = w1;
         h2 = w2;
         h3 = w1 * w3;
-        h4 = 1.0 / (1.0 / w2  + 1.0 / w4); 
-        
+        h4 = 1.0 / (1.0 / w2  + 1.0 / w4);
+
         double v1 = 0.00064626;
         double v2 = -69.41735068;
         double v3 = 17575.45426044;
@@ -621,39 +621,39 @@ void KernikClancyModel::computerates(const double t,
         j2 = v2;
         j3 = v1 * v3;
         j4 = 1.0 / (1.0 / v2 + 1.0 / v4);
-        
+
         //end Ma et al 2011
     }
-    
+
     // 13: h (dimensionless) (inactivation in i_Na)
     double alpha_h = h1 * exp( ( Y[0] ) / h2 );
     double beta_h = h3 * exp( ( Y[0] ) / h4 );
     double h_inf = ( alpha_h / ( alpha_h + beta_h ) );
     double tau_h = ( ( 1. / ( alpha_h + beta_h ) ) + tau_h_const );
     dY[12] = ( h_inf - Y[12] ) / tau_h;
-    
-    
-    
+
+
+
     // 14: j (dimensionless) (slow inactivation in i_Na)
     double alpha_j = j1 * exp( ( Y[0] ) / j2 );
     double beta_j = j3 * exp( ( Y[0] ) / j4 );
     double j_inf = ( alpha_j / ( alpha_j + beta_j ) );
     double tau_j = ( ( 1. / ( alpha_j + beta_j ) ) + tau_j_const );
     dY[13] = ( j_inf - Y[13] ) / tau_j;
-    
-    
-   
+
+
+
     // 15: m (dimensionless) (activation in i_Na)
     double alpha_m = m1 * exp( ( Y[0] ) / m2 );
     double beta_m = m3 * exp( ( Y[0] ) / m4 );
     double m_inf = alpha_m / ( alpha_m + beta_m );
     double tau_m = ( ( 1. / ( alpha_m + beta_m ) ) + tau_m_const );
     dY[14] = ( m_inf - Y[14] ) / tau_m;
-    
+
     // Current:
     const double g_Na = x_NA[0] * x_scale_conductance[6]; // nS_per_pF (in i_Na)
     const double i_Na = g_Na * Y[14] * Y[14] * Y[14] * Y[12] * Y[13] * ( Y[0] - E_Na );
-    
+
     // -------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------
     // Funny/HCN Current (If):
@@ -663,18 +663,18 @@ void KernikClancyModel::computerates(const double t,
     double xF5 = x_F[3]; // (4);
     double xF6 = x_F[4]; // (5);
     double xF_const = x_F[5]; // (6);
-    
+
     // parameter-dependent values:
     double xF3 = xF5 * xF1;
     double xF4 = 1. / ( ( 1. / xF2 ) + ( 1. / xF6 ) );
-    
+
     // 16: Xf (dimensionless) (inactivation in i_f)
     double alpha_Xf = xF1 * exp( ( Y[0] ) / xF2 );
     double beta_Xf = xF3 * exp( ( Y[0] ) / xF4 );
     double Xf_inf = alpha_Xf / ( alpha_Xf + beta_Xf );
     double tau_Xf = ( ( 1. / ( alpha_Xf + beta_Xf ) ) + xF_const );
     dY[15] = ( Xf_inf - Y[15] ) / tau_Xf;
-    
+
     // Current:
     double g_f = x_F[0] * x_scale_conductance[7] ; // nS_per_pF (in i_f)
     double NatoK_ratio = 0.491; // Verkerk et al. 2013
@@ -682,7 +682,7 @@ void KernikClancyModel::computerates(const double t,
     double i_fNa = Na_frac * g_f * Y[15] * ( Y[0] - E_Na );
     double i_fK = ( 1. - Na_frac ) * g_f * Y[15] * ( Y[0] - E_K );
     double i_f = i_fNa + i_fK;
-    
+
     // -------------------------------------------------------------------------------
     // Na+/Ca2+ Exchanger Current (INaCa):
     // Ten Tusscher formulation
@@ -692,7 +692,7 @@ void KernikClancyModel::computerates(const double t,
     double gamma = 0.35*2;      // voltage dependence parameter dimensionless (in i_NaCa)
     double alpha = 2.5*1.1;     // factor to enhance outward nature of inaca dimensionless (in i_NaCa)
     double kNaCa = 1000. * 1.1 * x_scale_conductance[8] ;  // maximal inaca pA_per_pF (in i_NaCa)
-    
+
     const double i_NaCa = ( kNaCa * ( ( exp( gamma * Y[0] * F / ( R * T ) )
                                  * ( Y[3] * Y[3] * Y[3] ) * Cao )
                                - ( exp( ( gamma - 1.0 ) * Y[0] * F / ( R * T ) )
@@ -700,7 +700,7 @@ void KernikClancyModel::computerates(const double t,
                      / ( ( ( KmNai * KmNai * KmNai ) + ( Nao * Nao * Nao ) )
                         * ( KmCa + Cao )
                         * ( 1.0 + Ksat * exp( ( gamma - 1.0 ) * Y[0] * F / ( R * T ) ) ) ) );
-    
+
     // -------------------------------------------------------------------------------
     // Na+/K+ pump current (INaK):
     // Ten Tusscher formulation
@@ -712,20 +712,20 @@ void KernikClancyModel::computerates(const double t,
                                 * ( 1.0
                                    + 0.1245 * exp( -0.1 * Y[0] * F / ( R * T ) )
                                    + 0.0353 * exp( -Y[0] * F / ( R * T ) ) ) ) ) );
-    
+
     // -------------------------------------------------------------------------------
     // SR Uptake/SERCA (J_up):
     // Ten Tusscher formulation
     double Kup = 0.00025 * 0.702;   // millimolar (in calcium_dynamics)
     double VmaxUp = 0.000425 * 0.26 * x_scale_conductance[9] ;   // millimolar_per_milisecond (in calcium_dynamics)
     double i_up = VmaxUp / ( 1.0 + Kup * Kup / ( Y[2] * Y[2] ) );
-    
+
     // -------------------------------------------------------------------------------
     // SR Leak (J_leak):
     // Ten Tusscher formulation
     const double V_leak = x_scale_conductance[11] * 0.00008 * 0.02;   // per_millisecond (in calcium_dynamics)
     const double i_leak = ( Y[1] - Y[2] ) * V_leak;
-    
+
     // -------------------------------------------------------------------------------
     // SR Release/RYR (J_rel):
     // re-fit parameters. scaled to account for differences in calcium concentration in
@@ -738,50 +738,50 @@ void KernikClancyModel::computerates(const double t,
     double ec50SR = 0.45;
     double MaxSR = 15.;
     double MinSR = 1.;
-    
+
     double kCaSR = MaxSR - ( MaxSR - MinSR ) / ( 1. + pow( ( ec50SR / Y[1] ), 2.5 ) );
     double koSRCa = koCa / kCaSR;
     double kiSRCa = kiCa * kCaSR;
     double RI = 1. - Y[20] - Y[21] - Y[22] ;
-    
+
     dY[20] = ( ( kim * RI - kiSRCa * Y[2] * Y[20] )
               - ( koSRCa * Y[2] * Y[2] * Y[20]  - kom * Y[21] ) );   // R
     dY[21] = ( ( koSRCa * Y[2] * Y[2] * Y[20] - kom * Y[21] )
               - ( kiSRCa * Y[2] * Y[21] - kim * Y[22] ) ); // O
     dY[22] = ( ( kiSRCa * Y[2] * Y[21] - kim * Y[22] )
               - ( kom * Y[22] - koSRCa * Y[2] * Y[2] * RI ) );   // I
-    
+
     const double i_rel = ks * Y[21] * ( Y[1] - Y[2] ) * ( V_SR / Vc );
-    
+
     // Background Sodium (I_bNa):
     // Ten Tusscher formulation
-    const double g_b_Na = model_parameter_inputs[93] * model_parameter_inputs[94] + 
+    const double g_b_Na = model_parameter_inputs[93] * model_parameter_inputs[94] +
         0.00029 * 1.5 * x_scale_conductance[13];   // nS_per_pF (in i_b_Na)
     const double i_b_Na = g_b_Na * ( Y[0]  - E_Na );
-    
+
     // -------------------------------------------------------------------------------
     // Background Calcium (I_bCa):
     // Ten Tusscher formulation
     const double g_b_Ca = model_parameter_inputs[93] * model_parameter_inputs[94] +
         0.000592 * 0.62 * x_scale_conductance[14];   // nS_per_pF (in i_b_Ca)
     const double i_b_Ca = g_b_Ca * ( Y[0] - E_Ca );
-    
-    
+
+
     // -------------------------------------------------------------------------------
     // Background Potassium (I_bK):
     // OHara-Rudy g_Kb = 0.003 but there it has also a multiplier dep. on V
     const double g_b_K = model_parameter_inputs[93] * model_parameter_inputs[94] +
         0.001 * model_parameter_inputs[92];   // nS_per_pF (in i_b_K)
     const double i_b_K = g_b_K * ( Y[0] - E_K );
-    
-    
+
+
     // -------------------------------------------------------------------------------
     // Calcium SL Pump (I_pCa):
     // Ten Tusscher formulation
     double g_PCa = 0.025 * 10.5 * x_scale_conductance[15];   // pA_per_pF (in i_PCa)
     double KPCa = 0.0005;   // millimolar (in i_PCa)
     double i_PCa = g_PCa * Y[2] / ( Y[2] + KPCa );
-    
+
     // -------------------------------------------------------------------------------
     // 2: CaSR (millimolar)
     // rapid equilibrium approximation equations -- not as formulated in ten Tusscher 2004 text
@@ -792,45 +792,45 @@ void KernikClancyModel::computerates(const double t,
                              + Buf_SR * Kbuf_SR
                              / ( ( Y[1] + Kbuf_SR )
                                 * ( Y[1] + Kbuf_SR ) ) ) );
-    
+
     dY[1] = Ca_SR_bufSR * Vc / V_SR * ( i_up - ( i_rel + i_leak ) );
-    
+
     // -------------------------------------------------------------------------------
     // 3: Cai (millimolar)
     // rapid equilibrium approximation equations -- not as formulated in ten Tusscher 2004 text
     double Buf_C = 0.06; // millimolar (in calcium_dynamics)
     double Kbuf_C = 0.0006; // millimolar (in calcium_dynamics)
     double Cai_bufc = 1. / ( 1.0 + Buf_C * Kbuf_C / ( ( Y[2] + Kbuf_C ) * ( Y[2] + Kbuf_C ) ) );
-    
+
     //fix 20.12.20
     dY[5] = 0;
     //endfix
-    
+
     dY[2] = ( Cai_bufc ) * ( i_leak - i_up + i_rel - dY[5]  // dY[5] ????????????????????????????????????????????????????????????
                             - ( i_CaL_Ca + i_CaT + i_b_Ca + i_PCa - 2. * i_NaCa )
                             * Cm / ( 2.0 * Vc * F ) );
-    
+
     // -------------------------------------------------------------------------------
     // 4: Nai (millimolar) (in sodium_dynamics)
     dY[3] = -Cm * ( i_Na + i_b_Na + i_fNa + 3.0 * i_NaK + 3.0 * i_NaCa + i_CaL_Na ) / ( F * Vc );
-    
+
     if (model_parameter_inputs[89] == 1) {
         //Nai is fixed
         dY[3] = 0;
     } // end
-    
+
     //-------------------------------------------------------------------------------
     // 5: Ki (millimolar) (in potassium_dynamics)
     dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K + i_b_K ) / ( F * Vc );
-    
+
     if (model_parameter_inputs[90] == 1) {
         //Ki is fixed
         dY[4] = 0;
     } // end
-    
+
     // -------------------------------------------------------------------------------
     // 1: Vm (Membrane voltage)
-   
+
 
     // for stim:
     const double cyclelength = model_parameter_inputs[87];
@@ -843,19 +843,19 @@ void KernikClancyModel::computerates(const double t,
     double time = t;
     double i_stim = 0;
     const double stim_flag = model_parameter_inputs[82]; // (83);  // % dimensionless (in stim_mode)
- 
+
 	if (stim_flag == 4)
 		i_stim = stimulation->i_stim(t);
 
     const double fmt = std::fmod(t, cyclelength) - std::round(stim_shift);
     //rectangular pulse
-    if ( stim_flag == 1 && 
+    if ( stim_flag == 1 &&
          fmt >= 0 &&
          fmt < i_stim_PulseDuration)
     {
         i_stim = i_stim_Amplitude;
     }
-    
+
     //biphasic pulse
     if ( stim_flag == 2 &&
          fmt >= 0 &&
@@ -864,7 +864,7 @@ void KernikClancyModel::computerates(const double t,
         if (fmt*2 < i_stim_PulseDuration)
 			i_stim = i_stim_Amplitude * std::fabs(fmt) * 2 / i_stim_PulseDuration;
 		else
-			i_stim = i_stim_Amplitude * (- std::fabs(i_stim_PulseDuration - fmt)) * 2 / i_stim_PulseDuration; 
+			i_stim = i_stim_Amplitude * (- std::fabs(i_stim_PulseDuration - fmt)) * 2 / i_stim_PulseDuration;
         //too complicated
         //i_stim = 2 * i_stim_Amplitude / M_PI * std::atan(std::tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
     }
@@ -877,7 +877,7 @@ void KernikClancyModel::computerates(const double t,
 		if (fmt*2 < i_stim_PulseDuration)
 			i_stim = i_stim_Amplitude * std::pow(fmt * 2 / i_stim_PulseDuration, 2);
 		else
-			i_stim = i_stim_Amplitude * (- std::pow((i_stim_PulseDuration - fmt) * 2 / i_stim_PulseDuration, 2)); 
+			i_stim = i_stim_Amplitude * (- std::pow((i_stim_PulseDuration - fmt) * 2 / i_stim_PulseDuration, 2));
 	}
 
     /* old version of rectangular pulse
@@ -894,9 +894,9 @@ void KernikClancyModel::computerates(const double t,
     */
 
     // Voltage Clamp:
-    
+
     const double voltageclamp = model_parameter_inputs[84]; // (85); // %square pulses if =1
- 
+
     // for square pulse voltage clamp:
     const double v_clamp_max = 50; // mV
     const double v_clamp_min = -80; // mV
@@ -927,7 +927,7 @@ void KernikClancyModel::computerates(const double t,
 
     // abstract seal leak current
     const double i_abstract_seal_leak = model_parameter_inputs[98] * 0.016666666 * Y[0]; // pA/pF
-    
+
     //Finally
     dY[0] = - (i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_CaL
               + i_CaT + i_NaK + i_Na + i_NaCa + i_PCa
