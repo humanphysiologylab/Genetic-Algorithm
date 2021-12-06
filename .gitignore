@@ -38,6 +38,7 @@ Makefile
 cmake-build-debug/
 cmake_install.cmake
 
+doxygen/
 .idea/
 build*/
 res*/

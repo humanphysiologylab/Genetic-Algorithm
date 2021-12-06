@@ -1,5 +1,5 @@
 # Genetic Algorithm
-Genetic Algorithm implementation to determine the set of cardiomyocyte model parameters.
+Genetic Algorithm implementation to estimate cardiomyocyte mathematical model parameters.
 
 ## Build
 
@@ -22,15 +22,20 @@ cmake -D CMAKE_C_COMPILER=/opt/homebrew/bin/gcc-11 -D CMAKE_CXX_COMPILER=/opt/ho
 make
 ```
 
+To generate the documentation, please run
+```C
+doxygen Doxyfile
+```
+The documentation will be available for your browser at `doxygen/html/index.html` .
 
-IMPORTANT NOTE: this implementation of genetic algorithm requires MPI!
+Important note: this implementation of genetic algorithm requires MPI.
 
 ## Run
-The main configuration parameters (number of generations, number of organisms etc) are in the `input_ga.txt` file.
+The main configuration parameters (number of generations, number of organisms etc) should be specified in `config.json` file.
 ```C
-mpirun -np [num_process] ./ga input_ga.txt  
+mpirun -np [num_mpi_processes] ./ga config.json
 ```  
-The folder also contains an example of MPI job script file (`snode.sh`) that can be used for high-perfomance calculations.
+The folder also contains an example of MPI job script file (`task.sh`) to run the program on high performance computing clusters.
 
 ## Citing Genetic Algorithm
 <a href="https://link.springer.com/article/10.1007/s10863-018-9775-7#citeas" alt=""><img src="https://img.shields.io/badge/DOI%3A-doi.org%2F10.1007%2Fs10863--018--9775--7-brightgreen.svg"></a>
