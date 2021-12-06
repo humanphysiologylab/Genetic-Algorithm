@@ -7,8 +7,11 @@
 #include <vector>
 #include <cassert>
 #include <iostream>
+#include "base_mutation.h"
+
 template <typename RandomGenerator, typename Seed>
-class CauchyMutation
+class CauchyMutation:
+    public BaseMutation
 {
     std::vector<RandomGenerator> random_generators;
     double mutrate; //probability of mutation

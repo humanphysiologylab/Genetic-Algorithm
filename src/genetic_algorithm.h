@@ -303,7 +303,7 @@ public:
 
 
 template <typename Pop, typename Selection, typename Crossover, typename Mutation>
-void genetic_algorithm(Pop & pop, Selection  selection, Crossover  crossover, Mutation  mutation, const int generations)
+void genetic_algorithm(Pop & pop, Selection & selection, Crossover & crossover, Mutation & mutation, const int generations)
 {
     /* Initialize population before calling genetic algorithm
      * 

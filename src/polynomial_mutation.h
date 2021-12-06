@@ -5,9 +5,11 @@
 #include <random>
 #include <omp.h>
 #include <vector>
+#include "base_mutation.h"
 
 template <typename RandomGenerator, typename Seed>
-class PolynomialMutation
+class PolynomialMutation:
+    public BaseMutation
 {
     std::vector<RandomGenerator> random_generators;
     const int eta_m;
@@ -83,12 +85,10 @@ public:
 };
 
 
-class NoMutation
+class NoMutation:
+    public BaseMutation
 {
 public:
     void operator()(double *population_genes, const double * min_value, const double * max_value, int population_size, int genes_number, const int * is_mutation_applicable);
 };
 #endif
-
-
-

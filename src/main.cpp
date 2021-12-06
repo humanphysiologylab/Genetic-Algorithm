@@ -40,6 +40,48 @@
 #include "mcmc.h"
 #include "pso.h"
 
+/**
+ * @brief 
+ *
+ * The function generates unique_ptr to mutation object for corresponding @p name 
+ * 
+ * @param[in] seed_source
+ * @param[in] name possible names: Poly, Cauchy, None
+ * @param[in] config
+ * @param[in] problem
+ *
+ * @return unique_ptr to mutation object
+ *
+ * @throw std::logic_error If mutation type is unknown
+ */
+template <typename SeedSource, typename Problem>
+std::unique_ptr<BaseMutation> new_mutation(SeedSource & seed_source, const std::string & name, json & config, const Problem & problem)
+{
+    if (name == "Poly")
+        return std::make_unique<PolynomialMutation<pcg64, SeedSource>>
+                                                (seed_source,
+                                                config["mutrate"].get<double>(),
+                                                config["eta_mutation"].get<int>());
+    if (name == "Cauchy")
+       return std::make_unique<CauchyMutation<pcg64, SeedSource>>
+                                                (seed_source, 
+                                                config["mutrate"].get<double>(),
+                                                config["gamma"].get<double>(),
+                                                problem.get_gamma_vector());
+    if (name == "None")
+        return std::make_unique<NoMutation>();
+    throw std::logic_error("Unknown mutation type");
+}
+
+/**
+ * @brief Genetic algorithm for abstract optimization problem
+ *
+ * @param[in] seed_source Seed source for pcg64 pseudorandom number generator
+ * @param[in,out] problem Initialized problem to optimize with genetic algorithm
+ * @param[in] config Json config with genetic algorithm parameters
+ * @param[out] error_per_gen Vector storing error per generation 
+ *
+ */
 template <typename SeedSource, typename Problem>
 void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen)
 {
@@ -58,6 +100,16 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
     if (mpi_rank == 0)
         std::cout << "time_population_init, s: " << time_population_init << std::endl;
 
+    /** @todo Create base class for mutation */
+    auto mutation = new_mutation(seed_source, config["mutation_type"].get<std::string>(), config, problem);
+    auto selection = TournamentSelectionFast(pcg64(seed_source));
+    auto crossover = SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>());
+    genetic_algorithm(popMal,
+            selection,
+            crossover,
+            *mutation,
+            config["n_generations"].get<unsigned>());
+/*
     if (config["mutation_type"].get<std::string>() == "Cauchy") {
         genetic_algorithm(popMal,
             TournamentSelectionFast(pcg64(seed_source)),
@@ -85,9 +137,9 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
             NoMutation(),
             config["n_generations"].get<unsigned>());
     } else {
-        throw("Unknown mutation in config");
+        throw("Unknown mutation_type in config");
     }
-
+*/
     error_per_gen = popMal.get_error_per_gen();
 }
 
@@ -271,7 +323,12 @@ void main_gen_algo(const char *configFilename)
 }
 
 
-
+/**
+ * @brief Script to find model parameters using genetic algorithm
+ *
+ *
+ * @param[in] config Json config
+ */
 void script_genetic_algorithm(json & config)
 {
     int mpi_rank, mpi_size;
@@ -279,47 +336,53 @@ void script_genetic_algorithm(json & config)
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
     
     pcg_extras::seed_seq_from<std::random_device> seed_source;
-    //const int seed_source = 42;
+    //const int seed_source = 42; /// @todo Move it to config file
     
-    //MaleckarModel model;
+    //MaleckarModel model; /// @todo Move it to config file
     KernikClancyModel model;
     ODESolver solver;
 
-    //MinimizeAPbaselines obj;
-    ScaleMinimizeAPbaselines obj;
-    
+    MinimizeAPbaselines obj; /// @todo Move it to config file
+    //ScaleMinimizeAPbaselines obj;
     //MaximizeAPinnerProduct obj;
     //LeastSquaresMinimizeAPbaselines obj;
+
     ODEoptimization problem(model, solver, obj);
     
     try {
         problem.read_config(config);
         problem.read_baselines(config);
-    } catch (const char * err) {
-        std::cout << "catch in main:" << std::endl;
-        std::cout << err << std::endl;
-        throw;
+    } catch (const std::string & err) {
+        std::cerr << "Cannot read config for the problem: " << std::endl;
+        std::cerr << err << std::endl;
+        std::cerr << "Genetic Algorithm will not be run" << std::endl;
+        return;
     }
-    
+
     std::vector<std::pair<int, double>> error_per_gen;
+
     gen_algo_call(seed_source, problem, config, error_per_gen);
+    
     if (mpi_rank == 0) {
-        std::string filename = "convergence_GA.txt";
-        std::ofstream file(filename);
+        std::cout << "Genetic algorithm is complete" << std::endl;
+        std::cout << "Saving output files to disk..." << std::endl;
+        std::string convergence_filename = "convergence_GA.txt";
+        std::ofstream file(convergence_filename);
         for (const auto & p: error_per_gen)
             file << p.first << " " << p.second << std::endl;
+        
         problem.export_gen_algo_tables();
-    }
-    if (mpi_rank == 0) {
         problem.dump_ap(problem.get_results_optimizer_format(), 0);
+        
+        std::cout << "USE THE FOLLOWING OUTPUT ONLY AS SOME HINT OF THE FINAL RESULT" << std::endl;
         using Results = decltype(problem)::Results;
         using BaselineResult = decltype(problem)::BaselineResult;
         Results results = problem.get_relative_results();
         BaselineResult res = results[0];
-        std::cout << "Printing relative to default results" << std::endl;
+        std::cout << "Printing relative to default parameters" << std::endl;
         for (const auto & cit: res.constantsResult)
             std::cout << cit.first << " " << cit.second << std::endl;
-        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
+        std::cout << std::endl << "Printing states relative to some baseline" << std::endl;
         for (const auto & sit: res.statesResult)
             std::cout << sit.first << " " << sit.second << std::endl;
     }
