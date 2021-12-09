@@ -221,7 +221,7 @@ std::vector<std::pair<int, double>> weirdSteepestGradientDescentTrack(Initialize
     }
     problem.is_AP_normalized = 0;
     problem.dump_ap(sol.begin(), global_steps);
-    problem.genetic_algorithm_result(sol);
+    problem.submit_result(sol);
     return error_per_gen;
 }
 

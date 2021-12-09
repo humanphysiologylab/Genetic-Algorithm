@@ -20,6 +20,7 @@
 #include <Eigen/StdVector>
 
 #include "stimulation.h"
+#include "objective.h"
 
 using json = nlohmann::json;
 
@@ -61,245 +62,37 @@ public:
 };
 
 
+/**
+ * @brief Finds depolarization halfheight position in @p v
+ *
+ * It is assumed that action potential is completely inside the single period
+ * represented by @p v.
+ *
+ * @param[in] v Action potential recording
+ *
+ * @return halfheight index
+ */
 int halfheight_index(const std::vector<double> & v);
 
-template<int power = 2>
-class MinimizeAPbaselines
-{
-public:
-    using Baseline = std::vector<double>;
-    using ListOfBaselines = std::vector<Baseline>;
 
-    double distBaselines(const Baseline & a, const Baseline & b, int start) const
-    {
-        double res = 0;
-        assert(a.size() == b.size());
-        for (size_t i = start; i < a.size(); i++)
-            res += std::pow(std::abs(a[i] - b[i]), power);
-        res /= (double) (a.size() - start);
-        return res;
-    }
-
-    double dist(const ListOfBaselines & a, const ListOfBaselines & b, const std::vector<int> & starts) const
-    {
-        assert(a.size() == b.size());
-        assert(a.size() == starts.size());
-        double res = 0;
-        for (size_t i = 0; i < a.size(); i++) {
-            res += distBaselines(a[i], b[i], starts[i]);
-        }
-        res = std::pow(res / (double) a.size(), 1.0/power);
-        if (std::isnan(res))
-            res = 1e50;
-        return res;
-    }
-};
-
-
-template<int power = 2>
-class LeastSquaresMinimizeAPbaselines
-{
-public:
-    using Baseline = std::vector<double>;
-    using ListOfBaselines = std::vector<Baseline>;
-
-    template<int p>
-    double sum_of_elements(const Baseline & b) const
-    {
-        double s = 0;
-        for (const auto & e: b)
-            s += std::pow(e, p);
-        return s;
-    }
-    double inner_product(const Baseline & a, const Baseline & b) const
-    {
-        double s = 0;
-        for (unsigned i = 0; i < a.size(); i++)
-            s += a[i] * b[i];
-        return s;
-    }
-
-    double LSMdistBaselines(const Baseline & g, const Baseline & f) const
-    {
-        //watch for the correct order: g -- experimental optical mapping AP, f -- model
-        //solve least square problem for f(t) = A * g(t) + B
-        assert(g.size() == f.size());
-
-        const double c = g.size();
-        const double a = sum_of_elements<2>(g);
-        const double b = sum_of_elements<1>(g);
-        const double e = sum_of_elements<1>(f);
-        const double p = inner_product(f, g);
-
-        const double A = (c * p  - b * e) / (a * c - b * b);
-        const double B = (-b * p + a * e) / (a * c - b * b);
-
-        const double min_peak = 10;         // mV
-        const double max_peak = 60;         // mV
-        const double min_rest_potential = -100;   // mV
-        const double max_rest_potential = -55;   // mV
-
-        const double peak = std::min(std::max(A + B, min_peak), max_peak);
-        const double rest_potential = std::min(std::max(B, min_rest_potential), max_rest_potential);
-
-        const double amplitude = peak - rest_potential;
-        /*
-        std::cout << "     A+B: " << A + B << " A: " << amplitude << " B: " << rest_potential << " p: " << peak << std::endl;
-        */
-        if (std::isnan(amplitude)) {
-            std::cout << "         a:" << a <<
-            "         b:" << b <<
-            "         c:" << c <<
-            "         e:" << e <<
-            "         p:" << p <<
-            "         A:" << A <<
-            "         B:" << B << std::endl;
-            for (int i = 0; i < f.size(); i++) {
-                if (std::isnan(f[i])) {
-                    std::cout << "f is nan" << std::endl;
-                    break;
-                }
-            }
-        }
-        double res = 0;
-        for (size_t i = 0; i < f.size(); i++)
-            res += std::pow(std::abs(f[i] - (amplitude * g[i] + rest_potential)), power);
-
-       // for (size_t i = 40; i < 80; i++)
-         //   res += std::pow(std::abs(f[i] - (amplitude * g[i] + rest_potential)), 4);
-
-        res /= (double) f.size();
-        return res;
-    }
-
-    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
-    {
-        //watch for the correct order: a -- experimental optical mapping AP, b -- model
-        assert(a.size() == b.size());
-        double res = 0;
-        for (size_t i = 0; i < a.size(); i++) {
-            res += LSMdistBaselines(a[i], b[i]);
-        }
-        res = std::pow(res / (double) a.size(), 1.0/power);
-        if (std::isnan(res))
-            res = 1e50;
-        return res;
-    }
-};
-
-
-
-
-template<int power = 2>
-class ScaleMinimizeAPbaselines
-{
-public:
-    using Baseline = std::vector<double>;
-    using ListOfBaselines = std::vector<Baseline>;
-
-    template<int p>
-    double sum_of_elements(const Baseline & b) const
-    {
-        double s = 0;
-        for (const auto & e: b)
-            s += std::pow(e, p);
-        return s;
-    }
-    double inner_product(const Baseline & a, const Baseline & b) const
-    {
-        double s = 0;
-        for (unsigned i = 0; i < a.size(); i++)
-            s += a[i] * b[i];
-        return s;
-    }
-
-    double LSdistBaselines(const Baseline & g, const Baseline & f) const
-    {
-        //watch for the correct order: g -- experimental data (not from (0,1) but wider) AP, f -- model
-        //solve least square problem for f(t) = A * g(t)
-        assert(g.size() == f.size());
-
-        const double a = sum_of_elements<2>(g);
-        const double p = inner_product(f, g);
-
-        const double min_A = 1, max_A = 1.2;
-        const double A = std::min(max_A, std::max(min_A, p / a));
-
-        double res = 0;
-        for (size_t i = 0; i < f.size(); i++)
-            res += std::pow(std::abs(f[i] - A * g[i]), power);
-
-        res /= (double) f.size();
-        return res;
-    }
-
-    double dist(const ListOfBaselines & a, const ListOfBaselines & b, const std::vector<int> & starts) const
-    {
-        //watch for the correct order: a -- experimental optical mapping AP, b -- model
-        assert(a.size() == b.size());
-        double res = 0;
-        for (size_t i = 0; i < a.size(); i++) {
-            res += LSdistBaselines(a[i], b[i]);
-        }
-        res = std::pow(res / (double) a.size(), 1.0/power);
-        if (std::isnan(res))
-            res = 1e50;
-        return res;
-    }
-};
-
-
-
-template<int power = 2>
-class MaximizeAPinnerProduct
-{
-public:
-    using Baseline = std::vector<double>;
-    using ListOfBaselines = std::vector<Baseline>;
-
-    double innerProduct(const Baseline & a, const Baseline & b) const
-    {
-        double res = 0, lena = 0, lenb = 0;
-        assert(a.size() == b.size());
-        for (size_t i = 0; i < a.size(); i++) {
-            res += a[i] * b[i];
-            lena += a[i] * a[i];
-            lenb += b[i] * b[i];
-        }
-        res /= sqrt(lena * lenb);
-        return res;
-    }
-
-    double dist(const ListOfBaselines & a, const ListOfBaselines & b) const
-    {
-        assert(a.size() == b.size());
-        double res = 0;
-        for (size_t i = 0; i < a.size(); i++) {
-            res += innerProduct(a[i], b[i]);
-        }
-        res = res / (double) a.size(); //mean value
-        if (res < -1 || res > 1)
-            std::cout << "ATTENTION: inner product: " << res << std::endl;
-        if (std::isnan(res))
-            return 1e50;//std::numeric_limits<double>::max();
-        return -res;
-    }
-};
-
-
-template <typename Model, typename Solver, typename Objective>
+template <typename Model, typename Solver>
 class ODEoptimization
 {
 protected:
-    Solver solver;//!!!!
-    Objective obj;//!!!!
-    Model g_model; //use this model only as a reference!!!! Do not call it directly but make a copy of it!
-    using Baseline = typename Objective::Baseline;
-    using ListOfBaselines = typename Objective::ListOfBaselines;
+    using Baseline = std::vector<double>;
+    using VectorOfBaselines = std::vector<Baseline>;
 
-    ListOfBaselines apbaselines;
+    Solver solver;
+    std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> obj;
+
+    Model g_model; //use this model only as a reference!!!! Do not call it directly but make a copy of it!
+    
+    VectorOfBaselines apbaselines;
+
+    bool ignore_before_halfheight;
     std::vector<int> apbaselines_halfheights;
-	std::vector<StimulationBase*> stimulation_protocols;
+	
+    std::vector<StimulationBase*> stimulation_protocols;
 
     // There are two types of values:
     // 1. Unknowns
@@ -362,7 +155,9 @@ public:
 		for (auto s: stimulation_protocols)
 			delete [] s;
 	}
-int beats;
+    
+    int beats;
+    
     using ConstantsResult = std::unordered_map<std::string, double>;
     using StatesResult = std::unordered_map<std::string, double>;
     struct BaselineResult
@@ -382,38 +177,62 @@ protected:
     BiMap constantsBiMapModel, statesBiMapModel, algebraicBiMapModel;
     //no need of ratesBiMapModel
 
+
+    /**
+     * @brief Log scale to unit interval
+     *
+     * The function log scales x from [minOrig, maxOrig] into [0, 1]
+     */
     double log_scale(double x, double minOrig, double maxOrig) const
     {
-        if (minOrig < 0) {
-            throw("minOrig < 0");
-        } else if (minOrig == 0) {
-            return log(x + 1.0 / maxOrig) / log(maxOrig + 1.0 / maxOrig);
+        if (minOrig <= 0) {
+            throw("minOrig <= 0");
         } else {
-            const double a = log(minOrig);
-            const double b = log(maxOrig);
-            return (log(x) - (a + b) / 2) / ((b - a) / 2);
+            return log(x / minOrig) / log(maxOrig / minOrig);
         }
     }
+
+    /**
+     * @brief Log scale to [minOrig, maxOrig]
+     *
+     * The function log scales x from [0, 1] into [minOrig, maxOrig]
+     *
+     */
     double log_scale_back(double x, double minOrig, double maxOrig) const
     {
-        if (minOrig < 0) {
-            throw("minOrig < 0");
-        } else if (minOrig == 0) {
-            return exp(x * log(maxOrig + 1.0 / maxOrig)) - 1.0 / maxOrig;
+        if (minOrig <= 0) {
+            throw("minOrig <= 0");
         } else {
-            const double a = log(minOrig);
-            const double b = log(maxOrig);
-            return exp(x * ((b - a) / 2) + (a + b) / 2);
+            return exp(x * log(maxOrig / minOrig)) * minOrig; 
         }
     }
+
+    /**
+     * @brief Linear scale to unit interval
+     *
+     * The function linearly scales x from [minOrig, maxOrig] into [0, 1]
+     */
     double lin_scale(double x, double minOrig, double maxOrig) const
     {
         return (x - minOrig) / (maxOrig - minOrig);
     }
+
+    /**
+     * @brief Linear scale to [minOrig, maxOrig]
+     *
+     * The function linearly scales x from [0, 1] into [minOrig, maxOrig]
+     *
+     */
     double lin_scale_back(double x, double minOrig, double maxOrig) const
     {
         return (maxOrig - minOrig) * x + minOrig;
     }
+
+    /**
+     * @brief Optimizer to model parameters transform
+     *
+     *
+     */
     template <typename It, typename It2>
     void optimizer_model_scale(It optim_param_start, It2 model_param_start) const
     {
@@ -433,6 +252,9 @@ protected:
         }
     }
 
+    /**
+     * @brief Model to optimizer parameters transform
+     */
     template <typename It, typename It2>
     void model_optimizer_scale(It model_param_start, It2 optim_param_start) const
     {
@@ -453,7 +275,7 @@ protected:
     }
 public:
     void unfreeze_global_variable(const std::string & name, double min_value, double max_value, std::vector<double> & params)
-    {//TODO a lot! Use it at your own risk!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    {/// @todo a lot! Use it at your own risk!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         throw("unfreeze_global_variable not ready yet");
         globalValues.knownConstants;//remove from knownConstants
         bool is_found_in_knownConstants = 0;
@@ -499,8 +321,8 @@ public:
     {
         return results_optimizer_format;
     }
-    ODEoptimization(const Model & model, const Solver & solver, const Objective & obj)
-    : solver(solver), obj(obj), g_model(model)
+    ODEoptimization(const Model & model, const Solver & solver)
+    : solver(solver), g_model(model)
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -540,10 +362,9 @@ public:
             e = (e - vmin) / vmax;
     }
 
-    void DEnormalize_baseline(Baseline & baseline) const
+    void Denormalize_baseline(Baseline & baseline) const
     {
-        //TODO
-        //call it from a script only
+        /// @todo
         const double vmin = -80, vmax = 34;
         for (auto & e: baseline)
             e =  e * (vmax - vmin) + vmin;
@@ -564,7 +385,7 @@ public:
 
     void read_state()
     {
-        //TODO
+        /// @todo
     }
 
     void write_baseline(const Baseline & apRecord, const std::string & filename) const
@@ -599,250 +420,192 @@ public:
     }
     void read_config(json & config)
     {
-        //lets make it plain, no MPI-IO, TODO
-       // if (mpi_rank == 0) {
+        ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
+        obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>()); 
 
-            is_AP_normalized = config["is_AP_normalized"].get<int>();
-            beats = config["n_beats"].get<int>();
-            reg_alpha = config["regularization_alpha"].get<double>();
-            number_unknowns = 0;
-            //read global values
-            globalValues.groupName = "global";
-            for (auto variable: config["global"].items()) {
+        is_AP_normalized = config["is_AP_normalized"].get<int>();
+        beats = config["n_beats"].get<int>();
+        reg_alpha = config["regularization_alpha"].get<double>();
+        number_unknowns = 0;
+        //read global values
+        globalValues.groupName = "global";
+        for (auto variable: config["global"].items()) {
+            auto v = variable.value();
+            std::string name = v["name"].get<std::string>();
+
+            int model_position;
+            try {
+                //usually in global we have constants
+                model_position = constantsBiMapModel.left.at(name);
+            } catch (...) {
+                //so name is not a constant
+                //1. it can be a state (which is quite reasonable but we dont need it now)
+                //2. or it is neither a constant nor a state variable
+                throw(name + " in global config is not a constant of a model");
+            }
+            bool is_value = (v.find("value") != v.end());
+            if (is_value) {
+                globalValues.knownConstants.push_back(
+                {.name = name,
+                 .unique_name = name + "_global",
+                 .value = v["value"].get<double>(),
+                 .model_position = model_position
+                });
+            } else {
+                //unknown constant
+                globalValues.unknownConstants.push_back(
+                {.name = name,
+                 .unique_name = name + "_global",
+                 .min_value = v["bounds"][0].get<double>(),
+                 .max_value = v["bounds"][1].get<double>(),
+                 .init_guess_available = (v.find("init") != v.end()),
+                 .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
+                 .optimizer_position = number_unknowns++,
+                 .model_position = model_position,
+                 .gamma = v["gamma"].get<double>(),
+                 .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
+                });
+            }
+        }
+        //constants not listed in config will have default values
+
+
+        //now lets read baseline values
+        int baselines_num = 0;
+        for (auto baseline: config["baselines"].items()) {
+            baselines_num++;
+            auto b = baseline.value();
+
+            baselineValues.emplace_back();
+            Values & bVar = baselineValues.back();
+            BiMap statesBiMapDrifting = statesBiMapModel;
+            bVar.groupName = b["name"].get<std::string>();
+
+            try {
+                if (b["stimProtocol"].get<std::string>() == "Biphasic")
+                    stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+                else if (b["stimProtocol"].get<std::string>() == "BiphasicStim_CaSR_Protocol")
+                    stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
+                                    b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
+                                    b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+
+            }
+            catch (...) {
+                stimulation_protocols.push_back(new StimulationNone());
+            }
+            for (auto variable: b["params"].items()) {
                 auto v = variable.value();
                 std::string name = v["name"].get<std::string>();
-
                 int model_position;
                 try {
-                    //usually in global we have constants
+                    //constant can be listed as a baseline value
                     model_position = constantsBiMapModel.left.at(name);
-                } catch (...) {
-                    //so name is not a constant
-                    //1. it can be a state (which is quite reasonable but we dont need it now)
-                    //2. or it is neither a constant nor a state variable
-                    throw(name + " in global config is not a constant of a model");
-                }
-                bool is_value = (v.find("value") != v.end());
-                if (is_value) {
-                    globalValues.knownConstants.push_back(
-                    {.name = name,
-                     .unique_name = name + "_global",
-                     .value = v["value"].get<double>(),
-                     .model_position = model_position
-                    });
-                } else {
-                    //unknown constant
-                    globalValues.unknownConstants.push_back(
-                    {.name = name,
-                     .unique_name = name + "_global",
-                     .min_value = v["bounds"][0].get<double>(),
-                     .max_value = v["bounds"][1].get<double>(),
-                     .init_guess_available = (v.find("init") != v.end()),
-                     .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
-                     .optimizer_position = number_unknowns++,
-                     .model_position = model_position,
-                     .gamma = v["gamma"].get<double>(),
-                     .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
-                    });
-                }
-            }
-            //constants not listed in config will have default values
-
-
-            //now lets read baseline values
-            int baselines_num = 0;
-            for (auto baseline: config["baselines"].items()) {
-                baselines_num++;
-                auto b = baseline.value();
-
-                baselineValues.emplace_back();
-                Values & bVar = baselineValues.back();
-                BiMap statesBiMapDrifting = statesBiMapModel;
-                bVar.groupName = b["name"].get<std::string>();
-
-				try {
-					if (b["stimProtocol"].get<std::string>() == "Biphasic")
-						stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
-					else if (b["stimProtocol"].get<std::string>() == "BiphasicStim_CaSR_Protocol")
-						stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
-										b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
-										b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
-
-				}
-				catch (...) {
-					stimulation_protocols.push_back(new StimulationNone());
-				}
-                for (auto variable: b["params"].items()) {
-                    auto v = variable.value();
-                    std::string name = v["name"].get<std::string>();
-                    int model_position;
-                    try {
-                        //constant can be listed as a baseline value
-                        model_position = constantsBiMapModel.left.at(name);
-                        bool is_value = (v.find("value") != v.end());
-                        if (is_value) {
-                            bVar.knownConstants.push_back(
-                            {.name = name,
-                             .unique_name = name + "_" + bVar.groupName,
-                             .value = v["value"].get<double>(),
-                             .model_position = model_position
-                            });
-                        } else {
-                            //unknown constant specified for this baseline
-                            //i.e. stimulation shift
-                            bVar.unknownConstants.push_back(
-                            {.name = name,
-                             .unique_name = name + "_" + bVar.groupName,
-                             .min_value = v["bounds"][0].get<double>(),
-                             .max_value = v["bounds"][1].get<double>(),
-                             .init_guess_available = (v.find("init") != v.end()),
-                             .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
-                             .optimizer_position = number_unknowns++,
-                             .model_position = model_position,
-                             .gamma = v["gamma"].get<double>(),
-                             .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
-                            });
-                        }
-                    } catch (...) {
-                        //name is not a constant
-                        try {
-                            model_position = statesBiMapModel.left.at(name);
-                        } catch (...) {
-                            //or it is neither a constant nor a state variable
-                            throw(name + " in baseline config is neither constant nor state variable");
-                        }
-                        //remove it from statesBiMapDrifting
-                        statesBiMapDrifting.left.erase(name);
-
-                        bool is_value = (v.find("value") != v.end());
-                        if (is_value) {
-                            bVar.knownStates.push_back(
-                            {.name = name,
-                             .unique_name = name + "_" + bVar.groupName,
-                             .value = v["value"].get<double>(),
-                             .model_position = model_position
-                            });
-                        } else {
-                            bVar.unknownStates.push_back(
-                            {.name = name,
-                             .unique_name = name + "_" + bVar.groupName,
-                             .min_value = v["bounds"][0].get<double>(),
-                             .max_value = v["bounds"][1].get<double>(),
-                             .optimizer_position = number_unknowns++,
-                             .model_position = model_position,
-                             .gamma = v["gamma"].get<double>(),
-                             .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
-                            });
-                        }
-                    }
-                }
-                // statesBiMapDrifting may not be empty
-                // if RESET_STATES == 1 then statesBiMapDrifting states
-                // are reset to default before model runs
-                //
-                // if RESET_STATES == 0 then statesBiMapDrifting states
-                // drift (values are overwritten by model)
-                if (config["RESET_STATES"].get<int>() == 0) {
-                    for (const auto & sit: statesBiMapDrifting) {
-                        bVar.unknownStates.push_back(
-                        {.name = sit.left,
-                         .unique_name = sit.left + "_" + bVar.groupName,
-                         .min_value = 0,
-                         .max_value = 0,
+                    bool is_value = (v.find("value") != v.end());
+                    if (is_value) {
+                        bVar.knownConstants.push_back(
+                        {.name = name,
+                         .unique_name = name + "_" + bVar.groupName,
+                         .value = v["value"].get<double>(),
+                         .model_position = model_position
+                        });
+                    } else {
+                        //unknown constant specified for this baseline
+                        //i.e. stimulation shift
+                        bVar.unknownConstants.push_back(
+                        {.name = name,
+                         .unique_name = name + "_" + bVar.groupName,
+                         .min_value = v["bounds"][0].get<double>(),
+                         .max_value = v["bounds"][1].get<double>(),
+                         .init_guess_available = (v.find("init") != v.end()),
+                         .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
                          .optimizer_position = number_unknowns++,
-                         .model_position = sit.right,
-                         .gamma = 0,
-                         .is_mutation_applicable = 0
+                         .model_position = model_position,
+                         .gamma = v["gamma"].get<double>(),
+                         .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
+                        });
+                    }
+                } catch (...) {
+                    //name is not a constant
+                    try {
+                        model_position = statesBiMapModel.left.at(name);
+                    } catch (...) {
+                        //or it is neither a constant nor a state variable
+                        throw(name + " in baseline config is neither constant nor state variable");
+                    }
+                    //remove it from statesBiMapDrifting
+                    statesBiMapDrifting.left.erase(name);
+
+                    bool is_value = (v.find("value") != v.end());
+                    if (is_value) {
+                        bVar.knownStates.push_back(
+                        {.name = name,
+                         .unique_name = name + "_" + bVar.groupName,
+                         .value = v["value"].get<double>(),
+                         .model_position = model_position
+                        });
+                    } else {
+                        bVar.unknownStates.push_back(
+                        {.name = name,
+                         .unique_name = name + "_" + bVar.groupName,
+                         .min_value = v["bounds"][0].get<double>(),
+                         .max_value = v["bounds"][1].get<double>(),
+                         .optimizer_position = number_unknowns++,
+                         .model_position = model_position,
+                         .gamma = v["gamma"].get<double>(),
+                         .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
                         });
                     }
                 }
             }
+            // statesBiMapDrifting may not be empty
+            // if RESET_STATES == 1 then statesBiMapDrifting states
+            // are reset to default before model runs
+            //
+            // if RESET_STATES == 0 then statesBiMapDrifting states
+            // drift (values are overwritten by model)
+            if (config["RESET_STATES"].get<int>() == 0) {
+                for (const auto & sit: statesBiMapDrifting) {
+                    bVar.unknownStates.push_back(
+                    {.name = sit.left,
+                     .unique_name = sit.left + "_" + bVar.groupName,
+                     .min_value = 0,
+                     .max_value = 0,
+                     .optimizer_position = number_unknowns++,
+                     .model_position = sit.right,
+                     .gamma = 0,
+                     .is_mutation_applicable = 0
+                    });
+                }
+            }
+        }
 
-            //fill pointers_unknowns!!!!!!!!!!!!!!!!!!!!!
-            pointers_unknowns.resize(number_unknowns);
-            for (Unknown & gl: globalValues.unknownConstants) {
+        //fill pointers_unknowns!!!!!!!!!!!!!!!!!!!!!
+        pointers_unknowns.resize(number_unknowns);
+        for (Unknown & gl: globalValues.unknownConstants) {
+            pointers_unknowns[gl.optimizer_position] = &gl;
+        }
+        for (Unknown & gl: globalValues.unknownStates) {
+            pointers_unknowns[gl.optimizer_position] = &gl;
+        }
+
+        for (Values & vars: baselineValues) {
+            for (Unknown & gl: vars.unknownConstants) {
                 pointers_unknowns[gl.optimizer_position] = &gl;
             }
-            for (Unknown & gl: globalValues.unknownStates) {
+            for (Unknown & gl: vars.unknownStates) {
                 pointers_unknowns[gl.optimizer_position] = &gl;
             }
-
-            for (Values & vars: baselineValues) {
-                for (Unknown & gl: vars.unknownConstants) {
-                    pointers_unknowns[gl.optimizer_position] = &gl;
-                }
-                for (Unknown & gl: vars.unknownStates) {
-                    pointers_unknowns[gl.optimizer_position] = &gl;
-                }
+        }
+        if (mpi_rank == 0) {
+            for (auto pu : pointers_unknowns) {
+                const auto & u = *pu;
+                std::cout << u.optimizer_position << " " << u.unique_name << std::endl;
             }
-            if (mpi_rank == 0) {
-                for (auto pu : pointers_unknowns) {
-                    const auto & u = *pu;
-                    std::cout << u.optimizer_position << " " << u.unique_name << std::endl;
-                }
-            }
-/*obsolete since we can call direct problem directly
-            //we may need to generate test baselines first
-            bool run_type = (config.find("mode") != config.end());
-            if (mpi_rank == 0 && run_type && config["mode"].get<std::string>() == "Generate synthetic baselines") {
-
-                std::cout << "Generating synthetic baselines" << std::endl;
-                std::cout << "ATTENTION! ALL BASELINES FROM CONFIG WILL BE OVERWRITTEN" << std::endl;
-                const double t_sampling = config["t_sampling"].get<double>();
-                const int beats_num = config["generator_beats"].get<int>();//run model long enough to get a steady state
-
-                int baseline_number = 0;
-
-                for (auto baseline: config["baselines"].items()) {
-                    Model model;
-                    std::vector<double> y0(model.state_size());
-
-                    std::vector<double> parameters(number_unknowns);
-                    initial_guess(parameters.begin(), 0);
-
-                    std::vector<double> vconstants(model.constants_size());
-                    double * constants = vconstants.data();
-                    model.set_constants(constants);//!!!!!!!
-                    fill_constants_y0(parameters.begin(), constants, y0.data(), baseline_number);
-                    const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
-
-                    //now we need to resize apRecord according to period lenght and t_sampling
-                    double num_rec = 1 + std::ceil( period / t_sampling );
-                    assert(num_rec < std::numeric_limits<unsigned int>::max());
-                    Baseline apRecord(static_cast<unsigned int> (num_rec));
-                    model_eval(y0, model, beats_num, period, apRecord);
-
-                    bool if_nan_in_AP = (apRecord.end() != std::find_if(apRecord.begin(), apRecord.end(), [](double v) {
-                                           return std::isnan(v); }));
-                    if (if_nan_in_AP) {
-                        std::cout << "NaN found in the generated baseline" << std::endl;
-                        throw 1;
-                    }
-                    //save state and baseline
-                    auto b = baseline.value();
-                    std::string apfilename = b["filename_phenotype"].get<std::string>();
-                    write_baseline(apRecord, apfilename);
-                    //initial state may not be provided
-                    bool initial_state = (b.find("filename_state") != b.end());
-                    if (initial_state) {
-                        std::string statefilename = b["filename_state"].get<std::string>();
-                        write_state(y0, statefilename);
-                    }
-                    baseline_number++;
-                }
-            }
-
-            //wait for a root node to complete baseline generation
-            MPI_Barrier(MPI_COMM_WORLD);
-*/
-
-      //  }
-        //broadcast all this nonsense;
-        //TODO
+        }
     }
     void read_baselines(json & config)
     {
-        apbaselines = ListOfBaselines();
+        apbaselines = VectorOfBaselines();
         for (auto baseline: config["baselines"].items()) {
             auto b = baseline.value();
             std::string apfilename = b["filename_phenotype"].get<std::string>();
@@ -854,13 +617,13 @@ public:
             if (hh_index == -1)
                 throw("Fix baselines");
             apbaselines_halfheights.back() = hh_index;
-            std::cout << "hh_index: " << hh_index << std::endl;
             //initial state may not be provided
+            // do we really need it?
             bool initial_state = (b.find("filename_state") != b.end());
             if (initial_state) {
                 std::string statefilename = b["filename_state"].get<std::string>();
 
-                //TODO
+                /// @todo
                 //read_state(..., statefilename);
             }
         }
@@ -945,7 +708,6 @@ protected:
         g_model.initConsts(constants);
         g_model.initState(y0);
     }
-
 
     template <typename It>
     void initial_guess(It parameters_begin) const
@@ -1100,7 +862,7 @@ public:
         }
     }
 protected:
-    void model_eval(std::vector<double> & y0, Model & model, int n_beats, double period, Baseline & apRecord) const
+    void get_voltage_trace(std::vector<double> & y0, Model & model, int n_beats, double period, Baseline & apRecord) const
     {
         // called while solving optimization problem
         // when we try to fit AP curves
@@ -1115,7 +877,6 @@ protected:
         double tout = period * n_beats;
         direct_problem(y0, model, start_record, tout, table);
 
-        //TODO
         //save to apRecord
         for (int i = 0; i < apRecord.size(); i++)
             apRecord[i] = table(i, 0);
@@ -1123,6 +884,11 @@ protected:
     double reg_alpha;
 public:
 
+    /**
+     *
+     * Meaningful only for unconstained optimization
+     *
+     */
     double parameter_penalty(std::vector<double> & parameters) const
     {
         double penalty = 0;
@@ -1140,13 +906,13 @@ public:
         return penalty;
     }
     template <typename It>
-    ListOfBaselines genetic_algorithm_calls_general(It optimizer_parameters_begin, double & extra_penalty, int n_beats = -1) const
+    VectorOfBaselines generate_baselines(It optimizer_parameters_begin, double & extra_penalty, int n_beats = -1) const
     {
         std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
 
         if (n_beats == -1) n_beats = beats;
-        ListOfBaselines apmodel;
+        VectorOfBaselines apmodel;
         for (const auto & v: apbaselines)
             apmodel.push_back(Baseline(v.size()));
 
@@ -1164,7 +930,7 @@ public:
             const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
 
             try {
-                model_eval(y0, model, n_beats, period, apRecord);
+                get_voltage_trace(y0, model, n_beats, period, apRecord);
             } catch (...) {
                 //solver failed
                 solver_failed = 1;
@@ -1172,14 +938,14 @@ public:
             if (solver_failed)
                 break;
             //save mutable variables from the state
-            //since we let them to drift
+            //since we let them drift
             for (const Unknown & m: baselineValues[i].unknownStates) {
                 model_scaled_parameters[m.optimizer_position] = y0[m.model_position];
             }
             extra_penalty = parameter_penalty(model_scaled_parameters);
 
 
-            // rotate apRecord so halfheights are same
+            // roll apRecord so halfheights are aligned
             const int indexApRecord = halfheight_index(apRecord);
             if (indexApRecord == -1) {
                 // assume it is a problem with this exact guess made by optimizer
@@ -1188,7 +954,7 @@ public:
                 const int diff = indexApRecord - apbaselines_halfheights[i];
                 if (diff >= 0)
                     std::rotate(apRecord.begin(), apRecord.begin() + diff, apRecord.end());
-                else
+                else // diff < 0
                     std::rotate(apRecord.begin(), apRecord.end() + diff, apRecord.end());
             }
         }
@@ -1219,14 +985,19 @@ public:
     }
 
     template <typename It>
-    double genetic_algorithm_calls(It parameters_begin) const
+    double get_objective_value(It parameters_begin) const
     {
         double boundaries_penalty;
-        double main_penalty = obj.dist(apbaselines, genetic_algorithm_calls_general(parameters_begin, boundaries_penalty), apbaselines_halfheights);
+        double main_penalty = obj->dist(apbaselines, generate_baselines(parameters_begin, boundaries_penalty));
         return main_penalty + boundaries_penalty + regularization(parameters_begin);
     }
+
+    /**
+     * @brief Method to submit result made by optimizer
+     *
+     */
     template <typename V>
-    void genetic_algorithm_result(const V & parameters)
+    void submit_result(const V & parameters)
     {
         std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(parameters.begin(), model_scaled_parameters.begin());
@@ -1265,8 +1036,8 @@ public:
     void dump_ap(It parameters_begin, int i, int num_beats = -1) const
     {
         double extra_penalty;
-        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, extra_penalty, num_beats);
-        const double dist = obj.dist(apbaselines, tmp_b, apbaselines_halfheights) + extra_penalty;
+        const auto tmp_b = generate_baselines(parameters_begin, extra_penalty, num_beats);
+        const double dist = obj->dist(apbaselines, tmp_b) + extra_penalty;
         std::cout << "final dist: " << dist << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
@@ -1276,7 +1047,7 @@ public:
     {
         double ll = 0;
         double extra_penalty;
-        ListOfBaselines res = genetic_algorithm_calls_general(pars.begin(), extra_penalty); //extra_penalty is not used further
+        VectorOfBaselines res = generate_baselines(pars.begin(), extra_penalty); //extra_penalty is not used further
         assert(apbaselines.size() == res.size());
         const double sigma = 100;//it is just an assumption, need to find sigma from experimental data TODO
         const double add = -log(sqrt(2*M_PI) * sigma);//with normalization
@@ -1376,182 +1147,5 @@ public:
     }
 };
 
-
-
-
-template <typename Model, typename Solver, typename Objective>
-class ODEoptimizationTrackVersion:
-    public ODEoptimization<Model, Solver, Objective>
-{
-protected:
-    using Base = ODEoptimization<Model, Solver, Objective>;
-    using typename Base::Baseline;
-    using typename Base::ListOfBaselines;
-    using Base::apbaselines;
-    using Base::obj;
-    using Base::write_baseline;
-    using Base::genetic_algorithm_calls_general;
-
-    ListOfBaselines initial_guess_baseline;
-    ListOfBaselines intermediate_baseline;
-
-    double alpha;
-public:
-    using Base::is_AP_normalized;
-    using Base::normalize_baseline;
-    ODEoptimizationTrackVersion(const Model & model, const Solver & solver, const Objective & obj)
-    : Base(model, solver, obj)
-    {}
-
-    template <typename It>
-    void start_track(It parameters_begin)
-    {
-        double extra_penalty;
-        initial_guess_baseline = genetic_algorithm_calls_general(parameters_begin, extra_penalty, 300);
-        write_baseline(initial_guess_baseline[0], "baseline_start.txt");
-        intermediate_baseline = initial_guess_baseline; //to set size and check correctness of lsm
-
-        if (is_AP_normalized) {
-            for (auto & b: initial_guess_baseline)
-                normalize_baseline(b);
-        }
-        std::cout << "TEST: " << obj.dist(initial_guess_baseline, intermediate_baseline) << std::endl;
-        set_alpha(0);
-    }
-    void set_alpha(double alpha_)
-    {
-        //alpha = 0 then initial_guess_baseline
-        //alpha = 1 apbaselines
-        alpha = std::pow(alpha_, 1);
-        for (size_t i = 0; i < apbaselines.size(); i++) {
-            for (size_t j = 0; j < apbaselines[i].size(); j++)
-                intermediate_baseline[i][j] = alpha * apbaselines[i][j]
-                            + (1 - alpha) * initial_guess_baseline[i][j];
-            if (is_AP_normalized)
-                normalize_baseline(intermediate_baseline[i]);
-        }
-    }
-    template <typename It>
-    double genetic_algorithm_calls(It parameters_begin) const
-    {
-     //   write_baseline(intermediate_baseline[0], "baseline_1.txt");///////////////////////////////
-       // for (int i = 2; i < 10; i++) {///////////////////////////////////////////////////////////////////////
-       double extra_penalty;
-            const auto tmp_b = genetic_algorithm_calls_general(parameters_begin, extra_penalty);
-        //    write_baseline(tmp_b[0], std::string("baseline_") + std::to_string(i) + ".txt");/////////////////////////////////////////
-       // }/////////////////////////////////////////////////////////
-      //  auto tmp_b = intermediate_baseline;/////////////////////////////////////////////////////////////////////
-        return obj.dist(intermediate_baseline, tmp_b) + extra_penalty;
-    }
-
-    /*
-    template <typename It>
-    void dump_ap(It parameters_begin, int i) const
-    {
-        const auto tmp_b = genetic_algorithm_calls_general(parameters_begin);
-        write_baseline(tmp_b[0], std::string("ap") + std::to_string(i) + ".txt");
-    }
-    */
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-template <typename Func>
-class MinimizeFunc
-{
-public:
-    using num = typename Func::num;
-    using value = typename Func::value;
-    num operator()(const value & val) const
-    {
-        return val[0];
-    }
-};
-
-template <typename Func>
-class MaximizeFunc
-{
-public:
-    using num = typename Func::num;
-    using value = typename Func::value;
-    num operator()(const value & val) const
-    {
-        return -val[0];
-    }
-};
-
-template <typename Func, template<typename F> class Obj>
-class FuncOptimization
-{
-    Func & func;
-    Obj<Func> obj;
-    using argument = typename Func::argument;
-    argument result;
-public:
-    FuncOptimization(Func & func)
-    : func(func)
-    {}
-    argument get_result() const
-    {
-        return result;
-    }
-    int get_number_parameters() const
-    {
-        return func.get_xdim();
-    }
-    template <typename T1, typename T2>
-    int get_boundaries(T1 & pmin, T1 & pmax, T2 & is_mutation_applicable) const
-    {
-        auto ppmin = func.x_min();
-        std::copy(ppmin.begin(), ppmin.end(), pmin.begin());
-        auto ppmax = func.x_max();
-        std::copy(ppmax.begin(), ppmax.end(), pmax.begin());
-        std::fill(is_mutation_applicable.begin(), is_mutation_applicable.end(), 1);
-        return 0; //have boundaries
-        //return -1; //no boundaries
-    }
-    template <typename It>
-    int initial_guess(It begin) const
-    {
-        //return 0; //if you provided some initial guess
-        return -1; //no initial guess at all
-    }
-    template <typename It>
-    double genetic_algorithm_calls(It parameters_begin) const
-    {
-        argument params;
-        for (int i = 0; i != func.get_xdim(); i++, parameters_begin++)
-            params[i] = *parameters_begin;
-        return obj(func(params));
-    }
-    template <typename V>
-    void genetic_algorithm_result(const V & parameters)
-    {
-        for (int i = 0; i != func.get_xdim(); i++)
-            result[i] = parameters[i];
-    }
-    std::vector<double> get_gamma_vector() const
-    {
-        /*
-         * call it only after config read!
-         * zero for a gene which does not mutate
-         */
-        std::vector<double> v_gamma(get_number_parameters(), 1);
-        return v_gamma;
-    }
-};
 
 #endif

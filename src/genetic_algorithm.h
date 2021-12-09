@@ -168,7 +168,7 @@ public:
         #pragma omp parallel for
         for (int i = 0; i < num_init_organisms; i++) {
 			sd_n_index[i].second = i;
-            sd_n_index[i].first = problem.genetic_algorithm_calls(init_genes.begin() + i * genes_per_organism);
+            sd_n_index[i].first = problem.get_objective_value(init_genes.begin() + i * genes_per_organism);
         }
         // find the best num_best organisms and copy them to all_genes
         // 1. find num_best - th organism
@@ -213,7 +213,7 @@ public:
     {
         #pragma omp parallel for
         for (int i = 0; i < number_organisms / mpi_size; i++) {
-            fitness_values[i] = problem.genetic_algorithm_calls(all_genes.begin() + i * genes_per_organism);
+            fitness_values[i] = problem.get_objective_value(all_genes.begin() + i * genes_per_organism);
         }
     }
 
@@ -296,7 +296,7 @@ public:
     void done()
     {
         if (mpi_rank != 0) return;
-        problem.genetic_algorithm_result(all_genes);
+        problem.submit_result(all_genes);
     }
 };
 

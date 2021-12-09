@@ -73,15 +73,10 @@ void Table::export_csv(const std::string & filename)
 
 int halfheight_index(const std::vector<double> & v)
 {
-    /* return depolarization halfheight position in v
-     * It is assumed that action potential is completely inside the single period
-     * represented by v
-     */
-
     assert(v.size() > 0);
     double max = v[0], min = v[0];
     //find max and min
-    for (int i = 0; i < v.size(); i++) {
+    for (unsigned i = 0; i < v.size(); i++) {
         if (v[i] < min) {
             min = v[i];
         } else if (v[i] > max) {
@@ -91,7 +86,7 @@ int halfheight_index(const std::vector<double> & v)
     const double hh = (max + min) / 2;
 
     //find i : v[i] <= hh <= v[i + 1]
-    for (int i = 0; i < v.size(); i++) {
+    for (unsigned i = 0; i < v.size(); i++) {
         if (v[i] < hh)
             continue;
         //so v[i] >= hh

@@ -527,7 +527,7 @@ std::vector<std::pair<int, double>> nelder_mead(OptimizationProblem & problem, i
 
     if (ifault != 0)
         std::cout << "nelmin error code: " << ifault << std::endl;
-    problem.genetic_algorithm_result(res);
+    problem.submit_result(res);
     problem.dump_ap(res.begin(), 10);
     return error_per_gen;
 }

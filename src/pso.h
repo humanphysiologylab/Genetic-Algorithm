@@ -228,10 +228,10 @@ public:
             auto best_genes = all_best_genes.begin() + i * genes_per_organism;
             auto vel = velocities.begin() + i * genes_per_organism;
             //call optimized function
-            const double new_val = problem.genetic_algorithm_calls(genes);
+            const double new_val = problem.get_objective_value(genes);
             if (1) {
                 //lets update best_genes each time to get steady state
-                all_best_genes_fitness_values[i] = problem.genetic_algorithm_calls(best_genes);
+                all_best_genes_fitness_values[i] = problem.get_objective_value(best_genes);
                 if (all_best_genes_fitness_values[i] > 100) {
                     reset_organism(random_generators[omp_get_thread_num()], genes, vel);
                     for (int j = 0; j < genes_per_organism; j++)
@@ -327,7 +327,7 @@ public:
     void done()
     {
         if (mpi_rank != 0) return;
-        problem.genetic_algorithm_result(best_global_genes);
+        problem.submit_result(best_global_genes);
     }
 };
 

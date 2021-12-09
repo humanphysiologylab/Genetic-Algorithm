@@ -33,6 +33,8 @@
 
 #include "cellml_ode_solver.h"
 #include "optimization_problem.h"
+#include "optimization_problem_rest.h"
+#include "objective.h"
 #include "nelder_mead.h"
 #include "cell_chain.h"
 
@@ -100,7 +102,6 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
     if (mpi_rank == 0)
         std::cout << "time_population_init, s: " << time_population_init << std::endl;
 
-    /** @todo Create base class for mutation */
     auto mutation = new_mutation(seed_source, config["mutation_type"].get<std::string>(), config, problem);
     auto selection = TournamentSelectionFast(pcg64(seed_source));
     auto crossover = SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>());
@@ -109,40 +110,33 @@ void gen_algo_call(SeedSource & seed_source, Problem & problem, json & config, s
             crossover,
             *mutation,
             config["n_generations"].get<unsigned>());
-/*
-    if (config["mutation_type"].get<std::string>() == "Cauchy") {
-        genetic_algorithm(popMal,
-            TournamentSelectionFast(pcg64(seed_source)),
-            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
-            CauchyMutation<pcg64, SeedSource>
-                                            (seed_source,
-                                            config["mutrate"].get<double>(),
-                                            config["gamma"].get<double>(),
-                                            problem.get_gamma_vector()),
-            config["n_generations"].get<unsigned>());
-
-    } else if (config["mutation_type"].get<std::string>() == "Poly") {
-        genetic_algorithm(popMal,
-            TournamentSelectionFast(pcg64(seed_source)),
-            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
-            PolynomialMutation<pcg64, SeedSource>
-                                            (seed_source,
-                                            config["mutrate"].get<double>(),
-                                            config["eta_mutation"].get<int>()),
-            config["n_generations"].get<unsigned>());
-    } else if (config["mutation_type"].get<std::string>() == "None") {
-        genetic_algorithm(popMal,
-            TournamentSelectionFast(pcg64(seed_source)),
-            SBXcrossover(pcg64(seed_source), config["crossrate"].get<double>(), config["eta_crossover"].get<int>()),
-            NoMutation(),
-            config["n_generations"].get<unsigned>());
-    } else {
-        throw("Unknown mutation_type in config");
-    }
-*/
     error_per_gen = popMal.get_error_per_gen();
 }
 
+template <typename SeedSource, typename Problem>
+void PSO_call(SeedSource & seed_source, Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen)
+{
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+    PSO_population<Problem, pcg64, SeedSource> pop(problem,
+                    config["n_organisms"].get<unsigned>(), seed_source);
+
+    double time_population_init = MPI_Wtime();
+    pop.init(pcg64(seed_source));
+    time_population_init = MPI_Wtime() - time_population_init;
+
+    if (mpi_rank == 0)
+        std::cout << "time_population_init, s: " << time_population_init << std::endl;
+
+    particle_swarm_optimization(pop, config["n_generations"].get<unsigned>());
+
+    error_per_gen = pop.get_error_per_gen();
+}
+
+
+#if 0
 void main_gen_algo(const char *configFilename)
 {
     int mpi_rank, mpi_size;
@@ -321,15 +315,17 @@ void main_gen_algo(const char *configFilename)
     }
     */
 }
-
+#endif
 
 /**
- * @brief Script to find model parameters using genetic algorithm
+ * @brief Script to find model parameters
  *
+ *
+ * Optimizer is set in @p config
  *
  * @param[in] config Json config
  */
-void script_genetic_algorithm(json & config)
+void script_general_optimizer(json & config)
 {
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -340,14 +336,10 @@ void script_genetic_algorithm(json & config)
 
     //MaleckarModel model; /// @todo Move it to config file
     KernikClancyModel model;
+
     ODESolver solver;
 
-    MinimizeAPbaselines obj; /// @todo Move it to config file
-    //ScaleMinimizeAPbaselines obj;
-    //MaximizeAPinnerProduct obj;
-    //LeastSquaresMinimizeAPbaselines obj;
-
-    ODEoptimization problem(model, solver, obj);
+    ODEoptimization problem(model, solver);
 
     try {
         problem.read_config(config);
@@ -355,16 +347,34 @@ void script_genetic_algorithm(json & config)
     } catch (const std::string & err) {
         std::cerr << "Cannot read config for the problem: " << std::endl;
         std::cerr << err << std::endl;
-        std::cerr << "Genetic Algorithm will not be run" << std::endl;
+        std::cerr << "Optimization will not be run" << std::endl;
         return;
     }
 
     std::vector<std::pair<int, double>> error_per_gen;
 
-    gen_algo_call(seed_source, problem, config, error_per_gen);
+    const std::string sname = config["script"].get<std::string>();
 
+    if (sname == "Genetic Algorithm") {
+        if (mpi_rank == 0)
+            std::cout << "Genetic algorithm starting now" << std::endl;
+
+        gen_algo_call(seed_source, problem, config, error_per_gen);
+
+        if (mpi_rank == 0)
+            std::cout << "Genetic algorithm is complete" << std::endl;
+    } else if (sname == "PSO") {
+        if (mpi_rank == 0)
+            std::cout << "PSO starting now" << std::endl;
+
+        PSO_call(seed_source, problem, config, error_per_gen);
+
+        if (mpi_rank == 0)
+            std::cout << "PSO is complete" << std::endl;
+    } else {
+        throw(std::logic_error("Unknown optimizer type"));
+    }
     if (mpi_rank == 0) {
-        std::cout << "Genetic algorithm is complete" << std::endl;
         std::cout << "Saving output files to disk..." << std::endl;
         std::string convergence_filename = "convergence_GA.txt";
         std::ofstream file(convergence_filename);
@@ -391,86 +401,10 @@ void script_genetic_algorithm(json & config)
 
 
 
-
-
-void script_PSO(json & config)
-{
-    int mpi_rank, mpi_size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-
-    pcg_extras::seed_seq_from<std::random_device> seed_source;
-    //const int seed_source = 42;
-
-    //MaleckarModel model;
-    KernikClancyModel model;
-    ODESolver solver;
-
-    MinimizeAPbaselines obj;
-    //ScaleMinimizeAPbaselines obj;
-
-    //MaximizeAPinnerProduct obj;
-    //LeastSquaresMinimizeAPbaselines obj;
-    ODEoptimization problem(model, solver, obj);
-
-    try {
-        problem.read_config(config);
-        problem.read_baselines(config);
-    } catch (const char * err) {
-        std::cout << "catch in main:" << std::endl;
-        std::cout << err << std::endl;
-        throw;
-    }
-
-    std::vector<std::pair<int, double>> error_per_gen;
-
-
-    PSO_population<decltype(problem), pcg64, decltype(seed_source)> pop(problem,
-                    config["n_organisms"].get<unsigned>(), seed_source);
-
-    double time_population_init = MPI_Wtime();
-    pop.init(pcg64(seed_source));
-    time_population_init = MPI_Wtime() - time_population_init;
-
-    if (mpi_rank == 0)
-        std::cout << "time_population_init, s: " << time_population_init << std::endl;
-
-    particle_swarm_optimization(pop, config["n_generations"].get<unsigned>());
-
-    error_per_gen = pop.get_error_per_gen();
-
-    if (mpi_rank == 0) {
-        std::string filename = "convergence_GA.txt";
-        std::ofstream file(filename);
-        for (const auto & p: error_per_gen)
-            file << p.first << " " << p.second << std::endl;
-        //TODO
-        //problem.export_gen_algo_tables();
-    }
-    if (mpi_rank == 0) {
-        problem.dump_ap(problem.get_results_optimizer_format(), 0);
-        using Results = decltype(problem)::Results;
-        using BaselineResult = decltype(problem)::BaselineResult;
-        Results results = problem.get_relative_results();
-        BaselineResult res = results[0];
-        std::cout << "Printing relative to default results" << std::endl;
-        for (const auto & cit: res.constantsResult)
-            std::cout << cit.first << " " << cit.second << std::endl;
-        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
-        for (const auto & sit: res.statesResult)
-            std::cout << sit.first << " " << sit.second << std::endl;
-    }
-}
-
-
-
-
-
-
-
-
 void script_nelder_mead(json & config)
 {
+    /// @todo
+#if 0
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -533,6 +467,7 @@ void script_nelder_mead(json & config)
         for (const auto & sit: res.statesResult)
             std::cout << sit.first << " " << sit.second << std::endl;
     }
+#endif
 }
 
 void script_direct_problem(json & config)
@@ -541,8 +476,7 @@ void script_direct_problem(json & config)
     KernikClancyModel model;
 
     ODESolver solver;
-    LeastSquaresMinimizeAPbaselines obj;
-    ODEoptimization problem(model, solver, obj);
+    ODEoptimization problem(model, solver);
 
     try {
         problem.read_config(config);
@@ -565,8 +499,7 @@ void script_direct_problem_chain(json & config)
 	CellChainModel<KernikClancyModel> model(config["chain_len"].get<int>(), config["main_cell_index"].get<int>());
 
 	ODESolver solver;
-    LeastSquaresMinimizeAPbaselines obj;
-    ODEoptimization problem(model, solver, obj);
+    ODEoptimization problem(model, solver);
 
     try {
         problem.read_config(config);
@@ -586,11 +519,12 @@ void script_direct_problem_chain(json & config)
 
 void script_gradient_descent(json & config)
 {
-
+///@todo
 }
 
 void script_test_function(json & config)
 {
+    ///@todo
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -650,9 +584,12 @@ void script_test_function(json & config)
     }
 }
 
+
+
 void script_track_minimum(json & config)
 {
-
+    ///@todo
+#if 0
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -725,11 +662,13 @@ return;
         for (const auto & sit: res.statesResult)
             std::cout << sit.first << " " << sit.second << std::endl;
     }
-}
 
+#endif
+}
 
 void script_mcmc(json & config)
 {
+    ///@todo
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -804,7 +743,7 @@ return;
     }
 #else
     if (mpi_rank == 0)
-        std::cerr << "Build with no MCMC support" << std::endl;
+        std::cerr << "This is a build with no MCMC support" << std::endl;
 #endif
 
 }
@@ -852,9 +791,9 @@ int main(int argc, char *argv[])
     const std::string sname = config["script"].get<std::string>();
     try {
         if (sname == "Genetic Algorithm") {
-            script_genetic_algorithm(config);
+            script_general_optimizer(config);
         } else if (sname == "PSO") {
-            script_PSO(config);
+            script_general_optimizer(config);
         }else if (sname == "Nelder Mead") {
             script_nelder_mead(config);
         } else if (sname == "Direct Problem") {
