@@ -805,7 +805,7 @@ protected:
     }
 public:
     void run_direct_and_dump(double start_record_time, double time, double dump_period, std::string filename,
-        const std::vector<std::string> & dump_vars)
+        const std::vector<std::string> & dump_vars) const
     {
         for (unsigned baseline_index = 0; baseline_index < baselineValues.size(); baseline_index++) {
 
@@ -1083,7 +1083,7 @@ public:
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
     }
 
-    double loglikelihood(std::vector<double> pars)
+    double loglikelihood(std::vector<double> pars) const
     {
         double ll = 0;
         VectorOfBaselines res = generate_baselines(pars.begin());
@@ -1103,7 +1103,7 @@ public:
         }
         return ll;
     }
-    std::vector<std::string> get_unique_parameter_names()
+    std::vector<std::string> get_unique_parameter_names() const
     {
         std::vector<std::string> names(number_unknowns);
         for (int i = 0; i < number_unknowns; i++) {
@@ -1131,7 +1131,8 @@ public:
 
     std::vector<Table,Eigen::aligned_allocator<Table>> gen_algo_tables;
 
-    void gen_algo_stats(const std::vector<std::pair<double, int>> & sd_n_index, const std::vector<double> & all_genes, int gen, int total_gen)
+    void gen_algo_stats(const std::vector<std::pair<double, int>> & sd_n_index,
+            const std::vector<double> & all_genes, int gen, int total_gen)
     {
         const int percentile_step = 5;
         if (gen == 0) {
