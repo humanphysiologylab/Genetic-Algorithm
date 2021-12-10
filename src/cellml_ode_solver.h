@@ -67,7 +67,7 @@ public:
 		y0 = state_out;
 
         make_a_record(t, model, recorded_states, recorded_algs, y0, 0);
-		for (size_t i = 1; i < recorded_states.rows(); i++) {
+		for (int i = 1; i < recorded_states.rows(); i++) {
             if (istate <= 0) {
                 is_correct = 0;
                 throw istate;

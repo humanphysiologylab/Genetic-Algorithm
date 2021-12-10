@@ -1617,7 +1617,7 @@ C              solver again.
         atol_.resize(neq + 1);
         rtol_[0] = 0;
         atol_[0] = 0;
-        for (int i = 0; i < r_a_tol.size(); i++) {
+        for (size_t i = 0; i < r_a_tol.size(); i++) {
             rtol_[i+1] = r_a_tol[i].first;
             atol_[i+1] = r_a_tol[i].second;
         }

@@ -152,7 +152,7 @@ public:
         std::cout << "really bad filtered by tournament (sd > " << threshold << ")" << ": " << sd_n_index.size() - first_bad_index << std::endl;
         if (first_bad_index == 0)
             throw("Tournament: all species are bad!");
-        for (int i = first_bad_index; i < sd_n_index.size(); i++) {
+        for (size_t i = first_bad_index; i < sd_n_index.size(); i++) {
             int j = std::uniform_int_distribution<int>(0,  first_bad_index - 1)(rg);
             sd_n_index[i] = sd_n_index[j];
         }

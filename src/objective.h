@@ -112,7 +112,7 @@ public:
             "         p:" << p <<
             "         A:" << A <<
             "         B:" << B << std::endl;
-            for (int i = 0; i < f.size(); i++) {
+            for (size_t i = 0; i < f.size(); i++) {
                 if (std::isnan(f[i])) {
                     std::cout << "f is nan" << std::endl;
                     break;

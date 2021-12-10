@@ -85,13 +85,14 @@ protected:
     Solver solver;
     std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> obj;
 
+    //set_constants is not thread-safe
     Model g_model; //use this model only as a reference!!!! Do not call it directly but make a copy of it!
-    
+
     VectorOfBaselines apbaselines;
 
     bool ignore_before_halfheight;
     std::vector<int> apbaselines_halfheights;
-	
+
     std::vector<StimulationBase*> stimulation_protocols;
 
     // There are two types of values:
@@ -155,9 +156,9 @@ public:
 		for (auto s: stimulation_protocols)
 			delete [] s;
 	}
-    
+
     int beats;
-    
+
     using ConstantsResult = std::unordered_map<std::string, double>;
     using StatesResult = std::unordered_map<std::string, double>;
     struct BaselineResult
@@ -203,7 +204,7 @@ protected:
         if (minOrig <= 0) {
             throw("minOrig <= 0");
         } else {
-            return exp(x * log(maxOrig / minOrig)) * minOrig; 
+            return exp(x * log(maxOrig / minOrig)) * minOrig;
         }
     }
 
@@ -275,7 +276,7 @@ protected:
     }
 public:
     void unfreeze_global_variable(const std::string & name, double min_value, double max_value, std::vector<double> & params)
-    {/// @todo a lot! Use it at your own risk!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    {/// @todo not ready, use it at your own risk!
         throw("unfreeze_global_variable not ready yet");
         globalValues.knownConstants;//remove from knownConstants
         bool is_found_in_knownConstants = 0;
@@ -421,7 +422,7 @@ public:
     void read_config(json & config)
     {
         ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
-        obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>()); 
+        obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
 
         is_AP_normalized = config["is_AP_normalized"].get<int>();
         beats = config["n_beats"].get<int>();
@@ -806,7 +807,7 @@ public:
     void run_direct_and_dump(double start_record_time, double time, double dump_period, std::string filename,
         const std::vector<std::string> & dump_vars)
     {
-        for (int baseline_index = 0; baseline_index < baselineValues.size(); baseline_index++) {
+        for (unsigned baseline_index = 0; baseline_index < baselineValues.size(); baseline_index++) {
 
             const auto & baseline = baselineValues[baseline_index];
             Model model(g_model);
@@ -878,15 +879,17 @@ protected:
         direct_problem(y0, model, start_record, tout, table);
 
         //save to apRecord
-        for (int i = 0; i < apRecord.size(); i++)
+        for (size_t i = 0; i < apRecord.size(); i++)
             apRecord[i] = table(i, 0);
     }
     double reg_alpha;
 public:
 
     /**
+     * @brief Boundary restriction penalty in model scale
      *
-     * Meaningful only for unconstained optimization
+     * The function provides boundary restriction penalty for parameters in model scale.
+     * It is meaningful only for unconstained optimizators such as nelder-mead, gradient descent etc.
      *
      */
     double parameter_penalty(std::vector<double> & parameters) const
@@ -905,8 +908,16 @@ public:
         }
         return penalty;
     }
+
     template <typename It>
-    VectorOfBaselines generate_baselines(It optimizer_parameters_begin, double & extra_penalty, int n_beats = -1) const
+    double parameter_penalty_optimizer(It optimizer_parameters_begin) const
+    {
+        std::vector<double> model_scaled_parameters(number_unknowns);
+        optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
+        return parameter_penalty(model_scaled_parameters);
+    }
+    template <typename It>
+    VectorOfBaselines generate_baselines(It optimizer_parameters_begin, int n_beats = -1) const
     {
         std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
@@ -942,7 +953,6 @@ public:
             for (const Unknown & m: baselineValues[i].unknownStates) {
                 model_scaled_parameters[m.optimizer_position] = y0[m.model_position];
             }
-            extra_penalty = parameter_penalty(model_scaled_parameters);
 
 
             // roll apRecord so halfheights are aligned
@@ -970,8 +980,12 @@ public:
         return apmodel;
     }
 
+    /**
+     * @brief L2-regularization wrt initial guess in optimizer scale
+     *
+     */
     template <typename It>
-    double regularization(It parameters_begin) const
+    double regularization_optimizer_scale(It parameters_begin) const
     {
         double reg = 0;
         std::vector<double> prior(pointers_unknowns.size());
@@ -984,12 +998,38 @@ public:
         return reg_alpha * reg;
     }
 
+    VectorOfBaselines get_trimmed_baselines(const VectorOfBaselines b) const
+    {
+        VectorOfBaselines res;
+
+        for (unsigned i = 0; i < b.size(); i++) {
+            res.push_back({b[i].begin() + apbaselines_halfheights[i], b[i].end()});
+        }
+
+        return res;
+    }
+    template <typename It>
+    double get_objective_value(It parameters_begin, const VectorOfBaselines baselines) const
+    {
+        double param_penalty_value = parameter_penalty_optimizer(parameters_begin);
+        double main_penalty;
+        if (!ignore_before_halfheight) {
+            main_penalty = obj->dist(apbaselines, baselines);
+        } else {
+            //trim 0:halfheight_index
+            main_penalty = obj->dist(get_trimmed_baselines(apbaselines), get_trimmed_baselines(baselines));
+        }
+        return main_penalty + param_penalty_value + regularization_optimizer_scale(parameters_begin);
+    }
+
+    /**
+     * @brief The function returns objective function value for a given unknown parameter vector
+     *
+     */
     template <typename It>
     double get_objective_value(It parameters_begin) const
     {
-        double boundaries_penalty;
-        double main_penalty = obj->dist(apbaselines, generate_baselines(parameters_begin, boundaries_penalty));
-        return main_penalty + boundaries_penalty + regularization(parameters_begin);
+        return get_objective_value(parameters_begin, generate_baselines(parameters_begin));
     }
 
     /**
@@ -999,6 +1039,9 @@ public:
     template <typename V>
     void submit_result(const V & parameters)
     {
+        results_optimizer_format = std::vector<double>(number_unknowns);
+        std::copy(parameters.begin(), parameters.begin() + number_unknowns, results_optimizer_format.begin());
+
         std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(parameters.begin(), model_scaled_parameters.begin());
         //mirror the stage of initialization before solver.solve call
@@ -1028,17 +1071,14 @@ public:
             results.push_back(res);
             relative_results.push_back(relative_res);
         }
-        results_optimizer_format = std::vector<double>(number_unknowns);
-        std::copy(parameters.begin(), parameters.begin() + number_unknowns, results_optimizer_format.begin());
     }
 
     template <typename It>
     void dump_ap(It parameters_begin, int i, int num_beats = -1) const
     {
-        double extra_penalty;
-        const auto tmp_b = generate_baselines(parameters_begin, extra_penalty, num_beats);
-        const double dist = obj->dist(apbaselines, tmp_b) + extra_penalty;
-        std::cout << "final dist: " << dist << std::endl;
+        const auto tmp_b = generate_baselines(parameters_begin, num_beats);
+        const double error = obj->dist(apbaselines, tmp_b);
+        std::cout << "Final error: " << error << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
     }
@@ -1046,8 +1086,7 @@ public:
     double loglikelihood(std::vector<double> pars)
     {
         double ll = 0;
-        double extra_penalty;
-        VectorOfBaselines res = generate_baselines(pars.begin(), extra_penalty); //extra_penalty is not used further
+        VectorOfBaselines res = generate_baselines(pars.begin());
         assert(apbaselines.size() == res.size());
         const double sigma = 100;//it is just an assumption, need to find sigma from experimental data TODO
         const double add = -log(sqrt(2*M_PI) * sigma);//with normalization
