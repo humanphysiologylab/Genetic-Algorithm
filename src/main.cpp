@@ -813,6 +813,8 @@ int main(int argc, char *argv[])
         }
     } catch(const std::string & e) {
         std::cerr << "Node " << mpi_rank << ": Exception string caught in main:\n" << e << std::endl;
+    } catch(const char * s) {
+        std::cerr << s << std::endl;
     }
     MPI_Finalize();
     return 0;

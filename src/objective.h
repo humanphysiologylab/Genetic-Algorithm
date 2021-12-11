@@ -243,6 +243,8 @@ public:
 template<typename Baseline, typename VectorOfBaselines>
 std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> new_objective(const std::string & name)
 {
+    if (name == "Min1normError")
+        return std::make_unique<MinimizePnormError<Baseline, VectorOfBaselines, 1>>();
     if (name == "Min2normError")
         return std::make_unique<MinimizePnormError<Baseline, VectorOfBaselines, 2>>();
     if (name == "LSscaleNshiftMin2normError")

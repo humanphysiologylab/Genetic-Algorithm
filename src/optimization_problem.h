@@ -421,12 +421,14 @@ public:
     }
     void read_config(json & config)
     {
-        ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
-        obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
-
-        is_AP_normalized = config["is_AP_normalized"].get<int>();
+        const std::string sname = config["script"].get<std::string>();
+        if (sname != "Direct Problem") {
+            ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
+            obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
+            reg_alpha = config["regularization_alpha"].get<double>();
+            is_AP_normalized = config["is_AP_normalized"].get<int>();
+        }
         beats = config["n_beats"].get<int>();
-        reg_alpha = config["regularization_alpha"].get<double>();
         number_unknowns = 0;
         //read global values
         globalValues.groupName = "global";
