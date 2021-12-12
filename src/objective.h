@@ -206,22 +206,21 @@ public:
 
 
 
-template<typename Baseline, typename VectorOfBaselines, int power = 2>
-class MaxInnerProduct:
+template<typename Baseline, typename VectorOfBaselines>
+class MaxCosine:
     public BaseObjective<Baseline, VectorOfBaselines>
 {
 public:
-    double innerProduct(const Baseline & a, const Baseline & b) const
+    double cosine(const Baseline & a, const Baseline & b) const
     {
-        double res = 0, lena = 0, lenb = 0;
+        double dotp = 0, sna = 0, snb = 0;
         assert(a.size() == b.size());
         for (size_t i = 0; i < a.size(); i++) {
-            res += a[i] * b[i];
-            lena += a[i] * a[i];
-            lenb += b[i] * b[i];
+            dotp += a[i] * b[i];
+            sna += a[i] * a[i];
+            snb += b[i] * b[i];
         }
-        res /= sqrt(lena * lenb);
-        return res;
+        return dotp / std::sqrt(sna * snb);
     }
 
     double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
@@ -229,14 +228,43 @@ public:
         assert(a.size() == b.size());
         double res = 0;
         for (size_t i = 0; i < a.size(); i++) {
-            res += innerProduct(a[i], b[i]);
+            res += cosine(a[i], b[i]);
         }
         res = res / (double) a.size(); //mean value
-        if (res < -1 || res > 1)
-            std::cout << "ATTENTION: inner product: " << res << std::endl;
         if (std::isnan(res))
             return 1e50;//std::numeric_limits<double>::max();
-        return -res;
+        return 1 - res;
+    }
+};
+
+template<typename Baseline, typename VectorOfBaselines>
+class MinWeirdDist:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    double weirdDist(const Baseline & a, const Baseline & b) const
+    {
+        double dotprod = 0, sna = 0, snb = 0;
+        assert(a.size() == b.size());
+        for (size_t i = 0; i < a.size(); i++) {
+            dotprod += a[i] * b[i];
+            sna += a[i] * a[i];
+            snb += b[i] * b[i];
+        }
+        return std::abs(std::sqrt(snb / sna) - 1) + std::abs(dotprod / std::sqrt(sna * snb) - 1);
+    }
+
+    double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += weirdDist(a[i], b[i]);
+        }
+        res = res / (double) a.size(); //mean value
+        if (std::isnan(res))
+            return 1e50;//std::numeric_limits<double>::max();
+        return res;
     }
 };
 
@@ -251,8 +279,10 @@ std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> new_objective(const 
         return std::make_unique<LSscaleNshiftMinPnormError<Baseline, VectorOfBaselines, 2>>();
     if (name == "LSscaleMin2normError")
         return std::make_unique<LSscaleMinPnormError<Baseline, VectorOfBaselines, 2>>();
-    if (name == "MaxInnerProduct")
-        return std::make_unique<MaxInnerProduct<Baseline, VectorOfBaselines, 2>>();
+    if (name == "MaxCosine")
+        return std::make_unique<MaxCosine<Baseline, VectorOfBaselines>>();
+    if (name == "MinWeirdDist")
+        return std::make_unique<MinWeirdDist<Baseline, VectorOfBaselines>>();
     throw std::logic_error("Unknown objective type");
 }
 
