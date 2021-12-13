@@ -71,7 +71,6 @@ public:
         const int openmp_threads = omp_get_max_threads();
         for (int i = 0; i < openmp_threads; i++)
             random_generators.push_back(RandomGenerator(seed));
-
     }
 
     void operator()(double *population_genes, const double * min_value, const double * max_value, int population_size, int genes_number, const int * is_mutation_applicable)

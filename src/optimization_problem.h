@@ -1021,7 +1021,10 @@ public:
             //trim 0:halfheight_index
             main_penalty = obj->dist(get_trimmed_baselines(apbaselines), get_trimmed_baselines(baselines));
         }
-        return main_penalty + param_penalty_value + regularization_optimizer_scale(parameters_begin);
+        double res = main_penalty + param_penalty_value + regularization_optimizer_scale(parameters_begin);
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
     }
 
     /**
