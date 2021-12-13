@@ -147,7 +147,7 @@ void KernikClancyModel::initConsts(double * constants)
    0,             // 94 g_seal_scaler
    1,             // 95 Cm_scaler
    0,             // 96 Ma2011_IK1 (boolean)
-   0,             // 97 Ma2011_INa (boolean)
+   0,             // 97 Type_INa (Ma2011 = 1, JalifeMature = 2)
    0              // 98 abstract_seal_leak_scaler (dimensionless)
    };
 
@@ -590,7 +590,7 @@ void KernikClancyModel::computerates(const double t,
     double j4 = 1. / ( ( 1. / j2 ) + ( 1. / j6 ) );
 
 
-    if (model_parameter_inputs[97]) {
+    if (model_parameter_inputs[97] == 1) {
         //Ma et al 2011
         double p1 = 99.1744;
         double p2 = 12.8321;
@@ -623,6 +623,37 @@ void KernikClancyModel::computerates(const double t,
         j4 = 1.0 / (1.0 / v2 + 1.0 / v4);
 
         //end Ma et al 2011
+    } else if (model_parameter_inputs[97] == 2) {
+        //Jalife lab mature
+        double p1 = 1.169172637489915e2;
+        double p2 = 0.133819111846843e2;
+        double p3 = 0.000007856227044e2;
+        double p4 = -0.076215910706424e2;
+        m1 = p1;
+        m2 = p2;
+        m3 = p1 * p3;
+        m4 = 1.0 / (1.0 / p2  + 1.0 / p4);
+        tau_m_const =  0.000296175760833e2;
+
+        double w1 = 0.000000960602835e3;
+        double w2 = -0.017188238822805e3;
+        double w3 = 8.054601979288204e3;
+        double w4 = 0.008825873829433e3;
+        tau_h_const = 0.000152402957057e3;
+        h1 = w1;
+        h2 = w2;
+        h3 = w1 * w3;
+        h4 = 1.0 / (1.0 / w2  + 1.0 / w4);
+
+        double v1 = 0.000000278370580e3;
+        double v2 = -0.059574965489917e3;
+        double v3 = 8.054601979288204e3;
+        double v4 = 0.008825873829433e3;
+        tau_j_const = 0.000741717293417e3;
+        j1 = v1;
+        j2 = v2;
+        j3 = v1 * v3;
+        j4 = 1.0 / (1.0 / v2 + 1.0 / v4);
     }
 
     // 13: h (dimensionless) (inactivation in i_Na)

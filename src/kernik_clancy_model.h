@@ -180,7 +180,7 @@ public:
         legend_constants[94] = "g_seal_scaler (dimensionless)";
         legend_constants[95] = "Cm_scaler (dimensionless, think really about it as a scaler for Cm/Vc)";
         legend_constants[96] = "Ma2011_IK1 (boolean)";
-        legend_constants[97] = "Ma2011_INa (boolean)";
+        legend_constants[97] = "Type_INa (Ma2011 = 1, JalifeMature = 2)";
         legend_constants[98] = "abstract_seal_leak_scaler (dimensionless)";
 
         legend_algebraic[0] = "i_K1 (pA/pF)";
