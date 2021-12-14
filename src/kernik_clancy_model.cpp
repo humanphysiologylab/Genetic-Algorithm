@@ -896,8 +896,6 @@ void KernikClancyModel::computerates(const double t,
 			i_stim = i_stim_Amplitude * std::fabs(fmt) * 2 / i_stim_PulseDuration;
 		else
 			i_stim = i_stim_Amplitude * (- std::fabs(i_stim_PulseDuration - fmt)) * 2 / i_stim_PulseDuration;
-        //too complicated
-        //i_stim = 2 * i_stim_Amplitude / M_PI * std::atan(std::tan((2 * M_PI * fmt) / (2 * i_stim_PulseDuration)));
     }
 
     //biphasic smooth pulse
@@ -910,6 +908,21 @@ void KernikClancyModel::computerates(const double t,
 		else
 			i_stim = i_stim_Amplitude * (- std::pow((i_stim_PulseDuration - fmt) * 2 / i_stim_PulseDuration, 2));
 	}
+   
+    //biphasic continuous 
+    if ( stim_flag == 5 &&
+         fmt >= 0 &&
+         fmt < i_stim_PulseDuration )
+    {
+        if (fmt < i_stim_PulseDuration / 3)
+			i_stim = i_stim_Amplitude * std::fabs(fmt) * 3 / i_stim_PulseDuration;
+		else if (fmt < 2.0 / 3 * i_stim_PulseDuration)
+			i_stim = - i_stim_Amplitude * (fmt - 0.5 * i_stim_PulseDuration) * 6 / i_stim_PulseDuration;
+        else
+            i_stim = i_stim_Amplitude * ((fmt - 2.0 / 3 * i_stim_PulseDuration) * 3 / i_stim_PulseDuration - 1);
+    }
+
+
 
     /* old version of rectangular pulse
     const double i_stim_End = 100000e3;           // milisecond (in stim_mode)
