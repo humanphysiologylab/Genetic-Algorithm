@@ -423,6 +423,7 @@ public:
     {
         const std::string sname = config["script"].get<std::string>();
         if (sname != "Direct Problem") {
+            num_repeated_obj_runs = config["repeated_obj_runs"].get<int>();
             ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
             obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
             reg_alpha = config["regularization_alpha"].get<double>();
@@ -1010,17 +1011,24 @@ public:
 
         return res;
     }
+
+    int num_repeated_obj_runs = 1;
+
     template <typename It>
-    double get_objective_value(It parameters_begin, const VectorOfBaselines baselines) const
+    double get_objective_value(It parameters_begin) const
     {
-        double param_penalty_value = parameter_penalty_optimizer(parameters_begin);
-        double main_penalty;
-        if (!ignore_before_halfheight) {
-            main_penalty = obj->dist(apbaselines, baselines);
-        } else {
-            //trim 0:halfheight_index
-            main_penalty = obj->dist(get_trimmed_baselines(apbaselines), get_trimmed_baselines(baselines));
+        double main_penalty = 0;
+        assert(num_repeated_obj_runs > 0);
+        for (int i = 0; i < num_repeated_obj_runs; i++) {
+            if (!ignore_before_halfheight) {
+                main_penalty += obj->dist(apbaselines, generate_baselines(parameters_begin));
+            } else {
+                //trim 0:halfheight_index
+                main_penalty += obj->dist(get_trimmed_baselines(apbaselines), get_trimmed_baselines(generate_baselines(parameters_begin)));
+            }
         }
+        main_penalty /= num_repeated_obj_runs;
+        double param_penalty_value = parameter_penalty_optimizer(parameters_begin);
         double res = main_penalty + param_penalty_value + regularization_optimizer_scale(parameters_begin);
         if (std::isnan(res))
             res = 1e50;
@@ -1031,11 +1039,13 @@ public:
      * @brief The function returns objective function value for a given unknown parameter vector
      *
      */
+    /*
     template <typename It>
     double get_objective_value(It parameters_begin) const
     {
         return get_objective_value(parameters_begin, generate_baselines(parameters_begin));
     }
+    */
 
     /**
      * @brief Method to submit result made by optimizer
