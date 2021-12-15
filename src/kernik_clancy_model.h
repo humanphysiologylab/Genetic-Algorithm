@@ -26,7 +26,7 @@ class KernikClancyModel
     //Colleen Clancy Lab @ UC davis
     //
 
-    static const int states_size = 25, alg_size = 22, const_size = 99;
+    static const int states_size = 25, alg_size = 22, const_size = 100;
     static constexpr double max_step_v = 1; //(ms)
     double * constants;
 
@@ -178,10 +178,11 @@ public:
 		legend_constants[92] = "g_b_K_scaler (dimensionless)";
         legend_constants[93] = "g_seal (nS_per_pF)";
         legend_constants[94] = "g_seal_scaler (dimensionless)";
-        legend_constants[95] = "Cm_scaler (dimensionless, think really about it as a scaler for Cm/Vc)";
+        legend_constants[95] = "Cm_div_Vc_scaler (dimensionless, scaler for Cm/Vc)";
         legend_constants[96] = "Ma2011_IK1 (boolean)";
         legend_constants[97] = "Type_INa (Ma2011 = 1, JalifeMature = 2)";
         legend_constants[98] = "abstract_seal_leak_scaler (dimensionless)";
+        legend_constants[99] = "Vc_div_V_SR_scaler (dimensionless, scaler for Vc/V_SR";
 
         legend_algebraic[0] = "i_K1 (pA/pF)";
         legend_algebraic[1] = "i_to (pA/pF)";

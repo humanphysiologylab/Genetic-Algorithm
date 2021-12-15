@@ -145,10 +145,11 @@ void KernikClancyModel::initConsts(double * constants)
    0,             // 92 g_b_K_scaler
    0.01666666666, // 93 g_seal (nS_per_pF) 1 / 1 GOhm / 60 pF
    0,             // 94 g_seal_scaler
-   1,             // 95 Cm_scaler
+   1,             // 95 Cm_div_Vc_scaler
    0,             // 96 Ma2011_IK1 (boolean)
    0,             // 97 Type_INa (Ma2011 = 1, JalifeMature = 2)
-   0              // 98 abstract_seal_leak_scaler (dimensionless)
+   0,             // 98 abstract_seal_leak_scaler (dimensionless)
+   1              // 99 Vc_div_V_SR_scaler (dimensionless)
    };
 
     for (int i = 0; i < const_size; i++)
@@ -280,15 +281,19 @@ void KernikClancyModel::computerates(const double t,
 
     // -------------------------------------------------------------------------------
     // Cell geometry
-    const double Cm = 60 * model_parameter_inputs[95]; // pF
+
+    // do not use them in code
+    const double Cm = 60; // pF
     const double V_tot = 3960; // um^3
     const double Vc_tenT = 16404;
     const double VSR_tenT = 1094;
-
-
     const double V_tot_tenT = Vc_tenT + VSR_tenT; // V_total data from Hwang et al., V_c and V_SR  proportionally scaled from Ten Tusscher 2004 values
     const double Vc = V_tot * ( Vc_tenT / V_tot_tenT ); // =3712.4 um^3 (93.7% total volume)
     const double V_SR = V_tot * ( VSR_tenT / V_tot_tenT ); // =247.6 um^3 (6.3% total volume)
+
+    // use these guys
+    const double Vc_div_V_SR = Vc_tenT / VSR_tenT * model_parameter_inputs[99];
+    const double Cm_div_Vc = Cm / Vc * model_parameter_inputs[95];
 
     // -------------------------------------------------------------------------------
     // Constants
@@ -782,7 +787,7 @@ void KernikClancyModel::computerates(const double t,
     dY[22] = ( ( kiSRCa * Y[2] * Y[21] - kim * Y[22] )
               - ( kom * Y[22] - koSRCa * Y[2] * Y[2] * RI ) );   // I
 
-    const double i_rel = ks * Y[21] * ( Y[1] - Y[2] ) * ( V_SR / Vc );
+    const double i_rel = ks * Y[21] * ( Y[1] - Y[2] ) / Vc_div_V_SR;
 
     // Background Sodium (I_bNa):
     // Ten Tusscher formulation
@@ -824,7 +829,7 @@ void KernikClancyModel::computerates(const double t,
                              / ( ( Y[1] + Kbuf_SR )
                                 * ( Y[1] + Kbuf_SR ) ) ) );
 
-    dY[1] = Ca_SR_bufSR * Vc / V_SR * ( i_up - ( i_rel + i_leak ) );
+    dY[1] = Ca_SR_bufSR * Vc_div_V_SR * ( i_up - ( i_rel + i_leak ) );
 
     // -------------------------------------------------------------------------------
     // 3: Cai (millimolar)
@@ -839,11 +844,11 @@ void KernikClancyModel::computerates(const double t,
 
     dY[2] = ( Cai_bufc ) * ( i_leak - i_up + i_rel - dY[5]  // dY[5] ????????????????????????????????????????????????????????????
                             - ( i_CaL_Ca + i_CaT + i_b_Ca + i_PCa - 2. * i_NaCa )
-                            * Cm / ( 2.0 * Vc * F ) );
+                            * Cm_div_Vc / ( 2.0 * F ) );
 
     // -------------------------------------------------------------------------------
     // 4: Nai (millimolar) (in sodium_dynamics)
-    dY[3] = -Cm * ( i_Na + i_b_Na + i_fNa + 3.0 * i_NaK + 3.0 * i_NaCa + i_CaL_Na ) / ( F * Vc );
+    dY[3] = -Cm_div_Vc * ( i_Na + i_b_Na + i_fNa + 3.0 * i_NaK + 3.0 * i_NaCa + i_CaL_Na ) / ( F );
 
     if (model_parameter_inputs[89] == 1) {
         //Nai is fixed
@@ -852,7 +857,7 @@ void KernikClancyModel::computerates(const double t,
 
     //-------------------------------------------------------------------------------
     // 5: Ki (millimolar) (in potassium_dynamics)
-    dY[4] = -Cm * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K + i_b_K ) / ( F * Vc );
+    dY[4] = -Cm_div_Vc * ( i_K1 + i_to + i_Kr + i_Kur + i_Ks + i_fK - 2. * i_NaK + i_CaL_K + i_b_K ) / ( F );
 
     if (model_parameter_inputs[90] == 1) {
         //Ki is fixed
@@ -908,8 +913,8 @@ void KernikClancyModel::computerates(const double t,
 		else
 			i_stim = i_stim_Amplitude * (- std::pow((i_stim_PulseDuration - fmt) * 2 / i_stim_PulseDuration, 2));
 	}
-   
-    //biphasic continuous 
+
+    //biphasic continuous
     if ( stim_flag == 5 &&
          fmt >= 0 &&
          fmt < i_stim_PulseDuration )
@@ -921,21 +926,6 @@ void KernikClancyModel::computerates(const double t,
         else
             i_stim = i_stim_Amplitude * ((fmt - 2.0 / 3 * i_stim_PulseDuration) * 3 / i_stim_PulseDuration - 1);
     }
-
-
-
-    /* old version of rectangular pulse
-    const double i_stim_End = 100000e3;           // milisecond (in stim_mode)
-    const double i_stim_Start = 0;            // milisecond (in stim_mode)
-    if (time >= i_stim_Start && time <= i_stim_End &&
-        fmod(time - i_stim_Start - 100, cyclelength) < i_stim_PulseDuration) {
-
-        i_stim = stim_flag * i_stim_Amplitude;
-
-    } else {
-        i_stim = 0.0;
-    } // end
-    */
 
     // Voltage Clamp:
 
@@ -966,14 +956,7 @@ void KernikClancyModel::computerates(const double t,
             v_clamp = v_clamp_delta * i + v_clamp_min;
         }
         i_voltageclamp = (v_clamp - Y[0]) / R_clamp;
-    } else {
-        throw ("Wrong voltageclamp value");
-    }
-
-    ///@todo hardcode first second clamp to -25 then release
-    if (voltageclamp == 0) {
-        i_voltageclamp = 0;
-    } else if (voltageclamp == 1) {
+    } else if (voltageclamp == 2) {
         if (time < 10000) {
             double v_clamp = -28.5;
             i_voltageclamp = (v_clamp - Y[0]) / R_clamp;
@@ -983,8 +966,6 @@ void KernikClancyModel::computerates(const double t,
     } else {
         throw ("Wrong voltageclamp value");
     }
-
-
 
     // abstract seal leak current
     const double i_abstract_seal_leak = model_parameter_inputs[98] * 0.016666666 * Y[0]; // pA/pF
