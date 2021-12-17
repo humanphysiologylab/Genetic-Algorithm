@@ -619,9 +619,9 @@ public:
                 // spontBeatChecker
                 if (expectedSpontBeatString == "NoChecks")
                     expectedSpontBeat = NoChecks;
-                if (expectedSpontBeatString == "NonSpont")
+                else if (expectedSpontBeatString == "NonSpont")
                     expectedSpontBeat = NonSpont;
-                if (expectedSpontBeatString == "Spont")
+                else if (expectedSpontBeatString == "Spont")
                     expectedSpontBeat = Spont;
                 else
                     throw("unknown expectedSpontBeat type in config");
