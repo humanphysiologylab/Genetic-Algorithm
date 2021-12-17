@@ -661,7 +661,12 @@ public:
         apbaselines = VectorOfBaselines();
         for (auto baseline: config["baselines"].items()) {
             auto b = baseline.value();
-            std::string apfilename = b["filename_phenotype"].get<std::string>();
+            std::string apfilename;
+            try {
+                apfilename = b["filename_phenotype"].get<std::string>();
+            } catch(...) {
+                continue;
+            }
             apbaselines.emplace_back();
             read_baseline(apbaselines.back(), apfilename);
 
