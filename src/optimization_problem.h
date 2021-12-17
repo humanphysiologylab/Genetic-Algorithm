@@ -142,6 +142,29 @@ protected:
     // apbaselines[i] corresponds to baselineValues[i]
     std::vector<Values> baselineValues;
 
+    // special section for spontaneously beating checks
+    Values spontBeatValues;
+    enum ExpectedSpontBeat {NoChecks, NonSpont, Spont};
+    ExpectedSpontBeat expectedSpontBeat = NoChecks;
+    double spontThreshold = 0;
+    int spontBeatCheckSize = 0;
+
+    template<typename It>
+    bool spontBeatCheck(It optimizer_parameters_begin) const
+    {
+        if (expectedSpontBeat == NoChecks)
+            return 1;
+        std::vector<double> model_scaled_parameters(number_unknowns);
+        optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
+
+        Baseline baseline = generate_one_baseline(model_scaled_parameters, spontBeatCheckSize, spontBeatValues, 0, 1);
+
+        double maxV = *std::max_element(baseline.begin(), baseline.end());
+        bool noActivation = (maxV < spontThreshold);
+        return (expectedSpontBeat == NonSpont) == noActivation;
+    }
+
+
     //number of unknown values passed to an optimization algorithm
     int number_unknowns = 0;
     //pointers are evil!!!
@@ -419,6 +442,110 @@ public:
         configFile.close();
         read_config(config);
     }
+
+    void read_baseline_config(json & config, json & b, Values & bVar)
+    {
+        BiMap statesBiMapDrifting = statesBiMapModel;
+        bVar.groupName = b["name"].get<std::string>();
+
+        try {
+            if (b["stimProtocol"].get<std::string>() == "Biphasic")
+                stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+            else if (b["stimProtocol"].get<std::string>() == "BiphasicStim_CaSR_Protocol")
+                stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
+                                b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
+                                b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+
+        }
+        catch (...) {
+            stimulation_protocols.push_back(new StimulationNone());
+        }
+        for (auto variable: b["params"].items()) {
+            auto v = variable.value();
+            std::string name = v["name"].get<std::string>();
+            int model_position;
+            try {
+                //constant can be listed as a baseline value
+                model_position = constantsBiMapModel.left.at(name);
+                bool is_value = (v.find("value") != v.end());
+                if (is_value) {
+                    bVar.knownConstants.push_back(
+                    {.name = name,
+                     .unique_name = name + "_" + bVar.groupName,
+                     .value = v["value"].get<double>(),
+                     .model_position = model_position
+                    });
+                } else {
+                    //unknown constant specified for this baseline
+                    //i.e. stimulation shift
+                    bVar.unknownConstants.push_back(
+                    {.name = name,
+                     .unique_name = name + "_" + bVar.groupName,
+                     .min_value = v["bounds"][0].get<double>(),
+                     .max_value = v["bounds"][1].get<double>(),
+                     .init_guess_available = (v.find("init") != v.end()),
+                     .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
+                     .optimizer_position = number_unknowns++,
+                     .model_position = model_position,
+                     .gamma = v["gamma"].get<double>(),
+                     .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
+                    });
+                }
+            } catch (...) {
+                //name is not a constant
+                try {
+                    model_position = statesBiMapModel.left.at(name);
+                } catch (...) {
+                    //or it is neither a constant nor a state variable
+                    throw(name + " in baseline config is neither constant nor state variable");
+                }
+                //remove it from statesBiMapDrifting
+                statesBiMapDrifting.left.erase(name);
+
+                bool is_value = (v.find("value") != v.end());
+                if (is_value) {
+                    bVar.knownStates.push_back(
+                    {.name = name,
+                     .unique_name = name + "_" + bVar.groupName,
+                     .value = v["value"].get<double>(),
+                     .model_position = model_position
+                    });
+                } else {
+                    bVar.unknownStates.push_back(
+                    {.name = name,
+                     .unique_name = name + "_" + bVar.groupName,
+                     .min_value = v["bounds"][0].get<double>(),
+                     .max_value = v["bounds"][1].get<double>(),
+                     .optimizer_position = number_unknowns++,
+                     .model_position = model_position,
+                     .gamma = v["gamma"].get<double>(),
+                     .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
+                    });
+                }
+            }
+        }
+        // statesBiMapDrifting may not be empty
+        // if RESET_STATES == 1 then statesBiMapDrifting states
+        // are reset to default before model runs
+        //
+        // if RESET_STATES == 0 then statesBiMapDrifting states
+        // drift (values are overwritten by model)
+        if (config["RESET_STATES"].get<int>() == 0) {
+            for (const auto & sit: statesBiMapDrifting) {
+                bVar.unknownStates.push_back(
+                {.name = sit.left,
+                 .unique_name = sit.left + "_" + bVar.groupName,
+                 .min_value = 0,
+                 .max_value = 0,
+                 .optimizer_position = number_unknowns++,
+                 .model_position = sit.right,
+                 .gamma = 0,
+                 .is_mutation_applicable = 0
+                });
+            }
+        }
+    }
+
     void read_config(json & config)
     {
         const std::string sname = config["script"].get<std::string>();
@@ -475,111 +602,33 @@ public:
 
 
         //now lets read baseline values
-        int baselines_num = 0;
         for (auto baseline: config["baselines"].items()) {
-            baselines_num++;
             auto b = baseline.value();
-
-            baselineValues.emplace_back();
-            Values & bVar = baselineValues.back();
-            BiMap statesBiMapDrifting = statesBiMapModel;
-            bVar.groupName = b["name"].get<std::string>();
-
+            std::string expectedSpontBeatString;
             try {
-                if (b["stimProtocol"].get<std::string>() == "Biphasic")
-                    stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
-                else if (b["stimProtocol"].get<std::string>() == "BiphasicStim_CaSR_Protocol")
-                    stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
-                                    b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
-                                    b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+                expectedSpontBeatString = b["expectedSpontBeat"].get<std::string>();
+            } catch(...) {
+                expectedSpontBeatString = "";
+            }
+            if (expectedSpontBeatString == "") {
+                // ordinary baseline
+                baselineValues.emplace_back();
+                Values & bVar = baselineValues.back();
+                read_baseline_config(config, b, bVar);
+            } else {
+                // spontBeatChecker
+                if (expectedSpontBeatString == "NoChecks")
+                    expectedSpontBeat = NoChecks;
+                if (expectedSpontBeatString == "NonSpont")
+                    expectedSpontBeat = NonSpont;
+                if (expectedSpontBeatString == "Spont")
+                    expectedSpontBeat = Spont;
+                else
+                    throw("unknown expectedSpontBeat type in config");
 
-            }
-            catch (...) {
-                stimulation_protocols.push_back(new StimulationNone());
-            }
-            for (auto variable: b["params"].items()) {
-                auto v = variable.value();
-                std::string name = v["name"].get<std::string>();
-                int model_position;
-                try {
-                    //constant can be listed as a baseline value
-                    model_position = constantsBiMapModel.left.at(name);
-                    bool is_value = (v.find("value") != v.end());
-                    if (is_value) {
-                        bVar.knownConstants.push_back(
-                        {.name = name,
-                         .unique_name = name + "_" + bVar.groupName,
-                         .value = v["value"].get<double>(),
-                         .model_position = model_position
-                        });
-                    } else {
-                        //unknown constant specified for this baseline
-                        //i.e. stimulation shift
-                        bVar.unknownConstants.push_back(
-                        {.name = name,
-                         .unique_name = name + "_" + bVar.groupName,
-                         .min_value = v["bounds"][0].get<double>(),
-                         .max_value = v["bounds"][1].get<double>(),
-                         .init_guess_available = (v.find("init") != v.end()),
-                         .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
-                         .optimizer_position = number_unknowns++,
-                         .model_position = model_position,
-                         .gamma = v["gamma"].get<double>(),
-                         .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
-                        });
-                    }
-                } catch (...) {
-                    //name is not a constant
-                    try {
-                        model_position = statesBiMapModel.left.at(name);
-                    } catch (...) {
-                        //or it is neither a constant nor a state variable
-                        throw(name + " in baseline config is neither constant nor state variable");
-                    }
-                    //remove it from statesBiMapDrifting
-                    statesBiMapDrifting.left.erase(name);
-
-                    bool is_value = (v.find("value") != v.end());
-                    if (is_value) {
-                        bVar.knownStates.push_back(
-                        {.name = name,
-                         .unique_name = name + "_" + bVar.groupName,
-                         .value = v["value"].get<double>(),
-                         .model_position = model_position
-                        });
-                    } else {
-                        bVar.unknownStates.push_back(
-                        {.name = name,
-                         .unique_name = name + "_" + bVar.groupName,
-                         .min_value = v["bounds"][0].get<double>(),
-                         .max_value = v["bounds"][1].get<double>(),
-                         .optimizer_position = number_unknowns++,
-                         .model_position = model_position,
-                         .gamma = v["gamma"].get<double>(),
-                         .is_mutation_applicable = (v["scale"].get<std::string>() == "linear"? 1: 2)
-                        });
-                    }
-                }
-            }
-            // statesBiMapDrifting may not be empty
-            // if RESET_STATES == 1 then statesBiMapDrifting states
-            // are reset to default before model runs
-            //
-            // if RESET_STATES == 0 then statesBiMapDrifting states
-            // drift (values are overwritten by model)
-            if (config["RESET_STATES"].get<int>() == 0) {
-                for (const auto & sit: statesBiMapDrifting) {
-                    bVar.unknownStates.push_back(
-                    {.name = sit.left,
-                     .unique_name = sit.left + "_" + bVar.groupName,
-                     .min_value = 0,
-                     .max_value = 0,
-                     .optimizer_position = number_unknowns++,
-                     .model_position = sit.right,
-                     .gamma = 0,
-                     .is_mutation_applicable = 0
-                    });
-                }
+                spontThreshold = config["spontThreshold"].get<double>();
+                spontBeatCheckSize = config["spontBeatCheckSize"].get<int>();
+                read_baseline_config(config, b, spontBeatValues);
             }
         }
 
@@ -758,7 +807,7 @@ public:
     }
 protected:
     template <typename It>
-    void fill_constants_y0(It parameters_begin, double * constants, double * y0, size_t baseline_index) const
+    void fill_constants_y0(It parameters_begin, double * constants, double * y0, const Values & baselineValue) const
     {
         //first, default
         get_default_values(constants, y0);
@@ -778,16 +827,16 @@ protected:
         }
 
         //baseline sections of config overwrites global and default
-        for (const Unknown & m: baselineValues[baseline_index].unknownConstants) {
+        for (const Unknown & m: baselineValue.unknownConstants) {
             constants[m.model_position] = parameters_begin[m.optimizer_position];
         }
-        for (const Unknown & m: baselineValues[baseline_index].unknownStates) {
+        for (const Unknown & m: baselineValue.unknownStates) {
             y0[m.model_position] = parameters_begin[m.optimizer_position];
         }
-        for (const Known & v: baselineValues[baseline_index].knownConstants) {
+        for (const Known & v: baselineValue.knownConstants) {
             constants[v.model_position] = v.value;
         }
-        for (const Known & v: baselineValues[baseline_index].knownStates) {
+        for (const Known & v: baselineValue.knownStates) {
             y0[v.model_position] = v.value;
         }
     }
@@ -826,7 +875,7 @@ public:
             double * constants = vconstants.data();
             model.set_constants(constants);
             model.set_stimulation(stimulation_protocols[baseline_index]);
-            fill_constants_y0(parameters.begin(), constants, y0.data(), baseline_index);
+            fill_constants_y0(parameters.begin(), constants, y0.data(), baselineValues[baseline_index]);
 
             std::vector<int> states_model_indices;
             std::vector<int> alg_model_indices;
@@ -919,45 +968,57 @@ public:
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
         return parameter_penalty(model_scaled_parameters);
     }
+
+
+    ///@todo create generate_one_baseline function and call it from generate_baselines
+    Baseline generate_one_baseline(std::vector<double> & model_scaled_parameters, int size,
+            const Values & baselineValue, StimulationBase * stimulation_protocol = nullptr, int n_beats = -1) const
+    {
+        if (n_beats == -1) n_beats = beats;
+        Model model(g_model);
+
+        Baseline baseline(size);
+
+        std::vector<double> y0(model.state_size());
+        std::vector<double> vconstants(model.constants_size());
+        double * constants = vconstants.data();
+        model.set_constants(constants);
+        if (stimulation_protocol == nullptr) {
+            auto sp_unique = std::make_unique<StimulationNone>();
+            model.set_stimulation(sp_unique.get());
+        } else {
+            model.set_stimulation(stimulation_protocol);
+        }
+        fill_constants_y0(model_scaled_parameters.begin(), constants, y0.data(), baselineValue);
+        const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
+
+        try {
+            get_voltage_trace(y0, model, n_beats, period, baseline);
+            //save mutable variables from the state
+            //since we let them drift
+            for (const Unknown & m: baselineValue.unknownStates) {
+                model_scaled_parameters[m.optimizer_position] = y0[m.model_position];
+            }
+        } catch (...) {
+            //solver failed
+            for(auto &e: baseline)
+                e = 1e6;
+        }
+        return baseline;
+    }
     template <typename It>
     VectorOfBaselines generate_baselines(It optimizer_parameters_begin, int n_beats = -1) const
     {
         std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
 
-        if (n_beats == -1) n_beats = beats;
-        VectorOfBaselines apmodel;
-        for (const auto & v: apbaselines)
-            apmodel.push_back(Baseline(v.size()));
+        VectorOfBaselines gen_baselines;
 
-        Model model(g_model);
-        bool solver_failed = 0;
         for (size_t i = 0; i < apbaselines.size(); i++) {
-            std::vector<double> y0(model.state_size());
-            Baseline & apRecord = apmodel[i];
+            gen_baselines.push_back(generate_one_baseline(model_scaled_parameters, apbaselines[i].size(),
+                        baselineValues[i], stimulation_protocols[i], n_beats));
 
-            std::vector<double> vconstants(model.constants_size());
-            double * constants = vconstants.data();
-            model.set_constants(constants);//!!!!!!!
-            model.set_stimulation(stimulation_protocols[i]);
-            fill_constants_y0(model_scaled_parameters.begin(), constants, y0.data(), i);
-            const double period = vconstants[constantsBiMapModel.left.at("stim_period")];
-
-            try {
-                get_voltage_trace(y0, model, n_beats, period, apRecord);
-            } catch (...) {
-                //solver failed
-                solver_failed = 1;
-            }
-            if (solver_failed)
-                break;
-            //save mutable variables from the state
-            //since we let them drift
-            for (const Unknown & m: baselineValues[i].unknownStates) {
-                model_scaled_parameters[m.optimizer_position] = y0[m.model_position];
-            }
-
-
+            Baseline & apRecord = gen_baselines.back();
             // roll apRecord so halfheights are aligned
             const int indexApRecord = halfheight_index(apRecord);
             if (indexApRecord == -1) {
@@ -971,16 +1032,9 @@ public:
                     std::rotate(apRecord.begin(), apRecord.end() + diff, apRecord.end());
             }
         }
-        if (solver_failed) {
-            //i dk ugly design
-            for (auto & b: apmodel)
-                for (auto & e: b)
-                    e = 1e6;
-        } else {
-            //hope its fine and no side effects
-            model_optimizer_scale(model_scaled_parameters.begin(), optimizer_parameters_begin);
-        }
-        return apmodel;
+
+        model_optimizer_scale(model_scaled_parameters.begin(), optimizer_parameters_begin);
+        return gen_baselines;
     }
 
     /**
@@ -1029,7 +1083,13 @@ public:
         }
         main_penalty /= num_repeated_obj_runs;
         double param_penalty_value = parameter_penalty_optimizer(parameters_begin);
+
         double res = main_penalty + param_penalty_value + regularization_optimizer_scale(parameters_begin);
+
+        bool spontBeatCheckPassed = spontBeatCheck(parameters_begin);
+        if (!spontBeatCheckPassed) {
+            res *= 2;
+        }
         if (std::isnan(res))
             res = 1e50;
         return res;
@@ -1067,7 +1127,7 @@ public:
             BaselineResult res, relative_res;
             std::vector<double> y0(Model::state_size());
             std::vector<double> vconstants(Model::constants_size());
-            fill_constants_y0(model_scaled_parameters.begin(), vconstants.data(), y0.data(), i);
+            fill_constants_y0(model_scaled_parameters.begin(), vconstants.data(), y0.data(), baselineValues[i]);
 
             std::vector<double> y0_default(Model::state_size());
             std::vector<double> vconstants_default(Model::constants_size());
@@ -1094,6 +1154,7 @@ public:
         const auto tmp_b = generate_baselines(parameters_begin, num_beats);
         const double error = obj->dist(apbaselines, tmp_b);
         std::cout << "Final error: " << error << std::endl;
+        std::cout << "IS IT SPONTANEOUSLY BEATING?: " << spontBeatCheck(parameters_begin) << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
     }
