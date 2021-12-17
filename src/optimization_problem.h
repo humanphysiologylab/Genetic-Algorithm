@@ -626,8 +626,8 @@ public:
                 else
                     throw("unknown expectedSpontBeat type in config");
 
-                spontThreshold = config["spontThreshold"].get<double>();
-                spontBeatCheckSize = config["spontBeatCheckSize"].get<int>();
+                spontThreshold = b["spontThreshold"].get<double>();
+                spontBeatCheckSize = b["spontBeatCheckSize"].get<int>();
                 read_baseline_config(config, b, spontBeatValues);
             }
         }
