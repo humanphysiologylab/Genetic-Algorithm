@@ -450,19 +450,6 @@ public:
     {
         BiMap statesBiMapDrifting = statesBiMapModel;
         bVar.groupName = b["name"].get<std::string>();
-
-        try {
-            if (b["stimProtocol"].get<std::string>() == "Biphasic")
-                stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
-            else if (b["stimProtocol"].get<std::string>() == "BiphasicStim_CaSR_Protocol")
-                stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
-                                b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
-                                b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
-
-        }
-        catch (...) {
-            stimulation_protocols.push_back(new StimulationNone());
-        }
         for (auto variable: b["params"].items()) {
             auto v = variable.value();
             std::string name = v["name"].get<std::string>();
@@ -618,6 +605,18 @@ public:
                 baselineValues.emplace_back();
                 Values & bVar = baselineValues.back();
                 read_baseline_config(config, b, bVar);
+                try {
+                    if (b["stimProtocol"].get<std::string>() == "Biphasic")
+                        stimulation_protocols.push_back(new BiphasicStim(b["stimAmplitude"].get<double>(), b["pcl"].get<double>(), b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+                    else if (b["stimProtocol"].get<std::string>() == "BiphasicStim_CaSR_Protocol")
+                        stimulation_protocols.push_back(new BiphasicStim_CaSR_Protocol(b["stimAmplitude"].get<double>(),
+                                        b["pcl_start"].get<double>(), b["pcl_end"].get<double>(), b["growth_time"].get<double>(),
+                                        b["pcl_end_duration"].get<double>(),  b["stim_shift"].get<double>(), b["pulseDuration"].get<double>()));
+
+                }
+                catch (...) {
+                    stimulation_protocols.push_back(new StimulationNone());
+                }
             } else {
                 // spontBeatChecker
                 if (expectedSpontBeatString == "NoChecks")
@@ -1003,8 +1002,9 @@ public:
         std::vector<double> vconstants(model.constants_size());
         double * constants = vconstants.data();
         model.set_constants(constants);
+
+        auto sp_unique = std::make_unique<StimulationNone>();
         if (stimulation_protocol == nullptr) {
-            auto sp_unique = std::make_unique<StimulationNone>();
             model.set_stimulation(sp_unique.get());
         } else {
             model.set_stimulation(stimulation_protocol);
