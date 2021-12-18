@@ -148,6 +148,8 @@ protected:
     ExpectedSpontBeat expectedSpontBeat = NoChecks;
     double spontThreshold = 0;
     int spontBeatCheckSize = 0;
+    double spontBeatCheckFailScaler = 1;
+
 
     template<typename It>
     bool spontBeatCheck(It optimizer_parameters_begin) const
@@ -626,6 +628,7 @@ public:
                 else
                     throw("unknown expectedSpontBeat type in config");
 
+                spontBeatCheckFailScaler = b["FailScaler"].get<double>();
                 spontThreshold = b["spontThreshold"].get<double>();
                 spontBeatCheckSize = b["spontBeatCheckSize"].get<int>();
                 read_baseline_config(config, b, spontBeatValues);
@@ -1104,7 +1107,7 @@ public:
 
         bool spontBeatCheckPassed = spontBeatCheck(parameters_begin);
         if (!spontBeatCheckPassed) {
-            res *= 2;
+            res *= spontBeatCheckFailScaler;
         }
         if (std::isnan(res))
             res = 1e50;
