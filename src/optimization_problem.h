@@ -160,6 +160,7 @@ protected:
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
 
         Baseline baseline = generate_one_baseline(model_scaled_parameters, spontBeatCheckSize, spontBeatValues, 0, 1);
+        model_optimizer_scale(model_scaled_parameters.begin(), optimizer_parameters_begin);
 
         double maxV = *std::max_element(baseline.begin(), baseline.end());
         bool noActivation = (maxV < spontThreshold);
