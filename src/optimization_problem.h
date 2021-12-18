@@ -150,7 +150,6 @@ protected:
     int spontBeatCheckSize = 0;
     double spontBeatCheckFailScaler = 1;
 
-
     template<typename It>
     bool spontBeatCheck(It optimizer_parameters_begin) const
     {
@@ -170,7 +169,6 @@ protected:
 
     //number of unknown values passed to an optimization algorithm
     int number_unknowns = 0;
-    //pointers are evil!!!
     std::vector<Unknown *> pointers_unknowns;
 
     int mpi_rank, mpi_size;
@@ -389,7 +387,7 @@ public:
             e = (e - vmin) / vmax;
     }
 
-    void Denormalize_baseline(Baseline & baseline) const
+    void denormalize_baseline(Baseline & baseline) const
     {
         /// @todo
         const double vmin = -80, vmax = 34;
@@ -801,6 +799,14 @@ protected:
                 parameters_begin[m.optimizer_position] = vconstants[m.model_position];
             }
         }
+        for (const Unknown & m: spontBeatValues.unknownStates) {
+            parameters_begin[m.optimizer_position] = y0[m.model_position];
+        }
+        for (const Unknown & m: spontBeatValues.unknownConstants) {
+            parameters_begin[m.optimizer_position] = vconstants[m.model_position];
+        }
+
+
 
         //then, set unknowns initial guesses if available
         for (auto pu : pointers_unknowns) {
@@ -1108,6 +1114,8 @@ public:
 
         bool spontBeatCheckPassed = spontBeatCheck(parameters_begin);
         if (!spontBeatCheckPassed) {
+            if (res < 0)
+                throw("res should be nonnegative");
             res *= spontBeatCheckFailScaler;
         }
         if (std::isnan(res))
