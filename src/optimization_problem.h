@@ -1170,7 +1170,7 @@ public:
         const auto tmp_b = generate_baselines(parameters_begin, num_beats);
         const double error = obj->dist(apbaselines, tmp_b);
         std::cout << "Final error: " << error << std::endl;
-        std::cout << "IS IT SPONTANEOUSLY BEATING?: " << spontBeatCheck(parameters_begin) << std::endl;
+        std::cout << "SPONTANEOUS BEATING REQUIREMENT SATISFIED?: " << spontBeatCheck(parameters_begin) << std::endl;
         for (const auto &bs : tmp_b)
             write_baseline(bs, std::string("ap") + std::to_string(i++) + ".txt");
     }
