@@ -649,6 +649,15 @@ public:
                 pointers_unknowns[gl.optimizer_position] = &gl;
             }
         }
+
+        for (Unknown & gl: spontBeatValues.unknownConstants) {
+            pointers_unknowns[gl.optimizer_position] = &gl;
+        }
+        for (Unknown & gl: spontBeatValues.unknownStates) {
+            pointers_unknowns[gl.optimizer_position] = &gl;
+        }
+
+
         if (mpi_rank == 0) {
             for (auto pu : pointers_unknowns) {
                 const auto & u = *pu;
@@ -700,7 +709,7 @@ public:
         return v_gamma;
     }
 
-
+/*
     template <typename T1, typename T2>
     int get_boundaries_updated(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
     {
@@ -731,9 +740,11 @@ public:
                 //for drifting states we probably don't have max and min
             }
         }
+
+
         return 0;
     }
-
+*/
     template <typename T1, typename T2>
     int get_boundaries(T1 & Optpmin, T1 & Optpmax, T2 & is_mutation_applicable) const
     {
