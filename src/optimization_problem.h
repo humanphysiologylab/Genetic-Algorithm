@@ -144,11 +144,25 @@ protected:
 
     // special section for spontaneously beating checks
     Values spontBeatValues;
-    enum ExpectedSpontBeat {NoChecks, NonSpont, Spont};
+    enum ExpectedSpontBeat {NoChecks, NonSpont, Spont, AllBaselinesNonSpont};
     ExpectedSpontBeat expectedSpontBeat = NoChecks;
     double spontThreshold = 0;
     int spontBeatCheckSize = 0;
     double spontBeatCheckFailScaler = 1;
+    double AllBaselinesNonSpontPeriod = 0;
+
+    void set_knownConstant(std::vector<Known> & knownConstants, const std::string & name, double v) const
+    {
+        bool not_found = 1;
+        for (auto & kc: knownConstants) {
+            if (kc.name == name) {
+                kc.value = v;
+                return;
+            }
+        }
+        if (not_found)
+            throw("set_knownConstant: Could not find knownConstant");
+    }
 
     template<typename It>
     bool spontBeatCheck(It optimizer_parameters_begin) const
@@ -158,12 +172,32 @@ protected:
         std::vector<double> model_scaled_parameters(number_unknowns);
         optimizer_model_scale(optimizer_parameters_begin, model_scaled_parameters.begin());
 
-        Baseline baseline = generate_one_baseline(model_scaled_parameters, spontBeatCheckSize, spontBeatValues, 0, 1);
-        model_optimizer_scale(model_scaled_parameters.begin(), optimizer_parameters_begin);
+        if (expectedSpontBeat == NonSpont || expectedSpontBeat == Spont) {
+            Baseline baseline = generate_one_baseline(model_scaled_parameters, spontBeatCheckSize, spontBeatValues, 0, 1);
+            model_optimizer_scale(model_scaled_parameters.begin(), optimizer_parameters_begin);
 
-        double maxV = *std::max_element(baseline.begin(), baseline.end());
-        bool noActivation = (maxV < spontThreshold);
-        return (expectedSpontBeat == NonSpont) == noActivation;
+            double maxV = *std::max_element(baseline.begin(), baseline.end());
+            bool noActivation = (maxV < spontThreshold);
+            return (expectedSpontBeat == NonSpont) == noActivation;
+        } else {
+            // AllBaselinesNonSpont
+            // check each baseline!
+            for (size_t i = 0; i < apbaselines.size(); i++) {
+                Values tmp_values = baselineValues[i];
+                // set stim_flag to 0 in tmp_values
+                set_knownConstant(tmp_values.knownConstants, "stim_flag", 0);
+                // set period in tmp_values
+                set_knownConstant(tmp_values.knownConstants, "stim_period", AllBaselinesNonSpontPeriod);
+
+                Baseline baseline = generate_one_baseline(model_scaled_parameters, spontBeatCheckSize, tmp_values, 0, 1);
+                double maxV = *std::max_element(baseline.begin(), baseline.end());
+                bool Activation = (maxV > spontThreshold);
+                if (Activation)
+                    return false;
+            }
+            //do not save altered states
+            return true;
+        }
     }
 
 
@@ -543,6 +577,7 @@ public:
             obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
             reg_alpha = config["regularization_alpha"].get<double>();
             is_AP_normalized = config["is_AP_normalized"].get<int>();
+            AllBaselinesNonSpontPeriod = config["AllBaselinesNonSpontPeriod"].get<double>();
         }
         beats = config["n_beats"].get<int>();
         number_unknowns = 0;
