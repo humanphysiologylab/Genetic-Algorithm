@@ -658,6 +658,8 @@ public:
                     expectedSpontBeat = NonSpont;
                 else if (expectedSpontBeatString == "Spont")
                     expectedSpontBeat = Spont;
+                else if (expectedSpontBeatString == "AllBaselinesNonSpont")
+                    expectedSpontBeat = AllBaselinesNonSpont;
                 else
                     throw("unknown expectedSpontBeat type in config");
 
