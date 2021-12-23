@@ -136,7 +136,7 @@ void KernikClancyModel::initConsts(double * constants)
    50,            // 83 stim_shift (ms) was 100
    0,             // 84 voltageclamp
    0,             // 85 g_kur_scaler
-   0.0375,        // 86 g_kur (nS_per_pF)
+   0.0375,        // 86 g_kur (nS_per_pF) but it was 0.045 nS/pF in Maleckar and Grandi
    1000,          // 87 stim_period (ms)
    3,             // 88 i_stim_Amplitude (pA/pF)
    0,             // 89 Na_fixed
