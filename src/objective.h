@@ -268,6 +268,53 @@ public:
     }
 };
 
+
+/**
+ * @brief Weighted 2-norm of error
+ *
+ * Weighted 2-norm of error to fit voltage larger than threshold more precisely.
+ * It is normalized to number of baselines and baselines lenghts
+ *
+ */
+template <typename Baseline, typename VectorOfBaselines, int power = 2>
+class Weighted2normError:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    const double w = 100;
+    const double threshold = -20;
+    double distBaselines(const Baseline & a, const Baseline & b) const
+    {
+        double res = 0;
+        assert(a.size() == b.size());
+        for (size_t i = 0; i < a.size(); i++) {
+            double alpha;
+            if (a[i] > threshold || b[i] > threshold)
+                alpha = w;
+            else
+                alpha = 1;
+            res += alpha * std::pow(std::abs(a[i] - b[i]), power);
+        }
+        res /= (double) a.size();
+        return res;
+    }
+
+    double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += distBaselines(a[i], b[i]);
+        }
+        res = std::pow(res / (double) a.size(), 1.0 / power);
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+
+
 template<typename Baseline, typename VectorOfBaselines>
 std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> new_objective(const std::string & name)
 {
@@ -283,6 +330,8 @@ std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> new_objective(const 
         return std::make_unique<MaxCosine<Baseline, VectorOfBaselines>>();
     if (name == "MinWeirdDist")
         return std::make_unique<MinWeirdDist<Baseline, VectorOfBaselines>>();
+    if (name == "Weighted2normError")
+        return std::make_unique<Weighted2normError<Baseline, VectorOfBaselines>>();
     throw std::logic_error("Unknown objective type");
 }
 
