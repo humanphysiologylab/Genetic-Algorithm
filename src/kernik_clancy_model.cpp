@@ -729,13 +729,13 @@ void KernikClancyModel::computerates(const double t,
     double alpha = 2.5*1.1;     // factor to enhance outward nature of inaca dimensionless (in i_NaCa)
     double kNaCa = 1000. * 1.1 * x_scale_conductance[8] ;  // maximal inaca pA_per_pF (in i_NaCa)
 
-    const double i_NaCa = ( kNaCa * ( ( exp( gamma * Y[0] * F / ( R * T ) )
+    const double i_NaCa = kNaCa * ( ( exp( gamma * Y[0] * F / ( R * T ) )
                                  * ( Y[3] * Y[3] * Y[3] ) * Cao )
                                - ( exp( ( gamma - 1.0 ) * Y[0] * F / ( R * T ) )
                                   * ( Nao * Nao * Nao ) * Y[2] * alpha ) )
                      / ( ( ( KmNai * KmNai * KmNai ) + ( Nao * Nao * Nao ) )
                         * ( KmCa + Cao )
-                        * ( 1.0 + Ksat * exp( ( gamma - 1.0 ) * Y[0] * F / ( R * T ) ) ) ) );
+                        * ( 1.0 + Ksat * exp( ( gamma - 1.0 ) * Y[0] * F / ( R * T ) ) ) );
 
     // -------------------------------------------------------------------------------
     // Na+/K+ pump current (INaK):
