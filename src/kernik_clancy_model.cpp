@@ -83,7 +83,7 @@ void KernikClancyModel::initConsts(double * constants)
    2.2091964e+01, // 30
    5.0000000e+01, // 31
    0.0000000e+00, // 32
-   7.7000000e-03, // 33 g_Ks 0.245 nS/pF
+   7.7000000e-03, // 33 g_Ks 0.245 nS/pF in ten Tusscher 2004
    1.1655845e-03, // 34
    6.6726839e+04, // 35
    2.8045891e-01, // 36
@@ -676,7 +676,6 @@ void KernikClancyModel::computerates(const double t,
     double j_inf = ( alpha_j / ( alpha_j + beta_j ) );
     double tau_j = ( ( 1. / ( alpha_j + beta_j ) ) + tau_j_const );
     dY[13] = ( j_inf - Y[13] ) / tau_j;
-
 
 
     // 15: m (dimensionless) (activation in i_Na)

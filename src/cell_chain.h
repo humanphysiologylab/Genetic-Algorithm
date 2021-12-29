@@ -9,10 +9,22 @@ class CellChainModel
     int n;
     int mainCellIndex;
     CellModel cellModel;
+
+    // we assume V and dV/dt are at 0 indices of x and dxdt corr.
+    const int v_index = 0;
+
+    // cell 0 is stimulated
+    const double Cm = 60; // pF // from Kernik-Clancy
+    const double g_gj; // gap junction conductance, nS
+    //hardcode for Kernik-Clancy
+    const int stim_flag_index = 82; // stim_flag = 0: no stim
+    const int no_stim_value = 0;
+
+
 public:
     //chain of n homogeneous cells
-    CellChainModel(int n, int mainCellIndex)
-    : n(n), mainCellIndex(mainCellIndex)
+    CellChainModel(int n, int mainCellIndex, double gj_conduct)
+    : n(n), mainCellIndex(mainCellIndex), g_gj(gj_conduct)
     {
         assert(n > 0);
         assert(mainCellIndex >= 0);
@@ -68,16 +80,6 @@ public:
 	{
 		return g * (v_from - v_to);
 	}
-
-    // we assume V and dV/dt are at 0 indices of x and dxdt corr.
-    const int v_index = 0;
-
-	// cell 0 is stimulated
-    const double Cm = 60; // pF // from Kernik-Clancy
-	const double g_gj = 5; // gap junction conductance, nS
-    //hardcode for Kernik-Clancy
-    const int stim_flag_index = 82; // stim_flag = 0: no stim
-
     void operator()(double t, double * __restrict x, double * __restrict dxdt, void * __restrict data) const
     {
         double * constants = cellModel.get_constants();
@@ -93,10 +95,10 @@ public:
 					constants[stim_flag_index] = orig_stim_flag;
 					cellModel(t, x, dxdt, data);
 				} else if (i == n - 1) {
-					constants[stim_flag_index] = 0;
+					constants[stim_flag_index] = no_stim_value;
 					cellModel(t, x + i * cellModel.state_size(), dxdt + i * cellModel.state_size(), data);
 				} else {
-					constants[stim_flag_index] = 0;
+					constants[stim_flag_index] = no_stim_value;
 					cellModel(t, x + i * cellModel.state_size(), dxdt + i * cellModel.state_size(), data);
 				}
 			}

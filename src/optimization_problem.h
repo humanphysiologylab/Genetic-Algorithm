@@ -571,7 +571,7 @@ public:
     void read_config(json & config)
     {
         const std::string sname = config["script"].get<std::string>();
-        if (sname != "Direct Problem") {
+        if (sname != "Direct Problem" && sname != "Direct Problem Chain") {
             num_repeated_obj_runs = config["repeated_obj_runs"].get<int>();
             ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
             obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
@@ -972,7 +972,11 @@ public:
                         states_model_indices.size() + alg_model_indices.size(),
                         states_model_indices, alg_model_indices,
                         states_names, alg_names);
+
+            double time_direct_problem = MPI_Wtime();
             direct_problem(y0, model, start_record_time, time, table);
+            time_direct_problem = MPI_Wtime() - time_direct_problem;
+            std::cout << "time_direct_problem: " << time_direct_problem << std::endl;
             table.export_csv(filename + "_" + baseline.groupName);
         }
     }

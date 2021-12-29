@@ -496,9 +496,8 @@ void script_direct_problem(json & config)
 
 void script_direct_problem_chain(json & config)
 {
-	CellChainModel<KernikClancyModel> model(config["chain_len"].get<int>(), config["main_cell_index"].get<int>());
-
-	ODESolver solver;
+    CellChainModel<KernikClancyModel> model(config["chain_len"].get<int>(), config["main_cell_index"].get<int>(), config["gj_conduct"].get<double>());
+    ODESolver solver;
     ODEoptimization problem(model, solver);
 
     try {
