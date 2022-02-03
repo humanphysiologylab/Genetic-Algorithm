@@ -55,6 +55,199 @@ public:
     }
 };
 
+/**
+ * @brief scaled P-norm of error
+ *
+ * Normalized to number of baselines and baselines lenghts scaled p-norm of error
+ * vector @p a is used as a reference to scale
+ */
+template <typename Baseline, typename VectorOfBaselines, int power = 2>
+class MinimizeScaledPnormError:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    const double eps = 1e-6;
+    double distBaselines(const Baseline & a, const Baseline & b) const
+    {
+        double res = 0;
+        assert(a.size() == b.size());
+        for (size_t i = 0; i < a.size(); i++)
+            res += std::pow(std::abs((a[i] - b[i]) / std::max(eps, std::abs(a[i]))), power);
+        res /= (double) a.size();
+        return res;
+    }
+
+    double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += distBaselines(a[i], b[i]);
+        }
+        res = std::pow(res / (double) a.size(), 1.0 / power);
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+
+/**
+ * @brief Chebyshev norm of error
+ *
+ * Normalized to number of baselines Chebyshev norm (aka p_inf) of error
+ *
+ */
+template <typename Baseline, typename VectorOfBaselines>
+class MinimizeChebyshevNormError:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    double distBaselines(const Baseline & a, const Baseline & b) const
+    {
+        assert(a.size() == b.size());
+        double max_v = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            const double tmp_v = std::abs(a[i] - b[i]);
+            if (max_v < tmp_v)
+                max_v = tmp_v;
+        }
+        return max_v;
+    }
+
+    double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += distBaselines(a[i], b[i]);
+        }
+        res = res / (double) a.size();
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+
+/**
+ * @brief scaled Chebyshev norm of error
+ *
+ * Normalized to number of baselines scaled Chebyshev norm (aka p_inf) of error
+ * vector @p a is used as a reference to scale
+ */
+template <typename Baseline, typename VectorOfBaselines>
+class MinimizeScaledChebyshevNormError:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    const double eps = 1e-6;
+    double distBaselines(const Baseline & a, const Baseline & b) const
+    {
+        assert(a.size() == b.size());
+        double max_v = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            const double tmp_v = std::abs((a[i] - b[i]) / std::max(eps, std::abs(a[i])));
+            if (max_v < tmp_v)
+                max_v = tmp_v;
+        }
+        return max_v;
+    }
+
+    double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += distBaselines(a[i], b[i]);
+        }
+        res = res / (double) a.size();
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+/**
+ * @brief P-log norm of error
+ *
+ * Normalized to number of baselines and baselines lenghts P-log norm of error
+ * vector @p a is used as a reference to scale
+ */
+template <typename Baseline, typename VectorOfBaselines, int power = 2>
+class MinimizePlogNormError:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    const double eps = 1e-6;
+    double distBaselines(const Baseline & a, const Baseline & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += std::pow(std::log(1 + std::abs((a[i] - b[i]) / std::max(eps, std::abs(a[i])))), power);
+        }
+        res /= (double) a.size();
+        return res;
+    }
+
+    double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += distBaselines(a[i], b[i]);
+        }
+        res = std::pow(res / (double) a.size(), 1.0 / power);
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+/**
+ * @brief Chebyshev Log norm of error
+ *
+ * Normalized to number of baselines Chebyshev Log norm of error
+ * vector @p a is used as a reference to scale
+ */
+template <typename Baseline, typename VectorOfBaselines>
+class MinimizeChebyshevLogNormError:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    const double eps = 1e-6;
+    double distBaselines(const Baseline & a, const Baseline & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            const double tmp = std::log(1 + std::abs((a[i] - b[i]) / std::max(eps, std::abs(a[i]))));
+            if (tmp > res)
+                res = tmp;
+        }
+        return res;
+    }
+
+    double dist(const VectorOfBaselines & a, const VectorOfBaselines & b) const
+    {
+        assert(a.size() == b.size());
+        double res = 0;
+        for (size_t i = 0; i < a.size(); i++) {
+            res += distBaselines(a[i], b[i]);
+        }
+        res /= (double) a.size();
+        if (std::isnan(res))
+            res = 1e50;
+        return res;
+    }
+};
+
+
+
+
+
+
 
 template<typename Baseline, typename VectorOfBaselines, int power = 2>
 class LSscaleNshiftMinPnormError:
@@ -332,6 +525,21 @@ std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> new_objective(const 
         return std::make_unique<MinWeirdDist<Baseline, VectorOfBaselines>>();
     if (name == "Weighted2normError")
         return std::make_unique<Weighted2normError<Baseline, VectorOfBaselines>>();
+    if (name == "MinScaled1normError")
+        return std::make_unique<MinimizeScaledPnormError<Baseline, VectorOfBaselines, 1>>();
+    if (name == "MinScaled2normError")
+        return std::make_unique<MinimizeScaledPnormError<Baseline, VectorOfBaselines, 2>>();
+    if (name == "MinChebyshevNormError")
+        return std::make_unique<MinimizeChebyshevNormError<Baseline, VectorOfBaselines>>();
+    if (name == "MinScaledChebyshevNormError")
+        return std::make_unique<MinimizeScaledChebyshevNormError<Baseline, VectorOfBaselines>>();
+    if (name == "MinPlog2normError")
+        return std::make_unique<MinimizePlogNormError<Baseline, VectorOfBaselines, 2>>();
+    if (name == "MinPlog1normError")
+        return std::make_unique<MinimizePlogNormError<Baseline, VectorOfBaselines, 1>>();
+    if (name == "MinChebyshevLogNormError")
+        return std::make_unique<MinimizeChebyshevLogNormError<Baseline, VectorOfBaselines>>();
+
     throw std::logic_error("Unknown objective type");
 }
 
