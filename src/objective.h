@@ -66,7 +66,7 @@ class MinimizeScaledPnormError:
     public BaseObjective<Baseline, VectorOfBaselines>
 {
 public:
-    const double eps = 1e-6;
+    const double eps = 1e-1;
     double distBaselines(const Baseline & a, const Baseline & b) const
     {
         double res = 0;
@@ -141,7 +141,7 @@ class MinimizeScaledChebyshevNormError:
     public BaseObjective<Baseline, VectorOfBaselines>
 {
 public:
-    const double eps = 1e-6;
+    const double eps = 1e-1;
     double distBaselines(const Baseline & a, const Baseline & b) const
     {
         assert(a.size() == b.size());
@@ -179,7 +179,7 @@ class MinimizePlogNormError:
     public BaseObjective<Baseline, VectorOfBaselines>
 {
 public:
-    const double eps = 1e-6;
+    const double eps = 1e-1;
     double distBaselines(const Baseline & a, const Baseline & b) const
     {
         assert(a.size() == b.size());
@@ -216,7 +216,7 @@ class MinimizeChebyshevLogNormError:
     public BaseObjective<Baseline, VectorOfBaselines>
 {
 public:
-    const double eps = 1e-6;
+    const double eps = 1e-1;
     double distBaselines(const Baseline & a, const Baseline & b) const
     {
         assert(a.size() == b.size());
