@@ -558,7 +558,7 @@ public:
                 {.name = sit.left,
                  .unique_name = sit.left + "_" + bVar.groupName,
                  .min_value = 0,
-                 .max_value = 0,
+                 .max_value = 1, ///@todo here we assume that it is a gate variable
                  .optimizer_position = number_unknowns++,
                  .model_position = sit.right,
                  .gamma = 0,
@@ -1020,9 +1020,9 @@ public:
             if (!u.is_mutation_applicable)
                 continue;
             if (u.min_value > val)
-                penalty += std::pow(20 * (val - u.min_value) / u.min_value, 2);///////////// is div by zero possible? TODO
+                penalty += std::pow(20 * (val - u.min_value) / std::max(std::abs(u.min_value), 1e-6), 2);
             if (u.max_value < val)
-                penalty += std::pow(20 * (val - u.max_value) / u.max_value, 2);///////////// is div by zero possible? TODO
+                penalty += std::pow(20 * (val - u.max_value) / std::max(std::abs(u.max_value), 1e-6), 2);
         }
         return penalty;
     }

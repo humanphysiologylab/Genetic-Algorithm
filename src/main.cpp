@@ -317,6 +317,57 @@ void main_gen_algo(const char *configFilename)
 }
 #endif
 
+
+template<typename Problem>
+void nelder_mead_call(Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen,
+        std::vector<double> init_vector = std::vector<double>())
+{
+    if (init_vector.size() > 0)
+        error_per_gen = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>(), init_vector);
+    else
+        error_per_gen = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>());
+
+    // problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
+   // problem.beats = 100;
+   // std::cout << "stage 2" << std::endl;
+   // std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>()/10, res1);
+   // error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
+   // auto res2 = problem.get_results_optimizer_format();
+   // problem.dump_ap(res2.begin(), 10);
+}
+
+
+template<typename Problem>
+void gd_call(Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen,
+        std::vector<double> init_vector = std::vector<double>())
+{
+    const int gd_max_step = config["GD_max_step"].get<int>();
+    if (config["GD_type"].get<std::string>() == "Simple")
+        error_per_gen = simpleGradientDescent(problem, gd_max_step,
+            config["GD_r_eps"].get<double>(), config["GD_learning_rate"].get<double>(),
+            init_vector);
+    else if (config["GD_type"].get<std::string>() == "Momentum")
+        error_per_gen = MomentumGradientDescent(problem, gd_max_step,
+            config["GD_r_eps"].get<double>(), config["GD_alpha"].get<double>(),
+            config["GD_beta"].get<double>(),
+            init_vector);
+    else if (config["GD_type"].get<std::string>() == "RMSprop")
+        error_per_gen = RMSprop(problem, gd_max_step,
+                config["GD_r_eps"].get<double>(),
+                config["GD_learning_rate"].get<double>(),
+                config["GD_ema_coef"].get<double>(),
+                init_vector);
+    else if (config["GD_type"].get<std::string>() == "Adam")
+        error_per_gen = Adam(problem, gd_max_step,
+                config["GD_r_eps"].get<double>(),
+                config["GD_learning_rate"].get<double>(),
+                config["GD_beta1"].get<double>(),
+                config["GD_beta2"].get<double>(),
+                init_vector);
+    else
+        throw("gd_call: unknown gradient descent type");
+}
+
 /**
  * @brief Script to find model parameters
  *
@@ -371,6 +422,32 @@ void script_general_optimizer(json & config)
 
         if (mpi_rank == 0)
             std::cout << "PSO is complete" << std::endl;
+    } else if (sname == "Nelder Mead") {
+        if (mpi_rank == 0)
+            std::cout << "Nelder-Mead starting now" << std::endl;
+
+        nelder_mead_call(problem, config, error_per_gen);
+
+        if (mpi_rank == 0)
+            std::cout << "Nelder-Mead is complete" << std::endl;
+    } else if (sname == "Gradient Descent") {
+         if (mpi_rank == 0)
+            std::cout << "Gradient Descent starting now" << std::endl;
+
+        gd_call(problem, config, error_per_gen);
+
+        if (mpi_rank == 0)
+            std::cout << "Gradient Descent is complete" << std::endl;
+    } else if (sname == "NM-GD") {
+        if (mpi_rank == 0)
+            std::cout << "Nelder-Mead and Gradient Descent starting now" << std::endl;
+
+        nelder_mead_call(problem, config, error_per_gen);
+        gd_call(problem, config, error_per_gen, problem.get_results_optimizer_format());
+
+        if (mpi_rank == 0)
+            std::cout << "Nelder-Mead and Gradient Descent is complete" << std::endl;
+
     } else {
         throw(std::logic_error("Unknown optimizer type"));
     }
@@ -381,7 +458,9 @@ void script_general_optimizer(json & config)
         for (const auto & p: error_per_gen)
             file << p.first << " " << p.second << std::endl;
 
-        problem.export_gen_algo_tables();
+        if (sname == "Genetic Algorithm")
+            problem.export_gen_algo_tables();
+
         problem.dump_ap(problem.get_results_optimizer_format(), 0);
 
         std::cout << "USE THE FOLLOWING OUTPUT ONLY AS SOME HINT OF THE FINAL RESULT" << std::endl;
@@ -399,76 +478,6 @@ void script_general_optimizer(json & config)
 }
 
 
-
-
-void script_nelder_mead(json & config)
-{
-    /// @todo
-#if 0
-    int mpi_rank, mpi_size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-
-    pcg_extras::seed_seq_from<std::random_device> seed_source;
-//const int seed_source = 42;
-
-
-   // MaleckarModel model;
-    KernikClancyModel model;
-
-    ODESolver solver;
-//MaximizeAPinnerProduct obj;
-    MinimizeAPbaselines obj;
-  // LeastSquaresMinimizeAPbaselines obj;
-  //  ODEoptimizationTrackVersion problem(model, solver, obj);///////////////////////////
-    ODEoptimization problem(model, solver, obj);
-
-    double time_read_config = MPI_Wtime();
-    try {
-        problem.read_config(config);
-        problem.read_baselines(config);
-    } catch(const char * err) {
-        std::cout << "catch in main:" << std::endl;
-        std::cout << err << std::endl;
-        throw;
-    }
-    time_read_config = MPI_Wtime() - time_read_config;
-
-    if (mpi_rank == 0) {
-        std::cout << "time_read_config, s: " << time_read_config << std::endl;
-
-        std::vector<std::pair<int, double>> error_per_gen = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>());
-        auto res1 = problem.get_results_optimizer_format();
-
-        problem.dump_ap(res1.begin(), 5, 1000);
-
-
-       // problem.unfreeze_global_variable("i_stim_Amplitude", 5, 100, res1);
-       // problem.beats = 100;
-       // std::cout << "stage 2" << std::endl;
-       // std::vector<std::pair<int, double>> error_per_gen2 = nelder_mead(problem, config["NM_limit_calls"].get<int>(), 1e-14, 1, config["NM_simplex_step"].get<double>()/10, res1);
-       // error_per_gen.insert(error_per_gen.end(), error_per_gen2.begin(), error_per_gen2.end());
-       // auto res2 = problem.get_results_optimizer_format();
-       // problem.dump_ap(res2.begin(), 10);
-
-        std::string filename = "convergence_NM.txt";
-        std::ofstream file(filename);
-        for (const auto & p: error_per_gen)
-            file << p.first << " " << p.second << std::endl;
-
-        using Results = decltype(problem)::Results;
-        using BaselineResult = decltype(problem)::BaselineResult;
-        Results results = problem.get_relative_results();
-        BaselineResult res = results[0];
-        std::cout << "Printing relative to default results" << std::endl;
-        for (const auto & cit: res.constantsResult)
-            std::cout << cit.first << " " << cit.second << std::endl;
-        std::cout << std::endl << "Relative to CL = 1000 state" << std::endl;
-        for (const auto & sit: res.statesResult)
-            std::cout << sit.first << " " << sit.second << std::endl;
-    }
-#endif
-}
 
 void script_direct_problem(json & config)
 {
@@ -533,7 +542,19 @@ void script_test_function(json & config)
 
     pcg_extras::seed_seq_from<std::random_device> seed_source;
    // int seed_source = 42;
-    using FuncToOptimize = RosenbrockFunction<8>;
+    //using FuncToOptimize = SphereFunction<10>;
+    //std::vector<double> init_guess(10, 1);
+  //  using FuncToOptimize = RosenbrockFunction<10>;
+  //  std::vector<double> init_guess(10, 3);
+
+
+    //This guy is worst
+    //using FuncToOptimize = RastriginFunction<10>;
+    //std::vector<double> init_guess(10, 3);
+
+    using FuncToOptimize = StyblinskiTangFunction<10>;
+    std::vector<double> init_guess(10, 0);
+
     FuncToOptimize func;
     FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
 /*
@@ -577,6 +598,10 @@ void script_test_function(json & config)
 
  //   simpleGradientDescent(pcg64(seed_source), optim, 1000, 1e-6);
 //weirdSteepestGradientDescent(pcg64(seed_source), optim, 3000, 1e-3);
+
+    std::vector<std::pair<int, double>> error_per_gen;
+    //nelder_mead_call(optim, config, error_per_gen, init_guess);
+    gd_call(optim, config, error_per_gen, init_guess);
     if (rank == 0) {
         auto res = optim.get_result();
         std::cout << "Parameter error: " << func.solution_error(res) << std::endl;
@@ -789,18 +814,10 @@ int main(int argc, char *argv[])
 
     const std::string sname = config["script"].get<std::string>();
     try {
-        if (sname == "Genetic Algorithm") {
-            script_general_optimizer(config);
-        } else if (sname == "PSO") {
-            script_general_optimizer(config);
-        }else if (sname == "Nelder Mead") {
-            script_nelder_mead(config);
-        } else if (sname == "Direct Problem") {
+        if (sname == "Direct Problem") {
             script_direct_problem(config);
         } else if (sname == "Direct Problem Chain") {
 			script_direct_problem_chain(config);
-        } else if (sname == "Gradient Descent") {
-            script_gradient_descent(config);
         } else if (sname == "Test Function") {
             script_test_function(config);
         } else if (sname == "Track Minimum") {
@@ -808,7 +825,7 @@ int main(int argc, char *argv[])
         } else if (sname == "MCMC") {
             script_mcmc(config);
         } else {
-            std::cout << "Unknown script name: " << sname << std::endl;
+            script_general_optimizer(config);
         }
     } catch(const std::string & e) {
         std::cerr << "Node " << mpi_rank << ": Exception string caught in main:\n" << e << std::endl;

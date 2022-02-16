@@ -399,13 +399,6 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
     }
     //end of main inner loop
 
-
-
-
-
-
-
-
 //
 //  Factorial tests to check that we check_value is a local minimum.
 //
@@ -428,7 +421,7 @@ void nelmin (const F & function, Vec start, Vec & xmin, std::vector<std::pair<in
         v[i] += step[i] * eps;
         w[i] -= step[i] * eps;
 
-//TODO OpenMP
+///@todo OpenMP
         const double a = function(v);
         const double b = function(w);
         //why just not to use v or w as a new minimum then
@@ -503,7 +496,7 @@ std::vector<std::pair<int, double>> nelder_mead(OptimizationProblem & problem, i
     int boundaries_status = problem.get_boundaries(min_v, max_v, is_mutation_applicable);
 
     if (boundaries_status != 0)
-        throw ("nelder-mead requires boundaries");
+        throw ("nelder_mead requires boundaries");
 
 
     std::vector<double> res(param_num);
@@ -521,14 +514,17 @@ std::vector<std::pair<int, double>> nelder_mead(OptimizationProblem & problem, i
    // nelmin( [& problem](std::vector<double> & s) { return problem.genetic_algorithm_calls(s.begin()); },
     //        init_vector, res, error_per_gen, stop_crit, step, check_period, max_evals, func_eval_number, restart_number, ifault, is_mutation_applicable);
 
-    nelmin( [& problem, & min_v, & max_v, & init_vector](std::vector<double> & s) { return fitn(problem, s, min_v, max_v, init_vector, 10000); },
+    nelmin( [& problem, & min_v, & max_v, & init_vector](std::vector<double> & s) {
+            return problem.get_objective_value(s.begin());
+            //return fitn(problem, s, min_v, max_v, init_vector, 10000);
+            },
         init_vector, res, error_per_gen, stop_crit, step, check_period, max_evals, func_eval_number, restart_number, ifault, is_mutation_applicable);
 
 
     if (ifault != 0)
         std::cout << "nelmin error code: " << ifault << std::endl;
     problem.submit_result(res);
-    problem.dump_ap(res.begin(), 10);
+    //problem.dump_ap(res.begin(), 10);
     return error_per_gen;
 }
 

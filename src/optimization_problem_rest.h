@@ -146,13 +146,13 @@ public:
         //return -1; //no boundaries
     }
     template <typename It>
-    int initial_guess(It begin) const
+    int initial_guess_for_optimizer(It begin) const
     {
         //return 0; //if you provided some initial guess
         return -1; //no initial guess at all
     }
     template <typename It>
-    double genetic_algorithm_calls(It parameters_begin) const
+    double get_objective_value(It parameters_begin) const
     {
         argument params;
         for (int i = 0; i != func.get_xdim(); i++, parameters_begin++)
