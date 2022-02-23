@@ -145,6 +145,19 @@ public:
         return 0; //have boundaries
         //return -1; //no boundaries
     }
+    template <typename T1>
+    int get_tight_boundaries(T1 & pmin, T1 & pmax) const
+    {
+        auto ppmin = func.x_min();
+        std::copy(ppmin.begin(), ppmin.end(), pmin.begin());
+        auto ppmax = func.x_max();
+        std::copy(ppmax.begin(), ppmax.end(), pmax.begin());
+        return 0; //have boundaries
+        //return -1; //no boundaries
+    }
+
+
+
     template <typename It>
     int initial_guess_for_optimizer(It begin) const
     {

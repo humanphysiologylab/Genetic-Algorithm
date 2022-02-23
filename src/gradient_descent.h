@@ -10,6 +10,7 @@
 #include <cassert>
 #include <algorithm>
 #include "penalty.h"
+#include "sobol_sequence.h"
 
 double ema(double f, double ema_prev, double coef);
 
@@ -370,6 +371,124 @@ std::vector<std::pair<int, double>> Adam(OptimizationProblem & problem, int max_
     return error_per_gen;
 }
 
+
+template <typename OptimizationProblem>
+std::vector<double> CoreAdam(OptimizationProblem & problem, int max_steps, double r_eps, double learning_rate, double beta1, double beta2, const std::vector<double> & initial_guess, const std::vector<int> & is_mutation_applicable)
+{
+    //store vector and loss value on each step
+    std::vector<double> res;
+    int param_num = initial_guess.size();
+    res.reserve((param_num + 1) * max_steps);
+
+    std::vector<int> mut_pos;
+    for (int i = 0 ; i < param_num; i++) {
+        if (is_mutation_applicable[i])
+            mut_pos.push_back(i);
+    }
+    std::vector<double> sol = initial_guess;
+
+    std::vector<double> df(mut_pos.size()), dfdx(mut_pos.size());
+    std::vector<double> ema_sq_grad(mut_pos.size()); // squared gradient exponential moving average
+    std::vector<double> ema_grad(mut_pos.size()); // ema for gradient
+    for (int step = 0; step < max_steps; step++) {
+        //const double f = fitn(problem, sol, is_mutation_applicable, min_v, max_v);
+        const double f = problem.get_objective_value(sol.begin());
+        //std::cout << step << " f: " << f << std::endl;
+        res.insert(res.end(), sol.begin(), sol.end());
+        res.insert(res.end(), f);
+        #pragma omp parallel for
+        for (size_t i = 0; i < mut_pos.size(); i++) {
+
+            std::vector<double> params = sol;
+            const double eps = r_eps * std::max(std::abs(params[mut_pos[i]]), 1e-12);
+            params[mut_pos[i]] += eps;
+            df[i] = problem.get_objective_value(params.begin()) - f;
+            dfdx[i] = df[i] / eps;
+
+            /*
+            std::vector<double> params_fwd = sol, params_back = sol;
+            double eps = r_eps * std::max(std::abs(sol[mut_pos[i]]), 1e-12); //r_eps 1e-3 for rosenbrock, 1e-1 for ap models
+            params_fwd[mut_pos[i]] += eps;
+            params_back[mut_pos[i]] -= eps;
+            df[i] = problem.get_objective_value(params_fwd.begin()) -
+                    problem.get_objective_value(params_back.begin());
+            dfdx[i] = df[i] / (2*eps);
+            */
+        }
+
+        for (size_t i = 0; i < mut_pos.size(); i++) {
+            const int pos = mut_pos[i];
+            ema_grad[i] = ema(dfdx[i], ema_grad[i], beta1);
+            ema_sq_grad[i] = ema(std::pow(dfdx[i], 2), ema_sq_grad[i], beta2);
+
+            double corrected_ema_grad = ema_grad[i] / (1 - std::pow(beta1, step + 1));
+            double corrected_ema_sq_grad = ema_sq_grad[i] / (1 - std::pow(beta2, step + 1));
+
+            double x_new = sol[pos] - learning_rate * corrected_ema_grad / (std::sqrt(corrected_ema_sq_grad) + 1e-8);
+            /*
+            if (min_v[pos] > x_new || max_v[pos] < x_new) {
+                std::cout << "out of boundary" << std::endl;
+                std::cout << "sol[" << pos << "]: " << sol[pos] << std::endl;
+                std::cout << "dfdx[" << i << "]: " << dfdx[i] << std::endl;
+                std::cout << "ss[" << pos << "]: " << x_new << std::endl;
+                std::cout << "min max: " << min_v[pos] << " " << max_v[pos] <<  std::endl;
+            }
+            */
+            if (!std::isnan(x_new)) {
+                sol[pos] = x_new;
+            }
+        }
+    }
+
+    return res;
+}
+
+template <typename OptimizationProblem>
+std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_steps, double r_eps, double learning_rate, double beta1, double beta2, int starts_number)
+{
+    int param_num = problem.get_number_parameters();
+    std::vector<double> min_v(param_num), max_v(param_num);
+
+    std::vector<int> is_mutation_applicable(param_num);
+    int boundaries_status = problem.get_boundaries(min_v, max_v, is_mutation_applicable);
+
+    std::vector<int> mutable_params_indices;
+    for (int i = 0; i < is_mutation_applicable.size(); i++) {
+        if (is_mutation_applicable[i])
+            mutable_params_indices.push_back(i);
+    }
+
+    std::vector<double> main_tight_min(param_num),
+                        main_tight_max(param_num);
+    problem.get_tight_boundaries(main_tight_min, main_tight_max);
+
+    std::vector<double> tight_min(mutable_params_indices.size()),
+                        tight_max(mutable_params_indices.size());
+    for (int i = 0; i < mutable_params_indices.size(); i++) {
+        tight_min[i] = main_tight_min[mutable_params_indices[i]];
+        tight_max[i] = main_tight_max[mutable_params_indices[i]];
+    }
+
+    Sobol sobol01(mutable_params_indices.size());
+
+    std::vector<double> init_vector(param_num);
+    int init_status = problem.initial_guess_for_optimizer(init_vector.begin());
+
+    std::vector<double> total_res;
+    total_res.reserve(starts_number * (param_num + 1) * max_steps);
+    for (int i = 0; i < starts_number; i++) {
+        std::cout << i << "/" << starts_number << std::endl;
+        auto mutable_params = sobol01();
+        scale_vector(mutable_params, tight_min, tight_max);
+        // now fill params_complete with params
+        auto params_complete = init_vector;
+        for (int i = 0; i < mutable_params_indices.size(); i++)
+            params_complete[mutable_params_indices[i]] = mutable_params[i];
+        auto res = CoreAdam(problem, max_steps, r_eps, learning_rate, beta1, beta2, params_complete, is_mutation_applicable);
+        total_res.insert(total_res.end(), res.begin(), res.end());
+    }
+    return total_res;
+}
 
 /*
 

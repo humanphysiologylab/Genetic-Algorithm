@@ -78,7 +78,8 @@ set(SOURCE_FILES
         src/kernik_clancy_model.cpp
         src/mcmc.cpp
         LSODA/LSODA.cpp
-	src/stimulation.cpp
+        src/stimulation.cpp
+        src/sobol_sequence.cpp
 	)
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)

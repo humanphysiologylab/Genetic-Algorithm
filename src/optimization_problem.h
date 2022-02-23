@@ -108,7 +108,9 @@ protected:
         std::string name;
         std::string unique_name;
         double min_value;
+        double tight_min_value;
         double max_value;
+        double tight_max_value;
         int init_guess_available = 0;
         double init_guess;
         int optimizer_position;
@@ -504,7 +506,9 @@ public:
                     {.name = name,
                      .unique_name = name + "_" + bVar.groupName,
                      .min_value = v["bounds"][0].get<double>(),
+                     .tight_min_value = v["tight_bounds"][0].get<double>(),
                      .max_value = v["bounds"][1].get<double>(),
+                     .tight_max_value = v["tight_bounds"][1].get<double>(),
                      .init_guess_available = (v.find("init") != v.end()),
                      .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
                      .optimizer_position = number_unknowns++,
@@ -537,7 +541,9 @@ public:
                     {.name = name,
                      .unique_name = name + "_" + bVar.groupName,
                      .min_value = v["bounds"][0].get<double>(),
+                     .tight_min_value = v["tight_bounds"][0].get<double>(),
                      .max_value = v["bounds"][1].get<double>(),
+                     .tight_max_value = v["tight_bounds"][1].get<double>(),
                      .optimizer_position = number_unknowns++,
                      .model_position = model_position,
                      .gamma = v["gamma"].get<double>(),
@@ -558,7 +564,9 @@ public:
                 {.name = sit.left,
                  .unique_name = sit.left + "_" + bVar.groupName,
                  .min_value = 0,
+                 .tight_min_value = 0,
                  .max_value = 1, ///@todo here we assume that it is a gate variable
+                 .tight_max_value = 1,
                  .optimizer_position = number_unknowns++,
                  .model_position = sit.right,
                  .gamma = 0,
@@ -611,7 +619,9 @@ public:
                 {.name = name,
                  .unique_name = name + "_global",
                  .min_value = v["bounds"][0].get<double>(),
+                 .tight_min_value = v["tight_bounds"][0].get<double>(),
                  .max_value = v["bounds"][1].get<double>(),
+                 .tight_max_value = v["tight_bounds"][1].get<double>(),
                  .init_guess_available = (v.find("init") != v.end()),
                  .init_guess = (v.find("init") != v.end()) ? v["init"].get<double>() : 0,
                  .optimizer_position = number_unknowns++,
@@ -703,6 +713,14 @@ public:
             }
         }
     }
+    std::vector<std::string> get_param_names() const
+    {
+        std::vector<std::string> res(pointers_unknowns.size());
+        for (auto pu: pointers_unknowns)
+            res[pu->optimizer_position] = pu->unique_name;
+        return res;
+    }
+
     void read_baselines(json & config)
     {
         apbaselines = VectorOfBaselines();
@@ -808,6 +826,28 @@ public:
 
         return 0;
     }
+
+    template <typename T1>
+    int get_tight_boundaries(T1 & Optpmin, T1 & Optpmax) const
+    {
+/// @todo
+        std::vector<double> pmin(number_unknowns), pmax(number_unknowns);
+
+        for (auto pu : pointers_unknowns) {
+            const auto & u = *pu;
+            pmin[u.optimizer_position] = u.tight_min_value;
+            pmax[u.optimizer_position] = u.tight_max_value;
+
+        }
+
+        //find borders for optimizer
+        model_optimizer_scale(pmin.begin(), Optpmin.begin());
+        model_optimizer_scale(pmax.begin(), Optpmax.begin());
+
+        return 0;
+    }
+
+
 
 protected:
     void get_default_values(double * constants, double * y0) const

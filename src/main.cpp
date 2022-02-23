@@ -18,6 +18,7 @@
 #include <mpi.h>
 #include <iostream>
 #include <omp.h>
+#include <iomanip>
 #include "pcg_random.hpp"
 
 #include "gradient_descent.h"
@@ -336,6 +337,52 @@ void nelder_mead_call(Problem & problem, json & config, std::vector<std::pair<in
    // problem.dump_ap(res2.begin(), 10);
 }
 
+template<typename Problem>
+void dump_table_ode_problem(Problem & problem, const std::vector<double> & res, const std::string & filename)
+{
+    int param_num = problem.get_number_parameters();
+    if (res.size() % (param_num + 1) != 0) {
+        throw("dump_table: incorrect res vector size");
+    }
+    std::ofstream file(filename);
+    if (!file.is_open())
+        throw("dump_table: cannot create file");
+    //create header
+    std::vector<std::string> header_columns = problem.get_param_names();
+    for (int j = 0; j < param_num; j++)
+        file << header_columns[j] << " ";
+    file << "loss" << std::endl;
+    file << std::scientific << std::setprecision(12);
+
+    for (int i = 0; i < res.size() / (param_num + 1); i++) {
+        for (int j = 0; j < param_num; j++)
+            file << res[i * (param_num + 1) + j] << " ";
+        file << res[i * (param_num + 1) + param_num] << std::endl;
+    }
+}
+
+template<typename Problem>
+void dump_table(Problem & problem, const std::vector<double> & res, const std::string & filename)
+{
+    int param_num = problem.get_number_parameters();
+    if (res.size() % (param_num + 1) != 0) {
+        throw("dump_table: incorrect res vector size");
+    }
+    std::ofstream file(filename);
+    if (!file.is_open())
+        throw("dump_table: cannot create file");
+    //create header
+    for (int j = 0; j < param_num; j++)
+        file << "p" << j << " ";
+    file << "loss" << std::endl;
+    file << std::scientific << std::setprecision(12);
+
+    for (int i = 0; i < res.size() / (param_num + 1); i++) {
+        for (int j = 0; j < param_num; j++)
+            file << res[i * (param_num + 1) + j] << " ";
+        file << res[i * (param_num + 1) + param_num] << std::endl;
+    }
+}
 
 template<typename Problem>
 void gd_call(Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen,
@@ -364,6 +411,17 @@ void gd_call(Problem & problem, json & config, std::vector<std::pair<int, double
                 config["GD_beta1"].get<double>(),
                 config["GD_beta2"].get<double>(),
                 init_vector);
+    else if (config["GD_type"].get<std::string>() == "MSAdam")
+        dump_table(problem,
+
+                MultipleStartsAdam(problem, gd_max_step,
+                config["GD_r_eps"].get<double>(),
+                config["GD_learning_rate"].get<double>(),
+                config["GD_beta1"].get<double>(),
+                config["GD_beta2"].get<double>(),
+                config["MultipleStarts_number"].get<int>()),
+
+                config["MSAdam_output_filename"].get<std::string>());
     else
         throw("gd_call: unknown gradient descent type");
 }
@@ -448,6 +506,18 @@ void script_general_optimizer(json & config)
         if (mpi_rank == 0)
             std::cout << "Nelder-Mead and Gradient Descent is complete" << std::endl;
 
+    } else if (sname == "MSAdam") {
+        if (mpi_size != 1)
+            throw("MSAdam: no MPI support yet");
+
+        auto res = MultipleStartsAdam(problem, config["GD_max_step"].get<int>(),
+                config["GD_r_eps"].get<double>(),
+                config["GD_learning_rate"].get<double>(),
+                config["GD_beta1"].get<double>(),
+                config["GD_beta2"].get<double>(),
+                config["MultipleStarts_number"].get<int>());
+        dump_table_ode_problem(problem, res, config["MSAdam_output_filename"].get<std::string>());
+        return;
     } else {
         throw(std::logic_error("Unknown optimizer type"));
     }
@@ -542,18 +612,18 @@ void script_test_function(json & config)
 
     pcg_extras::seed_seq_from<std::random_device> seed_source;
    // int seed_source = 42;
-    //using FuncToOptimize = SphereFunction<10>;
-    //std::vector<double> init_guess(10, 1);
+    using FuncToOptimize = SphereFunction<2>;
+    std::vector<double> init_guess(10, 1);
   //  using FuncToOptimize = RosenbrockFunction<10>;
   //  std::vector<double> init_guess(10, 3);
 
 
-    //This guy is worst
-    //using FuncToOptimize = RastriginFunction<10>;
+    //This guy is really the worst
+    //using FuncToOptimize = RastriginFunction<2>;
     //std::vector<double> init_guess(10, 3);
 
-    using FuncToOptimize = StyblinskiTangFunction<10>;
-    std::vector<double> init_guess(10, 0);
+    //using FuncToOptimize = StyblinskiTangFunction<10>;
+    //std::vector<double> init_guess(10, 0);
 
     FuncToOptimize func;
     FuncOptimization<FuncToOptimize, MinimizeFunc> optim(func);
