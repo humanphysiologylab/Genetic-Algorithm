@@ -477,7 +477,7 @@ std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_st
     std::vector<double> total_res;
     total_res.reserve(starts_number * (param_num + 1) * max_steps);
     for (int i = 0; i < starts_number; i++) {
-        std::cout << i << "/" << starts_number << std::endl;
+        std::cout << i + 1 << "/" << starts_number << std::endl;
         auto mutable_params = sobol01();
         scale_vector(mutable_params, tight_min, tight_max);
         // now fill params_complete with params

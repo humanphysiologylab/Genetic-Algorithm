@@ -354,9 +354,11 @@ void dump_table_ode_problem(Problem & problem, const std::vector<double> & res, 
     file << "loss" << std::endl;
     file << std::scientific << std::setprecision(12);
 
+    std::vector<double> model_params(param_num);
     for (int i = 0; i < res.size() / (param_num + 1); i++) {
+        problem.optimizer_model_scale(res.begin() + i * (param_num + 1), model_params.begin());
         for (int j = 0; j < param_num; j++)
-            file << res[i * (param_num + 1) + j] << " ";
+            file << model_params[j] << " ";
         file << res[i * (param_num + 1) + param_num] << std::endl;
     }
 }

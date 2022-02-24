@@ -227,7 +227,7 @@ public:
         StatesResult statesResult;
     };
     using Results = std::vector<BaselineResult>;
-protected:
+public:
     Results results, relative_results;//abs values and relative to default values
     std::vector<double> results_optimizer_format;
 
