@@ -509,16 +509,14 @@ void script_general_optimizer(json & config)
             std::cout << "Nelder-Mead and Gradient Descent is complete" << std::endl;
 
     } else if (sname == "MSAdam") {
-        if (mpi_size != 1)
-            throw("MSAdam: no MPI support yet");
-
         auto res = MultipleStartsAdam(problem, config["GD_max_step"].get<int>(),
                 config["GD_r_eps"].get<double>(),
                 config["GD_learning_rate"].get<double>(),
                 config["GD_beta1"].get<double>(),
                 config["GD_beta2"].get<double>(),
                 config["MultipleStarts_number"].get<int>());
-        dump_table_ode_problem(problem, res, config["MSAdam_output_filename"].get<std::string>());
+        if (mpi_rank == 0)
+            dump_table_ode_problem(problem, res, config["MSAdam_output_filename"].get<std::string>());
         return;
     } else {
         throw(std::logic_error("Unknown optimizer type"));

@@ -446,6 +446,10 @@ std::vector<double> CoreAdam(OptimizationProblem & problem, int max_steps, doubl
 template <typename OptimizationProblem>
 std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_steps, double r_eps, double learning_rate, double beta1, double beta2, int starts_number)
 {
+    int mpi_rank, mpi_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
     int param_num = problem.get_number_parameters();
     std::vector<double> min_v(param_num), max_v(param_num);
 
@@ -476,8 +480,14 @@ std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_st
 
     std::vector<double> total_res;
     total_res.reserve(starts_number * (param_num + 1) * max_steps);
+
+    //each mpi process has its own sobol subsequence
+    for (int i = 0; i < starts_number * mpi_rank; i++)
+        sobol01();
+
     for (int i = 0; i < starts_number; i++) {
-        std::cout << i + 1 << "/" << starts_number << std::endl;
+        if (mpi_rank == 0)
+            std::cout << i + 1 << "/" << starts_number << std::endl;
         auto mutable_params = sobol01();
         scale_vector(mutable_params, tight_min, tight_max);
         // now fill params_complete with params
@@ -487,6 +497,18 @@ std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_st
         auto res = CoreAdam(problem, max_steps, r_eps, learning_rate, beta1, beta2, params_complete, is_mutation_applicable);
         total_res.insert(total_res.end(), res.begin(), res.end());
     }
+    if (mpi_rank == 0)
+        total_res.resize(mpi_size * total_res.size());
+    MPI_Gather(
+    (mpi_rank == 0) ? MPI_IN_PLACE : total_res.data(),
+    starts_number * (param_num + 1) * max_steps,
+    MPI_DOUBLE,
+    total_res.data(),
+    starts_number * (param_num + 1) * max_steps,
+    MPI_DOUBLE,
+    0,
+    MPI_COMM_WORLD);
+
     return total_res;
 }
 
