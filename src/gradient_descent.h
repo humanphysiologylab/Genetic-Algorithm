@@ -390,9 +390,11 @@ std::vector<double> CoreAdam(OptimizationProblem & problem, int max_steps, doubl
     std::vector<double> df(mut_pos.size()), dfdx(mut_pos.size());
     std::vector<double> ema_sq_grad(mut_pos.size()); // squared gradient exponential moving average
     std::vector<double> ema_grad(mut_pos.size()); // ema for gradient
-    for (int step = 0; step < max_steps; step++) {
+    for (int step = -1; step < max_steps; step++) {
         //const double f = fitn(problem, sol, is_mutation_applicable, min_v, max_v);
         const double f = problem.get_objective_value(sol.begin());
+        if (step == -1) //warmup
+            continue;
         //std::cout << step << " f: " << f << std::endl;
         res.insert(res.end(), sol.begin(), sol.end());
         res.insert(res.end(), f);
