@@ -446,7 +446,7 @@ std::vector<double> CoreAdam(OptimizationProblem & problem, int max_steps, doubl
 }
 
 template <typename OptimizationProblem>
-std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_steps, double r_eps, double learning_rate, double beta1, double beta2, int starts_number)
+std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_steps, double r_eps, double learning_rate, double beta1, double beta2, int starts_number, int sobol_start_index = 0)
 {
     int mpi_rank, mpi_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -484,7 +484,9 @@ std::vector<double> MultipleStartsAdam(OptimizationProblem & problem, int max_st
     total_res.reserve(starts_number * (param_num + 1) * max_steps);
 
     //each mpi process has its own sobol subsequence
-    for (int i = 0; i < starts_number * mpi_rank; i++)
+    //skip first sobol_start_index elements since they could have been checked
+    //in previous runs of the program
+    for (int i = 0; i < sobol_start_index + starts_number * mpi_rank; i++)
         sobol01();
 
     for (int i = 0; i < starts_number; i++) {

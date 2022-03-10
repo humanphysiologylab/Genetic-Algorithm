@@ -514,7 +514,8 @@ void script_general_optimizer(json & config)
                 config["GD_learning_rate"].get<double>(),
                 config["GD_beta1"].get<double>(),
                 config["GD_beta2"].get<double>(),
-                config["MultipleStarts_number"].get<int>());
+                config["MultipleStarts_number"].get<int>(),
+                config["SobolStartIndex"].get<int>());
         if (mpi_rank == 0)
             dump_table_ode_problem(problem, res, config["MSAdam_output_filename"].get<std::string>());
         return;
