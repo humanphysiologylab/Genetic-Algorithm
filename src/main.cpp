@@ -379,7 +379,7 @@ void dump_table(Problem & problem, const std::vector<double> & res, const std::s
     file << "loss" << std::endl;
     file << std::scientific << std::setprecision(12);
 
-    for (int i = 0; i < res.size() / (param_num + 1); i++) {
+    for (size_t i = 0; i < res.size() / (param_num + 1); i++) {
         for (int j = 0; j < param_num; j++)
             file << res[i * (param_num + 1) + j] << " ";
         file << res[i * (param_num + 1) + param_num] << std::endl;

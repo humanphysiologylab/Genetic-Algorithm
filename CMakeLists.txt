@@ -80,7 +80,8 @@ set(SOURCE_FILES
         LSODA/LSODA.cpp
         src/stimulation.cpp
         src/sobol_sequence.cpp
-	)
+	    src/objective.cpp
+    )
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)
 add_library(${libname} STATIC ${SOURCE_FILES})

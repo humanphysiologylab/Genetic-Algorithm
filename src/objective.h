@@ -5,7 +5,8 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
-
+#include <iostream>
+#include <memory>
 /**
  * @brief Base objective class
  *
@@ -52,6 +53,40 @@ public:
         if (std::isnan(res))
             res = 1e50;
         return res;
+    }
+};
+
+
+
+std::vector<double> diff(const std::vector<double> & x);
+std::vector<double> ema(const std::vector<double> & x, double coef);
+/**
+ * @brief P-norm of error and derivatives
+ *
+ * Normalized to number of baselines and baselines lenghts p-norm of error
+ *
+ */
+template <typename Baseline, typename VectorOfBaselines, int power = 2>
+class MinimizePnormErrorAndDeriv:
+    public BaseObjective<Baseline, VectorOfBaselines>
+{
+public:
+    double dist(const VectorOfBaselines & ax, const VectorOfBaselines & bx) const
+    {
+        auto mini_dist = MinimizePnormError<Baseline, VectorOfBaselines, power>();
+        VectorOfBaselines a(ax.size()), b(bx.size());
+        VectorOfBaselines da(a.size()), db(b.size());
+        const double ema_coef = 0.1;
+        for (size_t i = 0; i < a.size(); i++) {
+            a[i] = ema(ax[i], ema_coef);
+            da[i] = diff(a[i]);
+        }
+        for (size_t i = 0; i < b.size(); i++) {
+            b[i] = ema(bx[i], ema_coef);
+            db[i] = diff(b[i]);
+        }
+        const double dfdx_weight = 10;
+        return mini_dist.dist(a, b) + dfdx_weight * mini_dist.dist(da, db);
     }
 };
 
@@ -515,6 +550,8 @@ std::unique_ptr<BaseObjective<Baseline, VectorOfBaselines>> new_objective(const 
         return std::make_unique<MinimizePnormError<Baseline, VectorOfBaselines, 1>>();
     if (name == "Min2normError")
         return std::make_unique<MinimizePnormError<Baseline, VectorOfBaselines, 2>>();
+    if (name == "Minimize2normErrorAndDeriv")
+        return std::make_unique<MinimizePnormErrorAndDeriv<Baseline, VectorOfBaselines, 2>>();
     if (name == "LSscaleNshiftMin2normError")
         return std::make_unique<LSscaleNshiftMinPnormError<Baseline, VectorOfBaselines, 2>>();
     if (name == "LSscaleMin2normError")
