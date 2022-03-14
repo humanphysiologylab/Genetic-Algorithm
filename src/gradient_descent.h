@@ -401,7 +401,7 @@ std::vector<double> CoreAdam(OptimizationProblem & problem, int max_steps, doubl
         for (size_t i = 0; i < mut_pos.size(); i++) {
 
             std::vector<double> params = sol;
-            const double eps = r_eps * std::max(std::abs(params[mut_pos[i]]), 1e-12);
+            const double eps = r_eps;///@todo * std::max(std::abs(params[mut_pos[i]]), 1e-12);
             params[mut_pos[i]] += eps;
             df[i] = problem.get_objective_value(params.begin()) - f;
             dfdx[i] = df[i] / eps;
