@@ -7,6 +7,7 @@
 #include <limits>
 #include <iostream>
 #include <memory>
+#include "utils.h"
 /**
  * @brief Base objective class
  *
@@ -57,9 +58,6 @@ public:
 };
 
 
-
-std::vector<double> diff(const std::vector<double> & x);
-std::vector<double> ema(const std::vector<double> & x, double coef);
 /**
  * @brief P-norm of error and derivatives
  *
@@ -76,7 +74,7 @@ public:
         auto mini_dist = MinimizePnormError<Baseline, VectorOfBaselines, power>();
         VectorOfBaselines a(ax.size()), b(bx.size());
         VectorOfBaselines da(a.size()), db(b.size());
-        const double ema_coef = 0.1;
+        const double ema_coef = 0.8;
         for (size_t i = 0; i < a.size(); i++) {
             a[i] = ema(ax[i], ema_coef);
             da[i] = diff(a[i]);

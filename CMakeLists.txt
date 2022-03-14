@@ -81,6 +81,7 @@ set(SOURCE_FILES
         src/stimulation.cpp
         src/sobol_sequence.cpp
 	    src/objective.cpp
+        src/utils.cpp
     )
 
 set(libname ${CMAKE_PROJECT_NAME}_lib)

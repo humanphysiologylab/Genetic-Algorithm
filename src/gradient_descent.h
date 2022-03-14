@@ -11,8 +11,7 @@
 #include <algorithm>
 #include "penalty.h"
 #include "sobol_sequence.h"
-
-double ema(double f, double ema_prev, double coef);
+#include "utils.h"
 
 template <typename OptimizationProblem>
 std::vector<std::pair<int, double>> simpleGradientDescent(OptimizationProblem & problem, int max_steps, double r_eps, double learning_rate, std::vector<double> init_vector = std::vector<double>())
@@ -426,7 +425,7 @@ std::vector<double> CoreAdam(OptimizationProblem & problem, int max_steps, doubl
             double corrected_ema_grad = ema_grad[i] / (1 - std::pow(beta1, step + 1));
             double corrected_ema_sq_grad = ema_sq_grad[i] / (1 - std::pow(beta2, step + 1));
 
-            double x_new = sol[pos] - learning_rate * corrected_ema_grad / (std::sqrt(corrected_ema_sq_grad) + 1e-8);
+            double x_new = sol[pos] - learning_rate * corrected_ema_grad / (std::sqrt(corrected_ema_sq_grad) + 1e-12);
             /*
             if (min_v[pos] > x_new || max_v[pos] < x_new) {
                 std::cout << "out of boundary" << std::endl;

@@ -21,6 +21,7 @@
 
 #include "stimulation.h"
 #include "objective.h"
+#include "utils.h"
 
 using json = nlohmann::json;
 
@@ -580,6 +581,13 @@ public:
     {
         const std::string sname = config["script"].get<std::string>();
         if (sname != "Direct Problem" && sname != "Direct Problem Chain") {
+            auto string_objective_mode = config["Objective Mode"].get<std::string>();
+            if (string_objective_mode == "Summation") {
+                objective_mode = summation_mode;
+            } else {
+                objective_mode = ema_mode;
+                objective_ema_coef = config["objective_ema_coef"].get<double>();
+            }
             num_repeated_obj_runs = config["repeated_obj_runs"].get<int>();
             ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
             obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
@@ -1175,20 +1183,31 @@ public:
 
     int num_repeated_obj_runs = 1;
 
+
+    enum Objective_mode {summation_mode, ema_mode};
+    Objective_mode objective_mode = summation_mode;
+    double objective_ema_coef = 0;
+
     template <typename It>
     double get_objective_value(It parameters_begin) const
     {
         double main_penalty = 0;
         assert(num_repeated_obj_runs > 0);
         for (int i = 0; i < num_repeated_obj_runs; i++) {
-            if (!ignore_before_halfheight) {
-                main_penalty += obj->dist(apbaselines, generate_baselines(parameters_begin));
-            } else {
-                //trim 0:halfheight_index
-                main_penalty += obj->dist(get_trimmed_baselines(apbaselines), get_trimmed_baselines(generate_baselines(parameters_begin)));
-            }
+            double tmp_dist;
+            if (!ignore_before_halfheight)
+                tmp_dist = obj->dist(apbaselines, generate_baselines(parameters_begin));
+            else //trim 0:halfheight_index
+                tmp_dist = obj->dist(get_trimmed_baselines(apbaselines), get_trimmed_baselines(generate_baselines(parameters_begin)));
+
+            if (objective_mode == summation_mode)
+                main_penalty += tmp_dist;
+            else
+                main_penalty = ema(tmp_dist, main_penalty, objective_ema_coef);
         }
-        main_penalty /= num_repeated_obj_runs;
+        if (objective_mode == summation_mode)
+            main_penalty /= num_repeated_obj_runs;
+
         double param_penalty_value = parameter_penalty_optimizer(parameters_begin);
 
         double res = main_penalty + param_penalty_value + regularization_optimizer_scale(parameters_begin);
