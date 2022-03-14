@@ -514,9 +514,8 @@ std::vector<std::pair<int, double>> nelder_mead(OptimizationProblem & problem, i
    // nelmin( [& problem](std::vector<double> & s) { return problem.genetic_algorithm_calls(s.begin()); },
     //        init_vector, res, error_per_gen, stop_crit, step, check_period, max_evals, func_eval_number, restart_number, ifault, is_mutation_applicable);
 
-    nelmin( [& problem, & min_v, & max_v, & init_vector](std::vector<double> & s) {
+    nelmin( [& problem](std::vector<double> & s) {
             return problem.get_objective_value(s.begin());
-            //return fitn(problem, s, min_v, max_v, init_vector, 10000);
             },
         init_vector, res, error_per_gen, stop_crit, step, check_period, max_evals, func_eval_number, restart_number, ifault, is_mutation_applicable);
 
