@@ -413,6 +413,7 @@ void gd_call(Problem & problem, json & config, std::vector<std::pair<int, double
                 config["GD_beta1"].get<double>(),
                 config["GD_beta2"].get<double>(),
                 init_vector);
+    /*
     else if (config["GD_type"].get<std::string>() == "MSAdam")
         dump_table(problem,
 
@@ -424,6 +425,7 @@ void gd_call(Problem & problem, json & config, std::vector<std::pair<int, double
                 config["MultipleStarts_number"].get<int>()),
 
                 config["MSAdam_output_filename"].get<std::string>());
+    */
     else
         throw("gd_call: unknown gradient descent type");
 }
@@ -508,16 +510,25 @@ void script_general_optimizer(json & config)
         if (mpi_rank == 0)
             std::cout << "Nelder-Mead and Gradient Descent is complete" << std::endl;
 
-    } else if (sname == "MSAdam") {
-        auto res = MultipleStartsAdam(problem, config["GD_max_step"].get<int>(),
-                config["GD_r_eps"].get<double>(),
-                config["GD_learning_rate"].get<double>(),
+    } else if (sname == "MultipleStarts") {
+        std::unique_ptr<BaseCoreGD> gd;
+        auto string_gd_type = config["GD_type"].get<std::string>();
+        int max_steps = config["GD_max_step"].get<int>();
+        double r_eps = config["GD_r_eps"].get<double>();
+        double learning_rate = config["GD_learning_rate"].get<double>();
+        if (string_gd_type == "SimpleGD")
+            gd = std::make_unique<CoreSimpleGradientDescent>(max_steps, r_eps, learning_rate);
+        else if (string_gd_type == "Adam")
+            gd = std::make_unique<CoreAdam>(max_steps, r_eps, learning_rate,
                 config["GD_beta1"].get<double>(),
-                config["GD_beta2"].get<double>(),
+                config["GD_beta2"].get<double>());
+        else
+            throw(std::logic_error("Unknown gradient descent type for multiple starts run"));
+        auto res = MultipleStartsGD(problem, *gd,
                 config["MultipleStarts_number"].get<int>(),
                 config["SobolStartIndex"].get<int>());
         if (mpi_rank == 0)
-            dump_table_ode_problem(problem, res, config["MSAdam_output_filename"].get<std::string>());
+            dump_table_ode_problem(problem, res, config["MS_output_filename"].get<std::string>());
         return;
     } else {
         throw(std::logic_error("Unknown optimizer type"));
