@@ -79,7 +79,6 @@ class CauchyMutation:
                         int number_genes, const int * is_mutation_applicable)
     {
         /* Cauchy mutation
-         * borders are mirrors, bounce-bounce
          * genes_input can be equal to genes_output
          */
         std::uniform_real_distribution<double> ran(0, 1);
@@ -96,39 +95,15 @@ class CauchyMutation:
 
             int mut_applicable_iter = 0;
 
-            const double shift = gamma * std::tan((M_PI / 2 * ran(rg)));
+            const double cauchy_dist = gamma * std::tan(M_PI * (ran(rg) - 0.5));
             for (int j = 0; j < number_genes; j++) {
                 if (!is_mutation_applicable[j]) {
                      genes_output[j] = genes_input[j];
                      continue;
                 }
                 double min = min_value[j], max = max_value[j];
-                double gene = std::max(min, std::min(max, genes_input[j]));
-                if (is_mutation_applicable[j] == 1)
-                    transform_gene_forward(min, max, gene, v_gamma[j]);
-                else if (is_mutation_applicable[j] == 2)
-                    transform_gene_forward_log(min, max, gene, v_gamma[j]);
-                else
-                    throw("Wrong transform type");
-                const double L = max - min;
-                const double a = gene - min;
-                const double b = max - gene;
-
-                double x = shift * uniform_vector[mut_applicable_iter];
-
-                assert(L > 0);
-                if (x >= 0)
-                    x = std::fmod(x, 2 * L);
-                else
-                    x = 2 * L + std::fmod(x, 2 * L);
-
-                const double y = std::abs(std::abs(x - b) - L) - a;
-                gene += y;
-                if (is_mutation_applicable[j] == 1)
-                    transform_gene_backward(min_value[j], max_value[j], gene, v_gamma[j]);
-                else if (is_mutation_applicable[j] == 2)
-                    transform_gene_backward_log(min_value[j], max_value[j], gene, v_gamma[j]);
-
+                double gene = genes_input[j] + cauchy_dist * uniform_vector[mut_applicable_iter];
+                gene = std::max(min, std::min(max, gene));
                 genes_output[j] = gene;
                 if (std::isnan(gene)) {
                     std::cout << "Gene " << j << "is nan after mutation" << std::endl;
