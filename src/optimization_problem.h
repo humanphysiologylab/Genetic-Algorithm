@@ -1163,8 +1163,8 @@ public:
         double reg = 0;
         std::vector<double> prior(pointers_unknowns.size());
         initial_guess_for_optimizer(prior.begin());
-        for (auto pu : pointers_unknowns) {
-            const auto & u = *pu;
+        for (auto pu: globalValues.unknownConstants) {//pointers_unknowns) {
+            const auto & u = pu;// *pu;
             const int pos = u.optimizer_position;
             reg += std::pow(std::abs(parameters_begin[pos] - prior[pos]), p);
         }
