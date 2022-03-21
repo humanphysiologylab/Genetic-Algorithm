@@ -591,7 +591,8 @@ public:
             num_repeated_obj_runs = config["repeated_obj_runs"].get<int>();
             ignore_before_halfheight = config["ignore_before_halfheight"].get<int>();
             obj = new_objective<Baseline, VectorOfBaselines> (config["Objective"].get<std::string>());
-            reg_alpha = config["regularization_alpha"].get<double>();
+            reg_l1_scale = config["regularization_l1_scale"].get<double>();
+            reg_l2_scale = config["regularization_l2_scale"].get<double>();
             is_AP_normalized = config["is_AP_normalized"].get<int>();
             AllBaselinesNonSpontPeriod = config["AllBaselinesNonSpontPeriod"].get<double>();
         }
@@ -1048,7 +1049,7 @@ protected:
         for (size_t i = 0; i < apRecord.size(); i++)
             apRecord[i] = table(i, 0);
     }
-    double reg_alpha;
+    double reg_l1_scale = 0, reg_l2_scale = 0;
 public:
 
     /**
@@ -1153,11 +1154,11 @@ public:
     }
 
     /**
-     * @brief L2-regularization wrt initial guess in optimizer scale
+     * @brief Lp-regularization wrt initial guess in optimizer scale
      *
      */
     template <typename It>
-    double regularization_optimizer_scale(It parameters_begin) const
+    double regularization_optimizer_scale(It parameters_begin, int p) const
     {
         double reg = 0;
         std::vector<double> prior(pointers_unknowns.size());
@@ -1165,9 +1166,9 @@ public:
         for (auto pu : pointers_unknowns) {
             const auto & u = *pu;
             const int pos = u.optimizer_position;
-            reg += std::pow(parameters_begin[pos] - prior[pos], 2);
+            reg += std::pow(std::abs(parameters_begin[pos] - prior[pos]), p);
         }
-        return reg_alpha * reg;
+        return reg;
     }
 
     VectorOfBaselines get_trimmed_baselines(const VectorOfBaselines b) const
@@ -1210,7 +1211,9 @@ public:
 
         double param_penalty_value = parameter_penalty_optimizer(parameters_begin);
 
-        double res = main_penalty + param_penalty_value + regularization_optimizer_scale(parameters_begin);
+        double res = main_penalty + param_penalty_value +
+            reg_l2_scale * regularization_optimizer_scale(parameters_begin, 2) +
+            reg_l1_scale * regularization_optimizer_scale(parameters_begin, 1);
 
         bool spontBeatCheckPassed = spontBeatCheck(parameters_begin);
         if (!spontBeatCheckPassed) {
