@@ -390,44 +390,64 @@ template<typename Problem>
 void gd_call(Problem & problem, json & config, std::vector<std::pair<int, double>> & error_per_gen,
         std::vector<double> init_vector = std::vector<double>())
 {
-    const int gd_max_step = config["GD_max_step"].get<int>();
-    if (config["GD_type"].get<std::string>() == "Simple")
-        error_per_gen = simpleGradientDescent(problem, gd_max_step,
-            config["GD_r_eps"].get<double>(), config["GD_learning_rate"].get<double>(),
-            init_vector);
-    else if (config["GD_type"].get<std::string>() == "Momentum")
-        error_per_gen = MomentumGradientDescent(problem, gd_max_step,
-            config["GD_r_eps"].get<double>(), config["GD_alpha"].get<double>(),
-            config["GD_beta"].get<double>(),
-            init_vector);
-    else if (config["GD_type"].get<std::string>() == "RMSprop")
-        error_per_gen = RMSprop(problem, gd_max_step,
-                config["GD_r_eps"].get<double>(),
-                config["GD_learning_rate"].get<double>(),
-                config["GD_ema_coef"].get<double>(),
+    if (config["MultipleStarts"].get<bool>()) {
+        std::vector<double> res = multipleStartsScript(config, problem);
+        dump_table(problem, res, config["MS_output_filename"].get<std::string>());
+    } else {
+        const int gd_max_step = config["GD_max_step"].get<int>();
+        if (config["GD_type"].get<std::string>() == "Simple") {
+            error_per_gen = simpleGradientDescent(problem, gd_max_step,
+                config["GD_r_eps"].get<double>(), config["GD_learning_rate"].get<double>(),
                 init_vector);
-    else if (config["GD_type"].get<std::string>() == "Adam")
-        error_per_gen = Adam(problem, gd_max_step,
-                config["GD_r_eps"].get<double>(),
-                config["GD_learning_rate"].get<double>(),
-                config["GD_beta1"].get<double>(),
-                config["GD_beta2"].get<double>(),
+        } else if (config["GD_type"].get<std::string>() == "Momentum") {
+            error_per_gen = MomentumGradientDescent(problem, gd_max_step,
+                config["GD_r_eps"].get<double>(), config["GD_alpha"].get<double>(),
+                config["GD_beta"].get<double>(),
                 init_vector);
-    /*
-    else if (config["GD_type"].get<std::string>() == "MSAdam")
-        dump_table(problem,
+        } else if (config["GD_type"].get<std::string>() == "RMSprop") {
+            error_per_gen = RMSprop(problem, gd_max_step,
+                    config["GD_r_eps"].get<double>(),
+                    config["GD_learning_rate"].get<double>(),
+                    config["GD_ema_coef"].get<double>(),
+                    init_vector);
+        } else if (config["GD_type"].get<std::string>() == "Adam") {
+            error_per_gen = Adam(problem, gd_max_step,
+                    config["GD_r_eps"].get<double>(),
+                    config["GD_learning_rate"].get<double>(),
+                    config["GD_beta1"].get<double>(),
+                    config["GD_beta2"].get<double>(),
+                    init_vector);
+        } else {
+            throw("gd_call: unknown gradient descent type");
+        }
+    }
+}
 
-                MultipleStartsAdam(problem, gd_max_step,
-                config["GD_r_eps"].get<double>(),
-                config["GD_learning_rate"].get<double>(),
-                config["GD_beta1"].get<double>(),
-                config["GD_beta2"].get<double>(),
-                config["MultipleStarts_number"].get<int>()),
-
-                config["MSAdam_output_filename"].get<std::string>());
-    */
+/**
+ * @brief MultipleStarts script
+ *
+ *
+ */
+template <typename Problem>
+std::vector<double> multipleStartsScript(json & config, Problem & problem)
+{
+    std::unique_ptr<BaseCoreGD> gd;
+    auto string_gd_type = config["GD_type"].get<std::string>();
+    int max_steps = config["GD_max_step"].get<int>();
+    double r_eps = config["GD_r_eps"].get<double>();
+    double learning_rate = config["GD_learning_rate"].get<double>();
+    if (string_gd_type == "SimpleGD")
+        gd = std::make_unique<CoreSimpleGradientDescent>(max_steps, r_eps, learning_rate);
+    else if (string_gd_type == "Adam")
+        gd = std::make_unique<CoreAdam>(max_steps, r_eps, learning_rate,
+            config["GD_beta1"].get<double>(),
+            config["GD_beta2"].get<double>());
     else
-        throw("gd_call: unknown gradient descent type");
+        throw(std::logic_error("Unknown gradient descent type for multiple starts run"));
+    auto res = MultipleStartsGD(problem, *gd,
+            config["MultipleStarts_number"].get<int>(),
+            config["SobolStartIndex"].get<int>());
+    return res;
 }
 
 /**
@@ -511,22 +531,7 @@ void script_general_optimizer(json & config)
             std::cout << "Nelder-Mead and Gradient Descent is complete" << std::endl;
 
     } else if (sname == "MultipleStarts") {
-        std::unique_ptr<BaseCoreGD> gd;
-        auto string_gd_type = config["GD_type"].get<std::string>();
-        int max_steps = config["GD_max_step"].get<int>();
-        double r_eps = config["GD_r_eps"].get<double>();
-        double learning_rate = config["GD_learning_rate"].get<double>();
-        if (string_gd_type == "SimpleGD")
-            gd = std::make_unique<CoreSimpleGradientDescent>(max_steps, r_eps, learning_rate);
-        else if (string_gd_type == "Adam")
-            gd = std::make_unique<CoreAdam>(max_steps, r_eps, learning_rate,
-                config["GD_beta1"].get<double>(),
-                config["GD_beta2"].get<double>());
-        else
-            throw(std::logic_error("Unknown gradient descent type for multiple starts run"));
-        auto res = MultipleStartsGD(problem, *gd,
-                config["MultipleStarts_number"].get<int>(),
-                config["SobolStartIndex"].get<int>());
+        std::vector<double> res = multipleStartsScript(config, problem);
         if (mpi_rank == 0)
             dump_table_ode_problem(problem, res, config["MS_output_filename"].get<std::string>());
         return;
@@ -624,15 +629,15 @@ void script_test_function(json & config)
 
     pcg_extras::seed_seq_from<std::random_device> seed_source;
    // int seed_source = 42;
-    using FuncToOptimize = SphereFunction<2>;
-    std::vector<double> init_guess(10, 1);
-  //  using FuncToOptimize = RosenbrockFunction<10>;
-  //  std::vector<double> init_guess(10, 3);
+    //using FuncToOptimize = SphereFunction<2>;
+    //std::vector<double> init_guess(10, 1);
+    //using FuncToOptimize = RosenbrockFunction<10>;
+    //std::vector<double> init_guess(10, 3);
 
 
     //This guy is really the worst
-    //using FuncToOptimize = RastriginFunction<2>;
-    //std::vector<double> init_guess(10, 3);
+    using FuncToOptimize = RastriginFunction<2>;
+    std::vector<double> init_guess(10, 3);
 
     //using FuncToOptimize = StyblinskiTangFunction<10>;
     //std::vector<double> init_guess(10, 0);
